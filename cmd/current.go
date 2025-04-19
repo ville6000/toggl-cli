@@ -28,21 +28,13 @@ var currentCmd = &cobra.Command{
 
 		if currentEntry != nil {
 			duration := time.Since(currentEntry.Start).Seconds()
-			formattedDuration := formatDuration(duration)
+			formattedDuration := api.FormatDuration(duration)
 
 			fmt.Printf("%d - %s - %s\n", currentEntry.ID, currentEntry.Description, formattedDuration)
 		} else {
 			fmt.Println("No current timer entry.")
 		}
 	},
-}
-
-func formatDuration(seconds float64) string {
-	d := time.Duration(seconds) * time.Second
-	hours := int(d.Hours())
-	minutes := int(d.Minutes()) % 60
-	secs := int(d.Seconds()) % 60
-	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
 }
 
 func init() {
