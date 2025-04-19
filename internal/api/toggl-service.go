@@ -34,6 +34,32 @@ func (c *APIClient) GetWorkspaces() ([]Workspace, error) {
 	return workspaces, nil
 }
 
+func (c *APIClient) GetCurrentTimerEntry() (*CurrentTimeEntry, error) {
+	req, err := http.NewRequest(http.MethodGet, c.BaseURL+"/me/time_entries/current", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	c.setDefaultRequestHeaders(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get current timer entry: %s", resp.Status)
+	}
+
+	var entry CurrentTimeEntry
+	if err := json.NewDecoder(resp.Body).Decode(&entry); err != nil {
+		return nil, err
+	}
+
+	return &entry, nil
+}
+
 func (c *APIClient) CreateTimeEntry(workspaceId int, entry TimeEntry) (*TimeEntry, error) {
 	jsonData, err := json.Marshal(entry)
 	if err != nil {
