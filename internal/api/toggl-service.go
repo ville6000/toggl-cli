@@ -1,0 +1,74 @@
+package api
+
+import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"net/http"
+)
+
+func (c *APIClient) GetWorkspaces() ([]Workspace, error) {
+	req, err := http.NewRequest(http.MethodGet, c.BaseURL+"/workspaces", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	c.setDefaultRequestHeaders(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get workspaces: %s", resp.Status)
+	}
+
+	var workspaces []Workspace
+	if err := json.NewDecoder(resp.Body).Decode(&workspaces); err != nil {
+		return nil, err
+	}
+
+	return workspaces, nil
+}
+
+func (c *APIClient) CreateTimeEntry(workspaceId int, entry TimeEntry) (*TimeEntry, error) {
+	jsonData, err := json.Marshal(entry)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint := fmt.Sprintf("/workspaces/%d/time_entries", workspaceId)
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+endpoint, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+
+	c.setDefaultRequestHeaders(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to create time entry: %s", resp.Status)
+	}
+
+	var createdEntry TimeEntry
+	if err := json.NewDecoder(resp.Body).Decode(&createdEntry); err != nil {
+		return nil, err
+	}
+
+	return &createdEntry, nil
+}
+
+func (c *APIClient) setDefaultRequestHeaders(req *http.Request) {
+	token := base64.StdEncoding.EncodeToString([]byte(c.AuthToken + ":api_token"))
+
+	req.Header.Set("Authorization", "Basic "+token)
+	req.Header.Set("Content-Type", "application/json")
+}
