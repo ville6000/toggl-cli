@@ -120,6 +120,31 @@ func (c *APIClient) StopTimeEntry(workspaceId int, entryId int) (*TimeEntry, err
 	return &stoppedEntry, nil
 }
 
+func (c *APIClient) GetProjects(workspaceId int) ([]Project, error) {
+	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceId)
+	req, err := http.NewRequest(http.MethodGet, c.BaseURL+endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	c.setDefaultRequestHeaders(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get projects: %s", resp.Status)
+	}
+	var projects []Project
+	if err := json.NewDecoder(resp.Body).Decode(&projects); err != nil {
+		return nil, err
+	}
+	return projects, nil
+}
+
 func FormatDuration(seconds float64) string {
 	d := time.Duration(seconds) * time.Second
 	hours := int(d.Hours())
