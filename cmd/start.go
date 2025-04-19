@@ -25,9 +25,14 @@ var startCmd = &cobra.Command{
 			log.Fatal("Missing toggl.workspace_id in config file")
 		}
 
+		description, err := cmd.Flags().GetString("description")
+		if err != nil {
+			log.Fatal("Error retrieving description flag:", err)
+		}
+
 		timeEntry := api.TimeEntry{
 			CreatedWith: "API example code",
-			Description: "Hello Toggl",
+			Description: description,
 			Tags:        []string{},
 			Billable:    false,
 			WorkspaceID: workspaceId,
@@ -49,6 +54,8 @@ var startCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(startCmd)
+
+	startCmd.Flags().StringP("description", "d", "", "Description for the time entry")
 
 	// Here you will define your flags and configuration settings.
 
