@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -143,6 +144,21 @@ func (c *APIClient) GetProjects(workspaceId int) ([]Project, error) {
 		return nil, err
 	}
 	return projects, nil
+}
+
+func (c *APIClient) GetProjectIdByName(workspaceId int, projectName string) (int, error) {
+	projects, err := c.GetProjects(workspaceId)
+	if err != nil {
+		return 0, err
+	}
+
+	for _, project := range projects {
+		if strings.EqualFold(project.Name, projectName) {
+			return project.ID, nil
+		}
+	}
+
+	return 0, fmt.Errorf("project '%s' not found", projectName)
 }
 
 func FormatDuration(seconds float64) string {

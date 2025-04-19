@@ -11,6 +11,7 @@ type TimeEntry struct {
 	Duration    int      `json:"duration"`
 	Start       string   `json:"start"`
 	Stop        *string  `json:"stop"`
+	ProjectID   int      `json:"project_id"`
 }
 
 type CurrentTimeEntry struct {

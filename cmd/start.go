@@ -30,6 +30,23 @@ var startCmd = &cobra.Command{
 			log.Fatal("Error retrieving description flag:", err)
 		}
 
+		projectName, err := cmd.Flags().GetString("project")
+		if err != nil {
+			log.Fatal("Error retrieving project flag:", err)
+		}
+
+		client := api.NewAPIClient(token)
+
+		var projectId int
+		if projectName != "" {
+			projectId, err = client.GetProjectIdByName(workspaceId, projectName)
+
+			if err != nil {
+				log.Println("Failed to get project ID:", err)
+				return
+			}
+		}
+
 		timeEntry := api.TimeEntry{
 			CreatedWith: "API example code",
 			Description: description,
@@ -39,9 +56,9 @@ var startCmd = &cobra.Command{
 			Duration:    -1,
 			Start:       time.Now().Format(time.RFC3339),
 			Stop:        nil,
+			ProjectID:   projectId,
 		}
 
-		client := api.NewAPIClient(token)
 		createdEntry, err := client.CreateTimeEntry(workspaceId, timeEntry)
 		if err != nil {
 			log.Println("Failed to create time entry:", err)
@@ -56,6 +73,7 @@ func init() {
 	rootCmd.AddCommand(startCmd)
 
 	startCmd.Flags().StringP("description", "d", "", "Description for the time entry")
+	startCmd.Flags().StringP("project", "p", "", "Project for the time entry")
 
 	// Here you will define your flags and configuration settings.
 
