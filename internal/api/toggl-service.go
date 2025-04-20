@@ -161,6 +161,31 @@ func (c *APIClient) GetProjectIdByName(workspaceId int, projectName string) (int
 	return 0, fmt.Errorf("project '%s' not found", projectName)
 }
 
+func (c *APIClient) GetHistory(from, to time.Time) ([]CurrentTimeEntry, error) {
+	endpoint := fmt.Sprintf("/me/time_entries?start_date=%s&end_date=%s", from.Format("2006-01-02"), to.Format("2006-01-02"))
+	req, err := http.NewRequest(http.MethodGet, c.BaseURL+endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	c.setDefaultRequestHeaders(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get history: %s", resp.Status)
+	}
+	var timeEntries []CurrentTimeEntry
+	if err := json.NewDecoder(resp.Body).Decode(&timeEntries); err != nil {
+		return nil, err
+	}
+	return timeEntries, nil
+}
+
 func FormatDuration(seconds float64) string {
 	d := time.Duration(seconds) * time.Second
 	hours := int(d.Hours())
