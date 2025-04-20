@@ -15,7 +15,6 @@ var historyCmd = &cobra.Command{
 	Short: "Fetch the history of time entries",
 	Long:  "Fetch the history of time entries from Toggl",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("history called")
 		token := viper.GetString("toggl.token")
 		if token == "" {
 			log.Fatal("Missing toggl.token in config file")
@@ -60,13 +59,13 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time) {
 	if err != nil {
 		log.Fatal("Error retrieving start flag:", err)
 	}
-	startTime := getTimeWithDefault(start)
+	startTime := getTimeWithDefault(start, time.Now().AddDate(0, 0, -7))
 
 	end, err := cmd.Flags().GetString("end")
 	if err != nil {
 		log.Fatal("Error retrieving end flag:", err)
 	}
-	endTime := getTimeWithDefault(end)
+	endTime := getTimeWithDefault(end, time.Now())
 
 	return startTime, endTime
 }
@@ -89,9 +88,9 @@ func getCurrentMonthTimeInterval() (time.Time, time.Time) {
 	return start, end
 }
 
-func getTimeWithDefault(date string) time.Time {
+func getTimeWithDefault(date string, fallback time.Time) time.Time {
 	if date == "" {
-		return time.Now()
+		return fallback
 	}
 	parsedTime, err := time.Parse("2006-01-02", date)
 	if err != nil {
