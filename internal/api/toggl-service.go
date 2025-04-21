@@ -99,8 +99,21 @@ func (c *APIClient) GetProjectIdByName(workspaceId int, projectName string) (int
 	return 0, fmt.Errorf("project '%s' not found", projectName)
 }
 
-func (c *APIClient) GetHistory(from, to time.Time) ([]CurrentTimeEntry, error) {
-	endpoint := fmt.Sprintf("/me/time_entries?start_date=%s&end_date=%s", from.Format("2006-01-02"), to.Format("2006-01-02"))
+func (c *APIClient) GetHistory(from, to *time.Time) ([]CurrentTimeEntry, error) {
+	endpoint := "/me/time_entries"
+	queryParams := make([]string, 0)
+	if from != nil {
+		queryParams = append(queryParams, fmt.Sprintf("start_date=%s", from.Format("2006-01-02")))
+	}
+
+	if to != nil {
+		queryParams = append(queryParams, fmt.Sprintf("end_date=%s", to.Format("2006-01-02")))
+	}
+
+	if len(queryParams) > 0 {
+		endpoint += "?" + strings.Join(queryParams, "&")
+	}
+
 	req, err := c.newRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err

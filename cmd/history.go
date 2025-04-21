@@ -22,7 +22,7 @@ var historyCmd = &cobra.Command{
 
 		client := api.NewAPIClient(token)
 		startTime, endTime := getDateParams(cmd)
-		timeEntries, err := client.GetHistory(startTime, endTime)
+		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
 			log.Println("Failed to get history:", err)
 			return
