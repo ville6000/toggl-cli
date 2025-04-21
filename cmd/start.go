@@ -44,7 +44,7 @@ var startCmd = &cobra.Command{
 		}
 
 		timeEntry := api.TimeEntry{
-			CreatedWith: "API example code",
+			CreatedWith: "toggl-cli",
 			Description: description,
 			Tags:        []string{},
 			Billable:    false,
