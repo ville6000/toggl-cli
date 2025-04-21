@@ -1,12 +1,13 @@
 package cmd
 
 import (
-	"fmt"
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
 	"log"
+	"os"
 	"time"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +21,20 @@ var historyCmd = &cobra.Command{
 			log.Fatal("Missing toggl.token in config file")
 		}
 
+		workspaceId := viper.GetInt("toggl.workspace_id")
+		if workspaceId == 0 {
+			log.Fatal("Missing toggl.workspace_id in config file")
+		}
+
 		client := api.NewAPIClient(token)
+		projects, err := client.GetProjects(workspaceId)
+		if err != nil {
+			log.Println("Failed to get projects:", err)
+			return
+		}
+
+		projectsLookup := toProjectsLookup(projects)
+
 		startTime, endTime := getDateParams(cmd)
 		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
@@ -28,12 +42,27 @@ var historyCmd = &cobra.Command{
 			return
 		}
 
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+		t.AppendHeader(table.Row{"#", "Started At", "Duration", "Description", "Project"})
+
 		for _, entry := range timeEntries {
-			duration := time.Since(entry.Start).Seconds()
-			formattedDuration := api.FormatDuration(duration)
-			fmt.Printf("%d - %s - %s\n", entry.ID, entry.Description, formattedDuration)
+			formattedDuration := api.FormatDuration(float64(entry.Duration))
+			projectName := projectsLookup[entry.ProjectID]
+
+			t.AppendRow([]interface{}{entry.ID, entry.Start.Format("02.01.2006 15:04"), formattedDuration, entry.Description, projectName})
 		}
+
+		t.Render()
 	},
+}
+
+func toProjectsLookup(projects []api.Project) map[int]string {
+	lookup := make(map[int]string)
+	for _, project := range projects {
+		lookup[project.ID] = project.Name
+	}
+	return lookup
 }
 
 func getDateParams(cmd *cobra.Command) (time.Time, time.Time) {

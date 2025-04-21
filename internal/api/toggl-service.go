@@ -99,7 +99,7 @@ func (c *APIClient) GetProjectIdByName(workspaceId int, projectName string) (int
 	return 0, fmt.Errorf("project '%s' not found", projectName)
 }
 
-func (c *APIClient) GetHistory(from, to *time.Time) ([]CurrentTimeEntry, error) {
+func (c *APIClient) GetHistory(from, to *time.Time) ([]TimeEntryItem, error) {
 	endpoint := "/me/time_entries"
 	queryParams := make([]string, 0)
 	if from != nil {
@@ -119,7 +119,7 @@ func (c *APIClient) GetHistory(from, to *time.Time) ([]CurrentTimeEntry, error) 
 		return nil, err
 	}
 
-	var timeEntries []CurrentTimeEntry
+	var timeEntries []TimeEntryItem
 	if reqErr := c.doRequest(req, http.StatusOK, &timeEntries); reqErr != nil {
 		return nil, reqErr
 	}
