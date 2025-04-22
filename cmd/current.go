@@ -2,12 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/utils"
 	"log"
-	"os"
 	"time"
 )
 
@@ -33,23 +32,24 @@ var currentCmd = &cobra.Command{
 			return
 		}
 
-		projectsMap := client.GetProjectsLookupMap(workspaceId)
+		projectsMap, err := client.GetProjectsLookupMap(workspaceId)
+		if err != nil {
+			log.Fatal("Failed to get projects", err)
+		}
 
 		if currentEntry == nil || currentEntry.ID == 0 {
 			fmt.Println("No current timer entry.")
 			return
 		}
 
-		t := table.NewWriter()
-		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{"#", "Started At", "Duration", "Description", "Project"})
-
+		headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
 		duration := time.Since(currentEntry.Start).Seconds()
-		formattedDuration := api.FormatDuration(duration)
 		projectName := projectsMap[currentEntry.ProjectID]
+		rows := [][]interface{}{
+			{currentEntry.ID, currentEntry.Start.Format("02.01.2006 15:04"), api.FormatDuration(duration), currentEntry.Description, projectName},
+		}
 
-		t.AppendRow([]interface{}{currentEntry.ID, currentEntry.Start.Format("02.01.2006 15:04"), formattedDuration, currentEntry.Description, projectName})
-		t.Render()
+		utils.RenderTable(headers, rows)
 	},
 }
 

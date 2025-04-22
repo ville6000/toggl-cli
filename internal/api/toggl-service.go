@@ -54,14 +54,14 @@ func (c *APIClient) CreateTimeEntry(workspaceId int, entry TimeEntry) (*TimeEntr
 	return &createdEntry, nil
 }
 
-func (c *APIClient) StopTimeEntry(workspaceId int, entryId int) (*TimeEntry, error) {
+func (c *APIClient) StopTimeEntry(workspaceId int, entryId int) (*TimeEntryItem, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d/stop", workspaceId, entryId)
 	req, err := c.newRequest(http.MethodPatch, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var stoppedEntry TimeEntry
+	var stoppedEntry TimeEntryItem
 	if reqErr := c.doRequest(req, http.StatusOK, &stoppedEntry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -127,17 +127,18 @@ func (c *APIClient) GetHistory(from, to *time.Time) ([]TimeEntryItem, error) {
 	return timeEntries, nil
 }
 
-func (c *APIClient) GetProjectsLookupMap(workspaceId int) map[int]string {
+func (c *APIClient) GetProjectsLookupMap(workspaceId int) (map[int]string, error) {
 	projects, err := c.GetProjects(workspaceId)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	lookup := make(map[int]string)
 	for _, project := range projects {
 		lookup[project.ID] = project.Name
 	}
-	return lookup
+
+	return lookup, nil
 }
 
 func FormatDuration(seconds float64) string {

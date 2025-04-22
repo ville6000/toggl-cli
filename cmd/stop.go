@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"log"
-
+	"fmt"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
-
-	"github.com/spf13/cobra"
+	"github.com/ville6000/toggl-cli/internal/utils"
+	"log"
 )
 
 var stopCmd = &cobra.Command{
@@ -31,7 +31,7 @@ var stopCmd = &cobra.Command{
 		}
 
 		if currentEntry == nil || currentEntry.ID == 0 {
-			log.Println("No current timer entry.")
+			fmt.Println("No current timer entry.")
 			return
 		}
 
@@ -40,9 +40,22 @@ var stopCmd = &cobra.Command{
 			log.Fatal("Failed to stop time entry:", err)
 		}
 
-		log.Println("Stopped time entry:", stoppedEntry.Description)
+		projectsMap, err := client.GetProjectsLookupMap(workspaceId)
+		if err != nil {
+			log.Fatal("Failed to get projects", err)
+		}
+
+		fmt.Println("Stopped time entry")
+
+		headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
+
 		duration := float64(stoppedEntry.Duration)
-		log.Println("Duration:", api.FormatDuration(duration))
+		projectName := projectsMap[currentEntry.ProjectID]
+		rows := [][]interface{}{
+			{stoppedEntry.ID, stoppedEntry.Start.Format("02.01.2006 15:04"), api.FormatDuration(duration), stoppedEntry.Description, projectName},
+		}
+
+		utils.RenderTable(headers, rows)
 	},
 }
 

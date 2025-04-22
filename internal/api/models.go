@@ -34,17 +34,6 @@ type TimeEntry struct {
 	ProjectID   int      `json:"project_id"`
 }
 
-type CurrentTimeEntry struct {
-	ID          int       `json:"id"`
-	WID         int       `json:"wid"`
-	PID         int       `json:"pid"`
-	Billable    bool      `json:"billable"`
-	Start       time.Time `json:"start"`
-	Duration    int       `json:"duration"`
-	Description string    `json:"description"`
-	At          string    `json:"at"`
-}
-
 type Workspace struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
