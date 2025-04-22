@@ -65,10 +65,12 @@ func writeConfig(token string, workspaceID int) error {
 
 		if err != nil {
 			return fmt.Errorf("failed to create config file: %w", err)
+		} else {
+			return nil
 		}
 	}
 
-	return nil
+	return writeErr
 }
 
 func init() {
