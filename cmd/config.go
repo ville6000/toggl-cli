@@ -31,7 +31,6 @@ var configCmd = &cobra.Command{
 		_, err = fmt.Scanf("%d", &workspaceID)
 		if err != nil {
 			log.Fatal("Invalid workspace ID:", err)
-			return
 		}
 
 		err = writeConfig(token, workspaceID)
