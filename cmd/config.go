@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var configCmd = &cobra.Command{
@@ -23,7 +24,7 @@ var configCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal("Error reading input", err)
 		}
-		token = token[:len(token)-1]
+		token = strings.TrimSpace(token)
 
 		fmt.Print("Please enter your default workspace ID: ")
 		var workspaceID int
