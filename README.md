@@ -10,6 +10,9 @@ toggl:
   workspace_id: <your_workspace_id>
 ```
 
+The configuration can be generated using the `toggl-cli config` command.
+The token can be obtained from the Toggl website.
+
 ## Commands
 
 - `toggl-cli workspaces` - List all workspaces
@@ -19,3 +22,4 @@ toggl:
 - `toggl-cli history` - List time entries
 - `toggl-cli projects` - List projects
 - `toggl-cli www` - Open the Toggl website
+- `toggl-cli config` - Generate config for the CLI tool
