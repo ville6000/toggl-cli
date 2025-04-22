@@ -25,13 +25,13 @@ func (c *APIClient) GetWorkspaces() ([]Workspace, error) {
 	return workspaces, nil
 }
 
-func (c *APIClient) GetCurrentTimerEntry() (*CurrentTimeEntry, error) {
+func (c *APIClient) GetCurrentTimerEntry() (*TimeEntryItem, error) {
 	req, err := c.newRequest(http.MethodGet, "/me/time_entries/current", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var entry CurrentTimeEntry
+	var entry TimeEntryItem
 	if reqErr := c.doRequest(req, http.StatusOK, &entry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -125,6 +125,19 @@ func (c *APIClient) GetHistory(from, to *time.Time) ([]TimeEntryItem, error) {
 	}
 
 	return timeEntries, nil
+}
+
+func (c *APIClient) GetProjectsLookupMap(workspaceId int) map[int]string {
+	projects, err := c.GetProjects(workspaceId)
+	if err != nil {
+		return nil
+	}
+
+	lookup := make(map[int]string)
+	for _, project := range projects {
+		lookup[project.ID] = project.Name
+	}
+	return lookup
 }
 
 func FormatDuration(seconds float64) string {
