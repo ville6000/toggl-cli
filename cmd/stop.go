@@ -1,9 +1,10 @@
 package cmd
 
 import (
+	"log"
+
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
-	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -26,8 +27,7 @@ var stopCmd = &cobra.Command{
 		client := api.NewAPIClient(token)
 		currentEntry, err := client.GetCurrentTimerEntry()
 		if err != nil {
-			log.Println("Failed to get current timer entry:", err)
-			return
+			log.Fatal("Failed to get current timer entry:", err)
 		}
 
 		if currentEntry == nil || currentEntry.ID == 0 {
@@ -37,8 +37,7 @@ var stopCmd = &cobra.Command{
 
 		stoppedEntry, err := client.StopTimeEntry(workspaceId, currentEntry.ID)
 		if err != nil {
-			log.Println("Failed to stop time entry:", err)
-			return
+			log.Fatal("Failed to stop time entry:", err)
 		}
 
 		log.Println("Stopped time entry:", stoppedEntry.Description)

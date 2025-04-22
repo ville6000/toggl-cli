@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
-	"log"
 
 	"github.com/spf13/cobra"
 )
@@ -27,8 +28,7 @@ var projectsCmd = &cobra.Command{
 		client := api.NewAPIClient(token)
 		projects, err := client.GetProjects(workspaceId)
 		if err != nil {
-			log.Println("Failed to get projects:", err)
-			return
+			log.Fatal("Failed to get projects:", err)
 		}
 
 		for _, project := range projects {

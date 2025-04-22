@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/ville6000/toggl-cli/internal/api"
 	"log"
 	"time"
+
+	"github.com/ville6000/toggl-cli/internal/api"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -36,10 +37,8 @@ var startCmd = &cobra.Command{
 		var projectId int
 		if projectName != "" {
 			projectId, err = client.GetProjectIdByName(workspaceId, projectName)
-
 			if err != nil {
-				log.Println("Failed to get project ID:", err)
-				return
+				log.Fatal("Failed to get project ID:", err)
 			}
 		}
 
@@ -57,8 +56,7 @@ var startCmd = &cobra.Command{
 
 		_, err = client.CreateTimeEntry(workspaceId, timeEntry)
 		if err != nil {
-			log.Println("Failed to create time entry:", err)
-			return
+			log.Fatal("Failed to create time entry:", err)
 		}
 
 		fmt.Println("Timer started...")
@@ -69,4 +67,5 @@ func init() {
 	rootCmd.AddCommand(startCmd)
 
 	startCmd.Flags().StringP("project", "p", "", "Project for the time entry")
+	startCmd.MarkFlagRequired("project")
 }
