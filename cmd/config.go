@@ -20,11 +20,10 @@ var configCmd = &cobra.Command{
 
 		fmt.Print("Please enter your Toggl API token: ")
 		token, err := reader.ReadString('\n')
-		token = token[:len(token)-1]
 		if err != nil {
 			log.Fatal("Error reading input", err)
-			return
 		}
+		token = token[:len(token)-1]
 
 		fmt.Print("Please enter your default workspace ID: ")
 		var workspaceID int
