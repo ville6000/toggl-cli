@@ -10,7 +10,7 @@ import (
 
 var cfgFile string
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "toggl-cli",
 	Short: "Toggl CLI is a command line interface for Toggl",
@@ -36,7 +36,12 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.toggl-cli.yaml)")
+	rootCmd.PersistentFlags().StringVar(
+		&cfgFile,
+		"config",
+		"",
+		"config file (default is $HOME/.toggl-cli.yaml)",
+	)
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -63,6 +68,9 @@ func initConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		_, fmtErr := fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		if fmtErr != nil {
+			fmt.Println("Error printing config file used:", fmtErr)
+		}
 	}
 }
