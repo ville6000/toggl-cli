@@ -43,11 +43,10 @@ var configCmd = &cobra.Command{
 }
 
 func writeConfig(token string, workspaceID int) error {
-	home, err := os.UserHomeDir()
+	configPath, err := ConfigPath()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return fmt.Errorf("failed to get config path: %w", err)
 	}
-	configPath := filepath.Join(home, ".toggl-cli.yaml")
 	viper.SetConfigFile(configPath)
 
 	viper.Set("toggl.token", token)
@@ -71,6 +70,29 @@ func writeConfig(token string, workspaceID int) error {
 	}
 
 	return writeErr
+}
+
+// ConfigPath returns the path to the configuration file.
+// It checks for the XDG_CONFIG_HOME environment variable first,
+// then checks for the $HOME/.config directory, and finally defaults to $HOME/.toggl-cli.yaml.
+// It returns an error if the home directory cannot be determined.
+func ConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	// Check if XDG_CONFIG_HOME is set and use it if available
+	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
+		return filepath.Join(xdgConfigHome, "toggl-cli", "config.yaml"), nil
+	}
+
+	// Check if $HOME/.config directory exists. and use it if available
+	if homeConfig, _ := os.Stat(filepath.Join(home, ".config")); homeConfig != nil && homeConfig.IsDir() {
+		return filepath.Join(home, ".config", "toggl-cli", "config.yaml"), nil
+	}
+
+	return filepath.Join(home, ".toggle-cli.yaml"), nil
 }
 
 func init() {
