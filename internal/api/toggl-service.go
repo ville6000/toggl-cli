@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func (c *APIClient) GetWorkspaces() ([]Workspace, error) {
+func (c *Client) GetWorkspaces() ([]Workspace, error) {
 	req, err := c.newRequest(http.MethodGet, "/workspaces", nil)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func (c *APIClient) GetWorkspaces() ([]Workspace, error) {
 	return workspaces, nil
 }
 
-func (c *APIClient) GetCurrentTimerEntry() (*TimeEntryItem, error) {
+func (c *Client) GetCurrentTimerEntry() (*TimeEntryItem, error) {
 	req, err := c.newRequest(http.MethodGet, "/me/time_entries/current", nil)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (c *APIClient) GetCurrentTimerEntry() (*TimeEntryItem, error) {
 	return &entry, nil
 }
 
-func (c *APIClient) CreateTimeEntry(workspaceId int, entry TimeEntry) (*TimeEntry, error) {
+func (c *Client) CreateTimeEntry(workspaceId int, entry TimeEntry) (*TimeEntry, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries", workspaceId)
 	req, err := c.newRequest(http.MethodPost, endpoint, entry)
 	if err != nil {
@@ -54,7 +54,7 @@ func (c *APIClient) CreateTimeEntry(workspaceId int, entry TimeEntry) (*TimeEntr
 	return &createdEntry, nil
 }
 
-func (c *APIClient) StopTimeEntry(workspaceId int, entryId int) (*TimeEntryItem, error) {
+func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*TimeEntryItem, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d/stop", workspaceId, entryId)
 	req, err := c.newRequest(http.MethodPatch, endpoint, nil)
 	if err != nil {
@@ -69,7 +69,7 @@ func (c *APIClient) StopTimeEntry(workspaceId int, entryId int) (*TimeEntryItem,
 	return &stoppedEntry, nil
 }
 
-func (c *APIClient) GetProjects(workspaceId int) ([]Project, error) {
+func (c *Client) GetProjects(workspaceId int) ([]Project, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceId)
 	req, err := c.newRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -84,7 +84,7 @@ func (c *APIClient) GetProjects(workspaceId int) ([]Project, error) {
 	return projects, nil
 }
 
-func (c *APIClient) GetProjectIdByName(workspaceId int, projectName string) (int, error) {
+func (c *Client) GetProjectIdByName(workspaceId int, projectName string) (int, error) {
 	projects, err := c.GetProjects(workspaceId)
 	if err != nil {
 		return 0, err
@@ -99,7 +99,7 @@ func (c *APIClient) GetProjectIdByName(workspaceId int, projectName string) (int
 	return 0, fmt.Errorf("project '%s' not found", projectName)
 }
 
-func (c *APIClient) GetHistory(from, to *time.Time) ([]TimeEntryItem, error) {
+func (c *Client) GetHistory(from, to *time.Time) ([]TimeEntryItem, error) {
 	endpoint := "/me/time_entries"
 	queryParams := make([]string, 0)
 	if from != nil {
@@ -127,7 +127,7 @@ func (c *APIClient) GetHistory(from, to *time.Time) ([]TimeEntryItem, error) {
 	return timeEntries, nil
 }
 
-func (c *APIClient) GetProjectsLookupMap(workspaceId int) (map[int]string, error) {
+func (c *Client) GetProjectsLookupMap(workspaceId int) (map[int]string, error) {
 	projects, err := c.GetProjects(workspaceId)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func FormatDuration(seconds float64) string {
 	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
 }
 
-func (c *APIClient) newRequest(method, endpoint string, body any) (*http.Request, error) {
+func (c *Client) newRequest(method, endpoint string, body any) (*http.Request, error) {
 	var buf io.Reader
 	if body != nil {
 		jsonData, err := json.Marshal(body)
@@ -169,7 +169,7 @@ func (c *APIClient) newRequest(method, endpoint string, body any) (*http.Request
 	return req, nil
 }
 
-func (c *APIClient) doRequest(req *http.Request, expectedStatus int, result any) error {
+func (c *Client) doRequest(req *http.Request, expectedStatus int, result any) error {
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return err
@@ -187,7 +187,7 @@ func (c *APIClient) doRequest(req *http.Request, expectedStatus int, result any)
 	return nil
 }
 
-func (c *APIClient) setDefaultRequestHeaders(req *http.Request) {
+func (c *Client) setDefaultRequestHeaders(req *http.Request) {
 	token := base64.StdEncoding.EncodeToString([]byte(c.AuthToken + ":api_token"))
 
 	req.Header.Set("Authorization", "Basic "+token)
