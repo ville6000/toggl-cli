@@ -30,6 +30,7 @@ var historyCmd = &cobra.Command{
 		projects, err := client.GetProjects(workspaceId)
 		if err != nil {
 			log.Println("Failed to get projects:", err)
+
 			return
 		}
 
@@ -39,6 +40,7 @@ var historyCmd = &cobra.Command{
 		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
 			log.Println("Failed to get history:", err)
+
 			return
 		}
 
@@ -50,7 +52,13 @@ var historyCmd = &cobra.Command{
 			formattedDuration := api.FormatDuration(float64(entry.Duration))
 			projectName := projectsLookup[entry.ProjectID]
 
-			t.AppendRow([]interface{}{entry.ID, entry.Start.Format("02.01.2006 15:04"), formattedDuration, entry.Description, projectName})
+			t.AppendRow([]interface{}{
+				entry.ID,
+				entry.Start.Format("02.01.2006 15:04"),
+				formattedDuration,
+				entry.Description,
+				projectName,
+			})
 		}
 
 		t.Render()
@@ -62,6 +70,7 @@ func toProjectsLookup(projects []api.Project) map[int]string {
 	for _, project := range projects {
 		lookup[project.ID] = project.Name
 	}
+
 	return lookup
 }
 
@@ -88,12 +97,14 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time) {
 	if err != nil {
 		log.Fatal("Error retrieving start flag:", err)
 	}
+
 	startTime := getTimeWithDefault(start, time.Now().AddDate(0, 0, -7))
 
 	end, err := cmd.Flags().GetString("end")
 	if err != nil {
 		log.Fatal("Error retrieving end flag:", err)
 	}
+
 	endTime := getTimeWithDefault(end, time.Now())
 
 	return startTime, endTime
@@ -111,7 +122,7 @@ func getCurrentWeekTimeInterval() (time.Time, time.Time) {
 
 func getCurrentMonthTimeInterval() (time.Time, time.Time) {
 	start := time.Now()
-	start = start.AddDate(0, 0, -int(start.Day()-1))
+	start = start.AddDate(0, 0, -(start.Day() - 1))
 	end := start.AddDate(0, 1, 0)
 
 	return start, end

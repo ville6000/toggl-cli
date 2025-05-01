@@ -46,7 +46,13 @@ var currentCmd = &cobra.Command{
 		duration := time.Since(currentEntry.Start).Seconds()
 		projectName := projectsMap[currentEntry.ProjectID]
 		rows := [][]interface{}{
-			{currentEntry.ID, currentEntry.Start.Format("02.01.2006 15:04"), api.FormatDuration(duration), currentEntry.Description, projectName},
+			{
+				currentEntry.ID,
+				currentEntry.Start.Format("02.01.2006 15:04"),
+				api.FormatDuration(duration),
+				currentEntry.Description,
+				projectName,
+			},
 		}
 
 		utils.RenderTable(headers, rows)

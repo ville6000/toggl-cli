@@ -52,7 +52,13 @@ var stopCmd = &cobra.Command{
 		duration := float64(stoppedEntry.Duration)
 		projectName := projectsMap[currentEntry.ProjectID]
 		rows := [][]interface{}{
-			{stoppedEntry.ID, stoppedEntry.Start.Format("02.01.2006 15:04"), api.FormatDuration(duration), stoppedEntry.Description, projectName},
+			{
+				stoppedEntry.ID,
+				stoppedEntry.Start.Format("02.01.2006 15:04"),
+				api.FormatDuration(duration),
+				stoppedEntry.Description,
+				projectName,
+			},
 		}
 
 		utils.RenderTable(headers, rows)
