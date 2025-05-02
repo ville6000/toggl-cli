@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var configCmd = &cobra.Command{

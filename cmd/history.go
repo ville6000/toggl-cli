@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
-	"github.com/ville6000/toggl-cli/internal/api"
-	"github.com/ville6000/toggl-cli/internal/utils"
 	"log"
 	"sort"
 	"time"
+
+	"github.com/spf13/viper"
+	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/utils"
 
 	"github.com/spf13/cobra"
 )
