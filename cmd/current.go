@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/utils"
-	"log"
-	"time"
 )
 
 var currentCmd = &cobra.Command{

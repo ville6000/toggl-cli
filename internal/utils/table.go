@@ -1,9 +1,11 @@
 package utils
 
 import (
-	"github.com/jedib0t/go-pretty/v6/table"
 	"os"
+
+	"github.com/jedib0t/go-pretty/v6/table"
 )
+
 // RenderTable renders a table to the standard output.
 // It takes headers and rows as parameters.
 func RenderTable(headers []interface{}, rows [][]interface{}) {

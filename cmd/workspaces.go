@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
-	"log"
 )
 
 var workspacesCmd = &cobra.Command{

@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
-	"github.com/ville6000/toggl-cli/internal/api"
 	"log"
 	"time"
+
+	"github.com/spf13/viper"
+	"github.com/ville6000/toggl-cli/internal/api"
 
 	"github.com/spf13/cobra"
 )
