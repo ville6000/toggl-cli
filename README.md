@@ -18,6 +18,7 @@ The token can be obtained from the Toggl website.
 - `toggl-cli workspaces` - List all workspaces
 - `toggl-cli start` - Start a new time entry
 - `toggl-cli current` - Show the current time entry
+- `toggl-cli continue` - Continue the last time entry
 - `toggl-cli stop` - Stop the current time entry
 - `toggl-cli history` - List time entries
 - `toggl-cli projects` - List projects

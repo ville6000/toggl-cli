@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/utils"
 	"log"
-	"os"
+	"sort"
 	"time"
 
-	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -29,40 +30,89 @@ var historyCmd = &cobra.Command{
 		client := api.NewAPIClient(token)
 		projects, err := client.GetProjects(workspaceId)
 		if err != nil {
-			log.Println("Failed to get projects:", err)
-
-			return
+			log.Fatal("Failed to get projects:", err)
 		}
 
 		projectsLookup := toProjectsLookup(projects)
-
 		startTime, endTime := getDateParams(cmd)
 		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
-			log.Println("Failed to get history:", err)
-
-			return
+			log.Fatal("Failed to get history:", err)
 		}
 
-		t := table.NewWriter()
-		t.SetOutputMirror(os.Stdout)
-		t.AppendHeader(table.Row{"#", "Started At", "Duration", "Description", "Project"})
-
-		for _, entry := range timeEntries {
-			formattedDuration := api.FormatDuration(float64(entry.Duration))
-			projectName := projectsLookup[entry.ProjectID]
-
-			t.AppendRow([]interface{}{
-				entry.ID,
-				entry.Start.Format("02.01.2006 15:04"),
-				formattedDuration,
-				entry.Description,
-				projectName,
-			})
+		groupedEntries := groupEntriesByDate(timeEntries)
+		if len(groupedEntries) == 0 {
+			log.Fatal("No time entries found for the specified date range.")
 		}
 
-		t.Render()
+		location, err := time.LoadLocation("Europe/Helsinki")
+		if err != nil {
+			log.Fatal("Failed to load location:", err)
+		}
+
+		sortedKeys := getSortedTimeEntryDates(groupedEntries)
+		headers := []interface{}{"Started At", "Duration", "Description", "Project"}
+		for _, key := range sortedKeys {
+			outputDateEntries(key, headers, groupedEntries, projectsLookup, location)
+		}
 	},
+}
+
+func outputDateEntries(
+	key string,
+	headers []interface{},
+	groupedEntries map[string][]api.TimeEntryItem,
+	projectsLookup map[int]string,
+	location *time.Location,
+) {
+	parsedDate, err := time.Parse("2006-01-02", key)
+	if err != nil {
+		log.Fatal("Error parsing date:", err)
+	}
+
+	fmt.Printf("# %s\n", parsedDate.In(location).Format("02.01.2006"))
+
+	entries := groupedEntries[key]
+	var rows [][]interface{}
+	for _, entry := range entries {
+		formattedDuration := api.FormatDuration(float64(entry.Duration))
+		projectName := projectsLookup[entry.ProjectID]
+		startTimeInFinnish := entry.Start.In(location)
+
+		rows = append(rows, []interface{}{
+			startTimeInFinnish.Format("15:04"),
+			formattedDuration,
+			entry.Description,
+			projectName,
+		})
+	}
+
+	utils.RenderTable(headers, rows)
+	fmt.Println()
+}
+
+func groupEntriesByDate(entries []api.TimeEntryItem) map[string][]api.TimeEntryItem {
+	groupedEntries := make(map[string][]api.TimeEntryItem)
+
+	for _, entry := range entries {
+		date := entry.Start.Format("2006-01-02")
+		groupedEntries[date] = append(groupedEntries[date], entry)
+	}
+
+	return groupedEntries
+}
+
+func getSortedTimeEntryDates(groupedEntries map[string][]api.TimeEntryItem) []string {
+	sortedKeys := make([]string, 0, len(groupedEntries))
+	for key := range groupedEntries {
+		sortedKeys = append(sortedKeys, key)
+	}
+
+	sort.Slice(sortedKeys, func(i, j int) bool {
+		return sortedKeys[i] > sortedKeys[j]
+	})
+
+	return sortedKeys
 }
 
 func toProjectsLookup(projects []api.Project) map[int]string {
