@@ -40,12 +40,11 @@ var historyCmd = &cobra.Command{
 		}
 
 		client := api.NewAPIClient(token)
-		projects, err := client.GetProjects(workspaceId)
+		projectsLookup, err := client.GetProjectsLookupMap(workspaceId)
 		if err != nil {
 			log.Fatal("Failed to get projects:", err)
 		}
 
-		projectsLookup := toProjectsLookup(projects)
 		startTime, endTime := getDateParams(cmd)
 		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
@@ -186,15 +185,6 @@ func getSortedTimeEntryDates(groupedEntries map[string][]api.TimeEntryItem) []st
 	})
 
 	return sortedKeys
-}
-
-func toProjectsLookup(projects []api.Project) map[int]string {
-	lookup := make(map[int]string)
-	for _, project := range projects {
-		lookup[project.ID] = project.Name
-	}
-
-	return lookup
 }
 
 func getDateParams(cmd *cobra.Command) (time.Time, time.Time) {
