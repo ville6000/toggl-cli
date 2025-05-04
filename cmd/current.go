@@ -56,7 +56,7 @@ var currentCmd = &cobra.Command{
 			},
 		}
 
-		utils.RenderTable(headers, rows)
+		utils.RenderTable("Current timer entry", headers, rows, nil)
 	},
 }
 

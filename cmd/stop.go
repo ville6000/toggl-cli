@@ -46,10 +46,7 @@ var stopCmd = &cobra.Command{
 			log.Fatal("Failed to get projects", err)
 		}
 
-		fmt.Println("Stopped time entry")
-
 		headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
-
 		duration := float64(stoppedEntry.Duration)
 		projectName := projectsMap[currentEntry.ProjectID]
 		rows := [][]interface{}{
@@ -62,7 +59,7 @@ var stopCmd = &cobra.Command{
 			},
 		}
 
-		utils.RenderTable(headers, rows)
+		utils.RenderTable("Stopped timer entry", headers, rows, nil)
 	},
 }
 
