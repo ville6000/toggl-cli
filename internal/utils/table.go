@@ -8,13 +8,27 @@ import (
 
 // RenderTable renders a table to the standard output.
 // It takes headers and rows as parameters.
-func RenderTable(headers []interface{}, rows [][]interface{}) {
+func RenderTable(
+	title string,
+	headers []interface{},
+	rows [][]interface{},
+	footer table.Row,
+) {
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
+
+	if title != "" {
+		t.SetTitle(title)
+	}
+
 	t.AppendHeader(headers)
 
 	for _, row := range rows {
 		t.AppendRow(row)
+	}
+
+	if footer != nil {
+		t.AppendFooter(footer)
 	}
 
 	t.Render()

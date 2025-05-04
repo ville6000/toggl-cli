@@ -6,12 +6,18 @@ import (
 	"sort"
 	"time"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/utils"
-
-	"github.com/spf13/cobra"
 )
+
+type HistoryEntry struct {
+	Description string
+	Duration    int
+	Project     string
+}
 
 var historyCmd = &cobra.Command{
 	Use:   "history",
@@ -26,6 +32,11 @@ var historyCmd = &cobra.Command{
 		workspaceId := viper.GetInt("toggl.workspace_id")
 		if workspaceId == 0 {
 			log.Fatal("Missing toggl.workspace_id in config file")
+		}
+
+		displayVerboseOutput, err := cmd.Flags().GetBool("verbose")
+		if err != nil {
+			log.Fatal("Error retrieving verbose flag:", err)
 		}
 
 		client := api.NewAPIClient(token)
@@ -53,10 +64,71 @@ var historyCmd = &cobra.Command{
 
 		sortedKeys := getSortedTimeEntryDates(groupedEntries)
 		headers := []interface{}{"Started At", "Duration", "Description", "Project"}
+		summaryHeaders := []interface{}{"Description", "Project", "Duration"}
 		for _, key := range sortedKeys {
-			outputDateEntries(key, headers, groupedEntries, projectsLookup, location)
+			fmt.Printf("# %s\n", key)
+			fmt.Println()
+
+			if displayVerboseOutput {
+				outputDateEntries(key, headers, groupedEntries, projectsLookup, location)
+			}
+
+			summaryEntries := sumEntriesByDescriptionAndProject(
+				groupedEntries[key],
+				projectsLookup,
+			)
+
+			if len(summaryEntries) > 0 {
+				outputSummaryEntries(key, summaryHeaders, summaryEntries)
+			}
 		}
 	},
+}
+
+func outputSummaryEntries(key string, headers []interface{}, entries map[string]HistoryEntry) {
+	totalDuration := 0
+	var rows [][]interface{}
+	for _, entry := range entries {
+		formattedDuration := api.FormatDuration(float64(entry.Duration))
+		rows = append(rows, []interface{}{
+			entry.Description,
+			entry.Project,
+			formattedDuration,
+		})
+
+		totalDuration += entry.Duration
+	}
+
+	footer := table.Row{"", "Total", api.FormatDuration(float64(totalDuration))}
+	title := fmt.Sprintf("Summary for: %s", key)
+
+	utils.RenderTable(title, headers, rows, footer)
+	fmt.Println()
+}
+
+func sumEntriesByDescriptionAndProject(
+	entries []api.TimeEntryItem,
+	projectsLookup map[int]string,
+) map[string]HistoryEntry {
+	summary := make(map[string]HistoryEntry)
+
+	for _, entry := range entries {
+		projectName := projectsLookup[entry.ProjectID]
+		key := fmt.Sprintf("%s - %s", entry.Description, projectName)
+
+		if existingEntry, exists := summary[key]; exists {
+			existingEntry.Duration += entry.Duration
+			summary[key] = existingEntry
+		} else {
+			summary[key] = HistoryEntry{
+				Description: entry.Description,
+				Duration:    entry.Duration,
+				Project:     projectName,
+			}
+		}
+	}
+
+	return summary
 }
 
 func outputDateEntries(
@@ -71,7 +143,7 @@ func outputDateEntries(
 		log.Fatal("Error parsing date:", err)
 	}
 
-	fmt.Printf("# %s\n", parsedDate.In(location).Format("02.01.2006"))
+	title := fmt.Sprintf("Entries for: %s", parsedDate.In(location).Format("02.01.2006"))
 
 	entries := groupedEntries[key]
 	var rows [][]interface{}
@@ -88,7 +160,7 @@ func outputDateEntries(
 		})
 	}
 
-	utils.RenderTable(headers, rows)
+	utils.RenderTable(title, headers, rows, nil)
 	fmt.Println()
 }
 
@@ -156,7 +228,7 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time) {
 		log.Fatal("Error retrieving end flag:", err)
 	}
 
-	endTime := getTimeWithDefault(end, time.Now())
+	endTime := getTimeWithDefault(end, time.Now().AddDate(0, 0, 1))
 
 	return startTime, endTime
 }
@@ -197,4 +269,5 @@ func init() {
 	historyCmd.Flags().BoolP("month", "m", false, "History for the current month")
 	historyCmd.Flags().StringP("start", "s", "", "Start date for the history, format: YYYY-MM-DD")
 	historyCmd.Flags().StringP("end", "e", "", "End date for the history, format: YYYY-MM-DD")
+	historyCmd.Flags().BoolP("verbose", "v", false, "Display separate timer entries for each day")
 }
