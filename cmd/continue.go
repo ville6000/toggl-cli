@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/ville6000/toggl-cli/internal/utils"
 	"log"
 	"time"
 
-	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
 
 	"github.com/spf13/cobra"
@@ -16,16 +16,7 @@ var continueCmd = &cobra.Command{
 	Short: "Continue latest timer entry",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
-		token := viper.GetString("toggl.token")
-		if token == "" {
-			log.Fatal("Missing toggl.token in config file")
-		}
-
-		workspaceId := viper.GetInt("toggl.workspace_id")
-		if workspaceId == 0 {
-			log.Fatal("Missing toggl.workspace_id in config file")
-		}
-
+		token, workspaceId := utils.GetTogglConfig()
 		client := api.NewAPIClient(token)
 		timeEntries, err := client.GetHistory(nil, nil)
 		if err != nil {

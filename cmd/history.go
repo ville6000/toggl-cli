@@ -8,7 +8,6 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/utils"
 )
@@ -24,16 +23,7 @@ var historyCmd = &cobra.Command{
 	Short: "Fetch the history of time entries",
 	Long:  "Fetch the history of time entries from Toggl",
 	Run: func(cmd *cobra.Command, args []string) {
-		token := viper.GetString("toggl.token")
-		if token == "" {
-			log.Fatal("Missing toggl.token in config file")
-		}
-
-		workspaceId := viper.GetInt("toggl.workspace_id")
-		if workspaceId == 0 {
-			log.Fatal("Missing toggl.workspace_id in config file")
-		}
-
+		token, workspaceId := utils.GetTogglConfig()
 		displayVerboseOutput, err := cmd.Flags().GetBool("verbose")
 		if err != nil {
 			log.Fatal("Error retrieving verbose flag:", err)

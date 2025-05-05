@@ -2,9 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/ville6000/toggl-cli/internal/utils"
 	"log"
 
-	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
 
 	"github.com/spf13/cobra"
@@ -15,16 +15,7 @@ var projectsCmd = &cobra.Command{
 	Short: "List projects",
 	Long:  "List all projects associated with the default workspace",
 	Run: func(cmd *cobra.Command, args []string) {
-		token := viper.GetString("toggl.token")
-		if token == "" {
-			log.Fatal("Missing toggl.token in config file")
-		}
-
-		workspaceId := viper.GetInt("toggl.workspace_id")
-		if workspaceId == 0 {
-			log.Fatal("Missing toggl.workspace_id in config file")
-		}
-
+		token, workspaceId := utils.GetTogglConfig()
 		client := api.NewAPIClient(token)
 		projects, err := client.GetProjects(workspaceId)
 		if err != nil {
