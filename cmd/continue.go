@@ -27,7 +27,12 @@ var continueCmd = &cobra.Command{
 			return
 		}
 
-		e := timeEntries[0]
+		index, err := cmd.Flags().GetInt("index")
+		if err != nil {
+			log.Fatal("Error retrieving index flag:", err)
+		}
+
+		e := timeEntries[index]
 		timeEntry := client.NewTimeEntry(e.Description,
 			workspaceId,
 			e.ProjectID,
@@ -44,4 +49,5 @@ var continueCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(continueCmd)
+	continueCmd.Flags().IntP("index", "i", 0, "Index of the time entry to continue")
 }
