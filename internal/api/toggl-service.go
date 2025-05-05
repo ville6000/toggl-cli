@@ -54,6 +54,24 @@ func (c *Client) CreateTimeEntry(workspaceId int, entry TimeEntry) (*TimeEntry, 
 	return &createdEntry, nil
 }
 
+func (c *Client) NewTimeEntry(description string,
+	workspaceID int,
+	projectID int,
+	billable bool,
+) TimeEntry {
+	return TimeEntry{
+		CreatedWith: "toggl-cli",
+		Description: description,
+		Tags:        []string{},
+		Billable:    billable,
+		WorkspaceID: workspaceID,
+		Duration:    -1,
+		Start:       time.Now().Format(time.RFC3339),
+		Stop:        nil,
+		ProjectID:   projectID,
+	}
+}
+
 func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*TimeEntryItem, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d/stop", workspaceId, entryId)
 	req, err := c.newRequest(http.MethodPatch, endpoint, nil)

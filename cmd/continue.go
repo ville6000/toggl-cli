@@ -2,11 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/ville6000/toggl-cli/internal/utils"
 	"log"
-	"time"
 
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -28,24 +27,18 @@ var continueCmd = &cobra.Command{
 			return
 		}
 
-		latestEntry := timeEntries[0]
-		timeEntry := api.TimeEntry{
-			CreatedWith: "toggl-cli",
-			Description: latestEntry.Description,
-			Tags:        latestEntry.Tags,
-			Billable:    latestEntry.Billable,
-			WorkspaceID: workspaceId,
-			Duration:    -1,
-			Start:       time.Now().Format(time.RFC3339),
-			ProjectID:   latestEntry.ProjectID,
-		}
-
+		e := timeEntries[0]
+		timeEntry := client.NewTimeEntry(e.Description,
+			workspaceId,
+			e.ProjectID,
+			e.Billable,
+		)
 		_, err = client.CreateTimeEntry(workspaceId, timeEntry)
 		if err != nil {
 			log.Fatal("Failed to create time entry:", err)
 		}
 
-		fmt.Println("Continuing timer for:", latestEntry.Description)
+		fmt.Println("Continuing timer for:", e.Description)
 	},
 }
 
