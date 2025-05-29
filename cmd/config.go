@@ -93,7 +93,7 @@ func ConfigPath() (string, error) {
 		return filepath.Join(home, ".config", "toggl-cli", "config.yaml"), nil
 	}
 
-	return filepath.Join(home, ".toggle-cli.yaml"), nil
+	return filepath.Join(home, ".toggl-cli.yaml"), nil
 }
 
 func init() {
