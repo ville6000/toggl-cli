@@ -43,3 +43,8 @@ type Project struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
+
+type ProjectCache struct {
+	Timestamp time.Time `json:"timestamp"`
+	Data      []Project `json:"data"`
+}
