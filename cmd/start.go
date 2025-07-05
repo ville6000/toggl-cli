@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/utils"
@@ -87,7 +88,11 @@ func findProjectNameFromConfig(currentPath string) (string, error) {
 	}
 
 	for name, p := range projects {
-		if p.Path == currentPath {
+		if p.Path == "" {
+			continue
+		}
+
+		if p.Path == currentPath || strings.HasPrefix(currentPath, p.Path) {
 			return name, nil
 		}
 	}
