@@ -92,5 +92,11 @@ func findProjectNameFromConfig(currentPath string) (string, error) {
 		}
 	}
 
+	for name, p := range projects {
+		if len(p.Path) > 0 && currentPath != "" && p.Path == currentPath[:len(p.Path)] {
+			return name, nil
+		}
+	}
+
 	return "", fmt.Errorf("no matching project found for current path '%s'", currentPath)
 }
