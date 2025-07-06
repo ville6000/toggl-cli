@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"unicode"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/utils"
@@ -22,8 +23,13 @@ var startCmd = &cobra.Command{
 	Short: "Start a new time entry",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
+		var description string
 		token, workspaceId := utils.GetTogglConfig()
-		description := args[0]
+
+		if args != nil && len(args) > 0 {
+			description = args[0]
+		}
+
 		projectName, err := cmd.Flags().GetString("project")
 		if err != nil {
 			log.Fatal("Error retrieving project flag:", err)
@@ -33,6 +39,10 @@ var startCmd = &cobra.Command{
 		projectId, err := findProjectIdForEntry(projectName, client, workspaceId)
 		if err != nil {
 			log.Fatal("Failed to find project ID:", err)
+		}
+
+		if description == "" {
+			description = detectDescriptionFromCurrentPath()
 		}
 
 		timeEntry := client.NewTimeEntry(description, workspaceId, projectId, false)
@@ -98,4 +108,36 @@ func findProjectNameFromConfig(currentPath string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no matching project found for current path '%s'", currentPath)
+}
+
+func detectDescriptionFromCurrentPath() string {
+	currentPath, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	parts := strings.Split(currentPath, string(os.PathSeparator))
+
+	if len(parts) == 0 {
+		return ""
+	}
+
+	lastPart := parts[len(parts)-1]
+	ticketNumber := getTicketNumberFromPath(lastPart)
+
+	if ticketNumber != "" {
+		return ticketNumber
+	}
+
+	return ""
+}
+
+func getTicketNumberFromPath(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsDigit(r) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
