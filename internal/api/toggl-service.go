@@ -2,11 +2,15 @@ package api
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -88,6 +92,11 @@ func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*TimeEntryItem, er
 }
 
 func (c *Client) GetProjects(workspaceId int) ([]Project, error) {
+	cachedProjects, err := getProjectsFromCache(workspaceId)
+	if err == nil {
+		return cachedProjects, nil
+	}
+
 	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceId)
 	req, err := c.newRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -98,6 +107,8 @@ func (c *Client) GetProjects(workspaceId int) ([]Project, error) {
 	if reqErr := c.doRequest(req, http.StatusOK, &projects); reqErr != nil {
 		return nil, reqErr
 	}
+
+	saveProjectsToCache(workspaceId, projects)
 
 	return projects, nil
 }
@@ -210,4 +221,70 @@ func (c *Client) setDefaultRequestHeaders(req *http.Request) {
 
 	req.Header.Set("Authorization", "Basic "+token)
 	req.Header.Set("Content-Type", "application/json")
+}
+
+func getProjectsFromCache(workspaceId int) ([]Project, error) {
+	cacheFile, err := getCachePath(workspaceId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cache path: %w", err)
+	}
+
+	data, err := os.ReadFile(cacheFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cache file: %w", err)
+	}
+
+	var cached ProjectCache
+	if err := json.Unmarshal(data, &cached); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cache data: %w", err)
+	}
+
+	if time.Since(cached.Timestamp) >= 24*time.Hour {
+		return nil, fmt.Errorf("cache is outdated")
+	}
+
+	return cached.Data, nil
+}
+
+func getCachePath(workspaceId int) (string, error) {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+
+	cacheDir := filepath.Join(dir, "toggl-cli")
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		return "", err
+	}
+
+	hasher := md5.New()
+	hasher.Write([]byte(fmt.Sprintf("%d", workspaceId)))
+	hashStr := hex.EncodeToString(hasher.Sum(nil))
+
+	cacheFile := filepath.Join(cacheDir, fmt.Sprintf("projects_%s.json", hashStr))
+
+	return cacheFile, nil
+}
+
+func saveProjectsToCache(workspaceId int, projects []Project) error {
+	cacheFile, err := getCachePath(workspaceId)
+	if err != nil {
+		return fmt.Errorf("failed to get cache path: %w", err)
+	}
+
+	cached := ProjectCache{
+		Timestamp: time.Now(),
+		Data:      projects,
+	}
+
+	data, err := json.MarshalIndent(cached, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal cache data: %w", err)
+	}
+
+	if err := os.WriteFile(cacheFile, data, 0o644); err != nil {
+		return fmt.Errorf("failed to write cache file: %w", err)
+	}
+
+	return nil
 }
