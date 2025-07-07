@@ -1,4 +1,4 @@
-package cmd
+package config
 
 import (
 	"fmt"
@@ -11,10 +11,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var saveProjectConfigCmd = &cobra.Command{
-	Use:   "saveProjectConfig",
+var AddProjectPathCmd = &cobra.Command{
+	Use:   "add-path [project_name]",
 	Short: "Save project path to be used with start command",
 	Long:  "",
+	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		token, workspaceId := utils.GetTogglConfig()
 		projectName := args[0]
@@ -36,14 +37,11 @@ var saveProjectConfigCmd = &cobra.Command{
 
 		viper.Set(fmt.Sprintf("projects.%s", projectName), projectId)
 		viper.Set(fmt.Sprintf("projects.%s.path", projectName), currentPath)
+
 		if err := viper.WriteConfig(); err != nil {
 			log.Fatal("Error saving configuration:", err)
 		}
 
 		fmt.Println("Configuration saved successfully!")
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(saveProjectConfigCmd)
 }
