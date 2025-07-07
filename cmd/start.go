@@ -23,13 +23,7 @@ var startCmd = &cobra.Command{
 	Short: "Start a new time entry",
 	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
-		var description string
 		token, workspaceId := utils.GetTogglConfig()
-
-		if args != nil && len(args) > 0 {
-			description = args[0]
-		}
-
 		projectName, err := cmd.Flags().GetString("project")
 		if err != nil {
 			log.Fatal("Error retrieving project flag:", err)
@@ -41,10 +35,7 @@ var startCmd = &cobra.Command{
 			log.Fatal("Failed to find project ID:", err)
 		}
 
-		if description == "" {
-			description = detectDescriptionFromCurrentPath()
-		}
-
+		description := getDescription(args)
 		timeEntry := client.NewTimeEntry(description, workspaceId, projectId, false)
 		_, err = client.CreateTimeEntry(workspaceId, timeEntry)
 		if err != nil {
@@ -108,6 +99,20 @@ func findProjectNameFromConfig(currentPath string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no matching project found for current path '%s'", currentPath)
+}
+
+func getDescription(args []string) string {
+	var description string
+
+	if args != nil && len(args) > 0 {
+		description = args[0]
+	}
+
+	if description == "" {
+		description = detectDescriptionFromCurrentPath()
+	}
+
+	return description
 }
 
 func detectDescriptionFromCurrentPath() string {
