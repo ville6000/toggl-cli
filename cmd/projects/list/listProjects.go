@@ -1,18 +1,16 @@
-package cmd
+package list
 
 import (
 	"fmt"
-	"log"
-
-	"github.com/ville6000/toggl-cli/internal/utils"
-
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/utils"
+	"log"
 
 	"github.com/spf13/cobra"
 )
 
-var projectsCmd = &cobra.Command{
-	Use:   "projects",
+var ProjectsListCmd = &cobra.Command{
+	Use:   "ls",
 	Short: "List projects",
 	Long:  "List all projects associated with the default workspace",
 	Run: func(cmd *cobra.Command, args []string) {
@@ -27,8 +25,4 @@ var projectsCmd = &cobra.Command{
 			fmt.Printf("ID: %d, Name: %s\n", project.ID, project.Name)
 		}
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(projectsCmd)
 }
