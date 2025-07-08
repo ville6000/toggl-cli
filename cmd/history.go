@@ -201,7 +201,7 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time) {
 		log.Fatal("Error retrieving start flag:", err)
 	}
 
-	startTime := getTimeWithDefault(start, time.Now().AddDate(0, 0, -7))
+	startTime := getTimeWithDefault(start, time.Now())
 
 	end, err := cmd.Flags().GetString("end")
 	if err != nil {
