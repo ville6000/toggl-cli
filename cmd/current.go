@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/ville6000/toggl-cli/internal/data"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -34,7 +35,7 @@ var currentCmd = &cobra.Command{
 	},
 }
 
-func outputCurrentEntry(entry *api.TimeEntryItem, projectsMap map[int]string) error {
+func outputCurrentEntry(entry *data.TimeEntryItem, projectsMap map[int]string) error {
 	if entry == nil || entry.ID == 0 {
 		fmt.Println("No current timer entry.")
 		return nil

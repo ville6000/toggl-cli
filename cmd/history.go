@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/ville6000/toggl-cli/internal/data"
 	"log"
 	"sort"
 	"time"
@@ -96,7 +97,7 @@ func outputSummaryEntries(key string, headers []interface{}, entries map[string]
 }
 
 func sumEntriesByDescriptionAndProject(
-	entries []api.TimeEntryItem,
+	entries []data.TimeEntryItem,
 	projectsLookup map[int]string,
 ) map[string]HistoryEntry {
 	summary := make(map[string]HistoryEntry)
@@ -123,7 +124,7 @@ func sumEntriesByDescriptionAndProject(
 func outputDateEntries(
 	key string,
 	headers []interface{},
-	groupedEntries map[string][]api.TimeEntryItem,
+	groupedEntries map[string][]data.TimeEntryItem,
 	projectsLookup map[int]string,
 	location *time.Location,
 ) {
@@ -153,8 +154,8 @@ func outputDateEntries(
 	fmt.Println()
 }
 
-func groupEntriesByDate(entries []api.TimeEntryItem) map[string][]api.TimeEntryItem {
-	groupedEntries := make(map[string][]api.TimeEntryItem)
+func groupEntriesByDate(entries []data.TimeEntryItem) map[string][]data.TimeEntryItem {
+	groupedEntries := make(map[string][]data.TimeEntryItem)
 
 	for _, entry := range entries {
 		date := entry.Start.Format("2006-01-02")
@@ -164,7 +165,7 @@ func groupEntriesByDate(entries []api.TimeEntryItem) map[string][]api.TimeEntryI
 	return groupedEntries
 }
 
-func getSortedTimeEntryDates(groupedEntries map[string][]api.TimeEntryItem) []string {
+func getSortedTimeEntryDates(groupedEntries map[string][]data.TimeEntryItem) []string {
 	sortedKeys := make([]string, 0, len(groupedEntries))
 	for key := range groupedEntries {
 		sortedKeys = append(sortedKeys, key)

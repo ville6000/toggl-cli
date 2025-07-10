@@ -2,30 +2,28 @@ package api
 
 import (
 	"bytes"
-	"crypto/md5"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/ville6000/toggl-cli/internal/data"
 	"io"
+	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
 
 type ProjectService interface {
-	GetProjects(workspaceId int) ([]Project, error)
+	GetProjects(workspaceId int) ([]data.Project, error)
 }
 
-func (c *Client) GetWorkspaces() ([]Workspace, error) {
+func (c *Client) GetWorkspaces() ([]data.Workspace, error) {
 	req, err := c.newRequest(http.MethodGet, "/workspaces", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var workspaces []Workspace
+	var workspaces []data.Workspace
 	if reqErr := c.doRequest(req, http.StatusOK, &workspaces); reqErr != nil {
 		return nil, reqErr
 	}
@@ -33,13 +31,13 @@ func (c *Client) GetWorkspaces() ([]Workspace, error) {
 	return workspaces, nil
 }
 
-func (c *Client) GetCurrentTimerEntry() (*TimeEntryItem, error) {
+func (c *Client) GetCurrentTimerEntry() (*data.TimeEntryItem, error) {
 	req, err := c.newRequest(http.MethodGet, "/me/time_entries/current", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var entry TimeEntryItem
+	var entry data.TimeEntryItem
 	if reqErr := c.doRequest(req, http.StatusOK, &entry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -47,14 +45,14 @@ func (c *Client) GetCurrentTimerEntry() (*TimeEntryItem, error) {
 	return &entry, nil
 }
 
-func (c *Client) CreateTimeEntry(workspaceId int, entry TimeEntry) (*TimeEntry, error) {
+func (c *Client) CreateTimeEntry(workspaceId int, entry data.TimeEntry) (*data.TimeEntry, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries", workspaceId)
 	req, err := c.newRequest(http.MethodPost, endpoint, entry)
 	if err != nil {
 		return nil, err
 	}
 
-	var createdEntry TimeEntry
+	var createdEntry data.TimeEntry
 	if reqErr := c.doRequest(req, http.StatusOK, &createdEntry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -66,8 +64,8 @@ func (c *Client) NewTimeEntry(description string,
 	workspaceID int,
 	projectID int,
 	billable bool,
-) TimeEntry {
-	return TimeEntry{
+) data.TimeEntry {
+	return data.TimeEntry{
 		CreatedWith: "toggl-cli",
 		Description: description,
 		Tags:        []string{},
@@ -80,14 +78,14 @@ func (c *Client) NewTimeEntry(description string,
 	}
 }
 
-func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*TimeEntryItem, error) {
+func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*data.TimeEntryItem, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d/stop", workspaceId, entryId)
 	req, err := c.newRequest(http.MethodPatch, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var stoppedEntry TimeEntryItem
+	var stoppedEntry data.TimeEntryItem
 	if reqErr := c.doRequest(req, http.StatusOK, &stoppedEntry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -95,8 +93,8 @@ func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*TimeEntryItem, er
 	return &stoppedEntry, nil
 }
 
-func (c *Client) GetProjects(workspaceId int) ([]Project, error) {
-	cachedProjects, err := getProjectsFromCache(workspaceId)
+func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
+	cachedProjects, err := c.Cache.GetProjects(workspaceId)
 	if err == nil {
 		return cachedProjects, nil
 	}
@@ -107,12 +105,15 @@ func (c *Client) GetProjects(workspaceId int) ([]Project, error) {
 		return nil, err
 	}
 
-	var projects []Project
+	var projects []data.Project
 	if reqErr := c.doRequest(req, http.StatusOK, &projects); reqErr != nil {
 		return nil, reqErr
 	}
 
-	saveProjectsToCache(workspaceId, projects)
+	err = c.Cache.SaveProjects(workspaceId, projects)
+	if err != nil {
+		log.Printf("Failed to save projects to cache: %v", err)
+	}
 
 	return projects, nil
 }
@@ -132,7 +133,7 @@ func (c *Client) GetProjectIdByName(workspaceId int, projectName string) (int, e
 	return 0, fmt.Errorf("project '%s' not found", projectName)
 }
 
-func (c *Client) GetHistory(from, to *time.Time) ([]TimeEntryItem, error) {
+func (c *Client) GetHistory(from, to *time.Time) ([]data.TimeEntryItem, error) {
 	endpoint := "/me/time_entries"
 	queryParams := make([]string, 0)
 	if from != nil {
@@ -152,7 +153,7 @@ func (c *Client) GetHistory(from, to *time.Time) ([]TimeEntryItem, error) {
 		return nil, err
 	}
 
-	var timeEntries []TimeEntryItem
+	var timeEntries []data.TimeEntryItem
 	if reqErr := c.doRequest(req, http.StatusOK, &timeEntries); reqErr != nil {
 		return nil, reqErr
 	}
@@ -225,70 +226,4 @@ func (c *Client) setDefaultRequestHeaders(req *http.Request) {
 
 	req.Header.Set("Authorization", "Basic "+token)
 	req.Header.Set("Content-Type", "application/json")
-}
-
-func getProjectsFromCache(workspaceId int) ([]Project, error) {
-	cacheFile, err := getCachePath(workspaceId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cache path: %w", err)
-	}
-
-	data, err := os.ReadFile(cacheFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read cache file: %w", err)
-	}
-
-	var cached ProjectCache
-	if err := json.Unmarshal(data, &cached); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal cache data: %w", err)
-	}
-
-	if time.Since(cached.Timestamp) >= 24*time.Hour {
-		return nil, fmt.Errorf("cache is outdated")
-	}
-
-	return cached.Data, nil
-}
-
-func getCachePath(workspaceId int) (string, error) {
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
-	}
-
-	cacheDir := filepath.Join(dir, "toggl-cli")
-	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
-		return "", err
-	}
-
-	hasher := md5.New()
-	hasher.Write([]byte(fmt.Sprintf("%d", workspaceId)))
-	hashStr := hex.EncodeToString(hasher.Sum(nil))
-
-	cacheFile := filepath.Join(cacheDir, fmt.Sprintf("projects_%s.json", hashStr))
-
-	return cacheFile, nil
-}
-
-func saveProjectsToCache(workspaceId int, projects []Project) error {
-	cacheFile, err := getCachePath(workspaceId)
-	if err != nil {
-		return fmt.Errorf("failed to get cache path: %w", err)
-	}
-
-	cached := ProjectCache{
-		Timestamp: time.Now(),
-		Data:      projects,
-	}
-
-	data, err := json.MarshalIndent(cached, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal cache data: %w", err)
-	}
-
-	if err := os.WriteFile(cacheFile, data, 0o644); err != nil {
-		return fmt.Errorf("failed to write cache file: %w", err)
-	}
-
-	return nil
 }
