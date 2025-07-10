@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/ville6000/toggl-cli/internal/data"
 
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
@@ -43,7 +44,7 @@ func init() {
 	rootCmd.AddCommand(stopCmd)
 }
 
-func outputStoppedTimeEntry(entry *api.TimeEntryItem, projectsMap map[int]string) error {
+func outputStoppedTimeEntry(entry *data.TimeEntryItem, projectsMap map[int]string) error {
 	headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
 	duration := float64(entry.Duration)
 	projectName := projectsMap[entry.ProjectID]
