@@ -25,7 +25,7 @@ func GetConfig() (string, int, error) {
 	token, workspaceId := GetTogglConfig()
 
 	if token == "" || workspaceId == 0 {
-		return "", 0, fmt.Errorf("Invalid configuration, please run 'toggl-cli config'")
+		return "", 0, fmt.Errorf("invalid configuration, please run 'toggl-cli config'")
 	}
 
 	return token, workspaceId, nil
