@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
@@ -13,46 +12,51 @@ var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop the current timer entry",
 	Long:  "",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		token, workspaceId := utils.GetTogglConfig()
 		client := api.NewAPIClient(token)
 		currentEntry, err := client.GetCurrentTimerEntry()
 		if err != nil {
-			log.Fatal("Failed to get current timer entry:", err)
+			return fmt.Errorf("failed to get current timer entry: %w", err)
 		}
 
 		if currentEntry == nil || currentEntry.ID == 0 {
 			fmt.Println("No current timer entry.")
-			return
+			return nil
 		}
 
 		stoppedEntry, err := client.StopTimeEntry(workspaceId, currentEntry.ID)
 		if err != nil {
-			log.Fatal("Failed to stop time entry:", err)
+			return fmt.Errorf("failed to stop time entry: %w", err)
 		}
 
 		projectsMap, err := client.GetProjectsLookupMap(workspaceId)
 		if err != nil {
-			log.Fatal("Failed to get projects", err)
+			return fmt.Errorf("failed to get projects lookup map: %w", err)
 		}
 
-		headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
-		duration := float64(stoppedEntry.Duration)
-		projectName := projectsMap[currentEntry.ProjectID]
-		rows := [][]interface{}{
-			{
-				stoppedEntry.ID,
-				stoppedEntry.Start.Format("02.01.2006 15:04"),
-				api.FormatDuration(duration),
-				stoppedEntry.Description,
-				projectName,
-			},
-		}
-
-		utils.RenderTable("Stopped timer entry", headers, rows, nil)
+		return outputStoppedTimeEntry(stoppedEntry, projectsMap)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(stopCmd)
+}
+
+func outputStoppedTimeEntry(entry *api.TimeEntryItem, projectsMap map[int]string) error {
+	headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
+	duration := float64(entry.Duration)
+	projectName := projectsMap[entry.ProjectID]
+	rows := [][]interface{}{
+		{
+			entry.ID,
+			entry.Start.Format("02.01.2006 15:04"),
+			api.FormatDuration(duration),
+			entry.Description,
+			projectName,
+		},
+	}
+
+	utils.RenderTable("Stopped timer entry", headers, rows, nil)
+	return nil
 }
