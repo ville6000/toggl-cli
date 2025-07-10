@@ -15,6 +15,10 @@ import (
 	"time"
 )
 
+type ProjectService interface {
+	GetProjects(workspaceId int) ([]Project, error)
+}
+
 func (c *Client) GetWorkspaces() ([]Workspace, error) {
 	req, err := c.newRequest(http.MethodGet, "/workspaces", nil)
 	if err != nil {
