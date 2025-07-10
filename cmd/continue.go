@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/ville6000/toggl-cli/internal/data"
 	"log"
 
 	"github.com/ville6000/toggl-cli/internal/api"
@@ -14,17 +15,20 @@ var continueCmd = &cobra.Command{
 	Use:   "continue",
 	Short: "Continue latest timer entry",
 	Long:  "",
-	Run: func(cmd *cobra.Command, args []string) {
-		token, workspaceId := utils.GetTogglConfig()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		token, workspaceId, err := utils.GetConfig()
+		if err != nil {
+			return fmt.Errorf("failed to get configuration: %w", err)
+		}
+
 		client := api.NewAPIClient(token)
 		timeEntries, err := client.GetHistory(nil, nil)
 		if err != nil {
-			log.Fatal("Failed to retrieve latest time entries:", err)
+			return fmt.Errorf("failed to retrieve latest time entries: %w", err)
 		}
 
 		if len(timeEntries) == 0 {
-			fmt.Println("No time entries found.")
-			return
+			return fmt.Errorf("no time entries found")
 		}
 
 		index, err := cmd.Flags().GetInt("index")
@@ -32,22 +36,34 @@ var continueCmd = &cobra.Command{
 			log.Fatal("Error retrieving index flag:", err)
 		}
 
-		e := timeEntries[index]
-		timeEntry := client.NewTimeEntry(e.Description,
-			workspaceId,
-			e.ProjectID,
-			e.Billable,
-		)
-		_, err = client.CreateTimeEntry(workspaceId, timeEntry)
+		timeEntryDescription, err := createTimeEntryFrom(index, timeEntries, client, workspaceId)
 		if err != nil {
-			log.Fatal("Failed to create time entry:", err)
+			return fmt.Errorf("failed to create time entry: %w", err)
 		}
 
-		fmt.Println("Continuing timer for:", e.Description)
+		fmt.Println("Continuing timer for:", timeEntryDescription)
+
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(continueCmd)
 	continueCmd.Flags().IntP("index", "i", 0, "Index of the time entry to continue")
+}
+
+func createTimeEntryFrom(index int, timeEntries []data.TimeEntryItem, client *api.Client, workspaceId int) (string, error) {
+	if index < 0 || index >= len(timeEntries) {
+		return "", fmt.Errorf("index out of range")
+	}
+
+	e := timeEntries[index]
+	timeEntry := client.NewTimeEntry(e.Description, workspaceId, e.ProjectID, e.Billable)
+	_, err := client.CreateTimeEntry(workspaceId, timeEntry)
+
+	if err != nil {
+		return "", err
+	}
+
+	return e.Description, nil
 }
