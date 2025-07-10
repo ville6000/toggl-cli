@@ -3,23 +3,24 @@ package list
 import (
 	"errors"
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/data"
 	"strings"
 	"testing"
 )
 
 type mockClient struct {
 	api.Client
-	Projects []api.Project
+	Projects []data.Project
 	Err      error
 }
 
-func (m *mockClient) GetProjects(workspaceId int) ([]api.Project, error) {
+func (m *mockClient) GetProjects(workspaceId int) ([]data.Project, error) {
 	return m.Projects, m.Err
 }
 
 func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
 	mock := &mockClient{
-		Projects: []api.Project{
+		Projects: []data.Project{
 			{ID: 1, Name: "Project A"},
 			{ID: 2, Name: "Project B"},
 		},
