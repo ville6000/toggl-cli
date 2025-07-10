@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/spf13/viper"
@@ -18,4 +19,14 @@ func GetTogglConfig() (string, int) {
 	}
 
 	return token, workspaceId
+}
+
+func GetConfig() (string, int, error) {
+	token, workspaceId := GetTogglConfig()
+
+	if token == "" || workspaceId == 0 {
+		return "", 0, fmt.Errorf("Invalid configuration, please run 'toggl-cli config'")
+	}
+
+	return token, workspaceId, nil
 }
