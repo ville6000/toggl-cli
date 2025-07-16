@@ -20,8 +20,6 @@ var ProjectsListCmd = &cobra.Command{
 
 		client := api.NewAPIClient(token)
 
-		return ProjectListOutput(client, workspaceId, func(s string) {
-			fmt.Print(s)
-		})
+		return ProjectListOutput(client, workspaceId)
 	},
 }
