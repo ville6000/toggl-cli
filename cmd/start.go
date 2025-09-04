@@ -15,7 +15,7 @@ import (
 )
 
 type ProjectConfig struct {
-	Path string `mapstructure:"path"`
+	Paths []string `mapstructure:"paths"`
 }
 
 var startCmd = &cobra.Command{
@@ -89,12 +89,14 @@ func findProjectNameFromConfig(currentPath string) (string, error) {
 	}
 
 	for name, p := range projects {
-		if p.Path == "" {
+		if len(p.Paths) == 0 {
 			continue
 		}
 
-		if p.Path == currentPath || strings.HasPrefix(currentPath, p.Path) {
-			return name, nil
+		for _, path := range p.Paths {
+			if path == currentPath || strings.HasPrefix(currentPath, path) {
+				return name, nil
+			}
 		}
 	}
 

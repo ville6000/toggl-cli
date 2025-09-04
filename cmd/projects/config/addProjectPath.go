@@ -35,8 +35,20 @@ var AddProjectPathCmd = &cobra.Command{
 			}
 		}
 
-		viper.Set(fmt.Sprintf("projects.%s", projectName), projectId)
-		viper.Set(fmt.Sprintf("projects.%s.path", projectName), currentPath)
+		viper.Set(fmt.Sprintf("projects.%s.id", projectName), projectId)
+
+		key := fmt.Sprintf("projects.%s.paths", projectName)
+		existingPaths := viper.GetStringSlice(key)
+
+		for _, p := range existingPaths {
+			if p == currentPath {
+				fmt.Println("Path already exists for this project.")
+				return
+			}
+		}
+		existingPaths = append(existingPaths, currentPath)
+
+		viper.Set(key, existingPaths)
 
 		if err := viper.WriteConfig(); err != nil {
 			log.Fatal("Error saving configuration:", err)
