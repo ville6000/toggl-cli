@@ -106,7 +106,7 @@ func findProjectNameFromConfig(currentPath string) (string, error) {
 func getDescription(args []string) string {
 	var description string
 
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		description = args[0]
 	}
 

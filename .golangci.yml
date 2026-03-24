@@ -1,0 +1,18 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - godot
+    - misspell
+    - nilerr
+    - unconvert
+
+formatters:
+  enable:
+    - gofumpt

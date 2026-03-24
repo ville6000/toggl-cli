@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"time"
+
+	"github.com/ville6000/toggl-cli/internal/data"
 
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"

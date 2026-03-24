@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"log"
+
+	"github.com/ville6000/toggl-cli/internal/data"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/utils"
@@ -60,7 +61,6 @@ func createTimeEntryFrom(index int, timeEntries []data.TimeEntryItem, client *ap
 	e := timeEntries[index]
 	timeEntry := client.NewTimeEntry(e.Description, workspaceId, e.ProjectID, e.Billable)
 	_, err := client.CreateTimeEntry(workspaceId, timeEntry)
-
 	if err != nil {
 		return "", err
 	}
