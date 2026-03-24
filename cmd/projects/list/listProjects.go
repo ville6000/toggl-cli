@@ -2,6 +2,7 @@ package list
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/utils"

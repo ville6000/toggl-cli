@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 type CacheService struct {
@@ -31,7 +32,9 @@ func NewCacheService() (*CacheService, error) {
 
 func (c *CacheService) GetCachePath(workspaceId int) (string, error) {
 	hasher := md5.New()
-	hasher.Write([]byte(fmt.Sprintf("%d", workspaceId)))
+	if _, err := fmt.Fprintf(hasher, "%d", workspaceId); err != nil {
+		return "", err
+	}
 	hashStr := hex.EncodeToString(hasher.Sum(nil))
 
 	cacheFile := filepath.Join(c.CacheDir, fmt.Sprintf("projects_%s.json", hashStr))

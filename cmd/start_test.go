@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// Test getTicketNumberFromPath
+// Test getTicketNumberFromPath.
 func TestGetTicketNumberFromPath(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -48,7 +48,7 @@ func TestGetTicketNumberFromPath(t *testing.T) {
 	}
 }
 
-// Test getDescription with direct args
+// Test getDescription with direct args.
 func TestGetDescriptionWithArgs(t *testing.T) {
 	// Test with args provided
 	args := []string{"test description"}

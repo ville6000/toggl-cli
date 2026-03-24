@@ -2,12 +2,13 @@ package list
 
 import (
 	"errors"
-	"github.com/ville6000/toggl-cli/internal/api"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"io"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 type mockClient struct {
@@ -34,11 +35,15 @@ func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
 
 	err := ProjectListOutput(mock, 1234)
 
-	w.Close()
+	if closeErr := w.Close(); closeErr != nil {
+		t.Fatalf("failed to close pipe writer: %v", closeErr)
+	}
 	os.Stdout = oldStdout
 
 	var buf strings.Builder
-	io.Copy(&buf, r)
+	if _, copyErr := io.Copy(&buf, r); copyErr != nil {
+		t.Fatalf("failed to copy output: %v", copyErr)
+	}
 	output := buf.String()
 
 	if err != nil {
