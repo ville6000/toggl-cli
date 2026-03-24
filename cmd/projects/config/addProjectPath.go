@@ -2,13 +2,13 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
-	"github.com/ville6000/toggl-cli/internal/api"
-	"github.com/ville6000/toggl-cli/internal/utils"
 	"log"
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/utils"
 )
 
 var AddProjectPathCmd = &cobra.Command{

@@ -5,12 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 type ProjectService interface {
@@ -208,7 +209,11 @@ func (c *Client) doRequest(req *http.Request, expectedStatus int, result any) er
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("failed to close response body: %v", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != expectedStatus {
 		return fmt.Errorf("request failed: %s", resp.Status)

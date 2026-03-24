@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-// Test getTicketNumberFromPath
+// Test getTicketNumberFromPath.
 func TestGetTicketNumberFromPath(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -48,23 +48,23 @@ func TestGetTicketNumberFromPath(t *testing.T) {
 	}
 }
 
-// Test getDescription with direct args
+// Test getDescription with direct args.
 func TestGetDescriptionWithArgs(t *testing.T) {
-	// Test with args provided
+	// Test with args provided.
 	args := []string{"test description"}
 	result := getDescription(args)
 	if result != "test description" {
 		t.Errorf("getDescription() with args = %s, want %s", result, "test description")
 	}
 
-	// Test with empty args slice
+	// Test with empty args slice.
 	result = getDescription([]string{})
 	// We can't test the exact result since it depends on detectDescriptionFromCurrentPath
-	// which uses os.Getwd(), but we can at least ensure the function runs without panicking
+	// which uses os.Getwd(), but we can at least ensure the function runs without panicking.
 	t.Logf("getDescription() with empty args returned: %s", result)
 
-	// Test with nil args
+	// Test with nil args.
 	result = getDescription(nil)
-	// Same as above, we can't test the exact result
+	// Same as above, we can't test the exact result.
 	t.Logf("getDescription() with nil args returned: %s", result)
 }

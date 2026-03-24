@@ -1,9 +1,10 @@
 package api
 
 import (
-	"github.com/ville6000/toggl-cli/internal/cache"
 	"net/http"
 	"time"
+
+	"github.com/ville6000/toggl-cli/internal/cache"
 )
 
 type Client struct {

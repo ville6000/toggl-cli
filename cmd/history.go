@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"log"
 	"sort"
 	"time"
+
+	"github.com/ville6000/toggl-cli/internal/data"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
