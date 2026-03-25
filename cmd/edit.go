@@ -49,6 +49,7 @@ var editCmd = &cobra.Command{
 		}
 
 		client := api.NewAPIClient(token)
+
 		return runEdit(client, index, workspaceId, description, project)
 	},
 }
