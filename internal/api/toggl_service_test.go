@@ -302,6 +302,53 @@ func TestStopTimeEntry_URLContainsIDs(t *testing.T) {
 	}
 }
 
+// ---------- UpdateTimeEntry ----------
+
+func TestUpdateTimeEntry_Success(t *testing.T) {
+	result := data.TimeEntryItem{ID: 5, Description: "updated"}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			t.Errorf("expected PUT, got %s", r.Method)
+		}
+		if err := json.NewEncoder(w).Encode(result); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	})
+	client, _ := newTestClient(t, handler)
+
+	got, err := client.UpdateTimeEntry(1, 5, data.TimeEntry{Description: "updated"})
+	if err != nil {
+		t.Fatalf("UpdateTimeEntry: %v", err)
+	}
+	if got.Description != "updated" {
+		t.Errorf("Description: got %q, want %q", got.Description, "updated")
+	}
+}
+
+func TestUpdateTimeEntry_URLContainsIDs(t *testing.T) {
+	var capturedPath string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		if err := json.NewEncoder(w).Encode(data.TimeEntryItem{}); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	})
+	client, _ := newTestClient(t, handler)
+
+	_, _ = client.UpdateTimeEntry(10, 20, data.TimeEntry{})
+	const wantPath = "/workspaces/10/time_entries/20"
+	if capturedPath != wantPath {
+		t.Errorf("URL path: got %q, want %q", capturedPath, wantPath)
+	}
+}
+
+func TestUpdateTimeEntry_HTTPError(t *testing.T) {
+	client, _ := newTestClient(t, errorHandler(http.StatusNotFound))
+	if _, err := client.UpdateTimeEntry(1, 99, data.TimeEntry{}); err == nil {
+		t.Error("expected error for HTTP 404")
+	}
+}
+
 // ---------- GetProjects ----------
 
 func TestGetProjects_FetchesFromAPI(t *testing.T) {
