@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/ville6000/toggl-cli/internal/data"
 
@@ -34,7 +33,7 @@ var continueCmd = &cobra.Command{
 
 		index, err := cmd.Flags().GetInt("index")
 		if err != nil {
-			log.Fatal("Error retrieving index flag:", err)
+			return fmt.Errorf("failed to get index flag: %w", err)
 		}
 
 		timeEntryDescription, err := createTimeEntryFrom(index, timeEntries, client, workspaceId)

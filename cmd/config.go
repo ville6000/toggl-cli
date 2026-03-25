@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,13 +16,13 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage configuration settings",
 	Long:  "Manage configuration settings for the Toggl CLI.",
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		reader := bufio.NewReader(os.Stdin)
 
 		fmt.Print("Please enter your Toggl API token: ")
 		token, err := reader.ReadString('\n')
 		if err != nil {
-			log.Fatal("Error reading input", err)
+			return fmt.Errorf("error reading input: %w", err)
 		}
 		token = strings.TrimSpace(token)
 
@@ -31,15 +30,15 @@ var configCmd = &cobra.Command{
 		var workspaceID int
 		_, err = fmt.Scanf("%d", &workspaceID)
 		if err != nil {
-			log.Fatal("Invalid workspace ID:", err)
+			return fmt.Errorf("invalid workspace ID: %w", err)
 		}
 
-		err = writeConfig(token, workspaceID)
-		if err != nil {
-			fmt.Println("Error saving configuration:", err)
-		} else {
-			fmt.Println("Configuration saved successfully!")
+		if err = writeConfig(token, workspaceID); err != nil {
+			return fmt.Errorf("error saving configuration: %w", err)
 		}
+
+		fmt.Println("Configuration saved successfully!")
+		return nil
 	},
 }
 
