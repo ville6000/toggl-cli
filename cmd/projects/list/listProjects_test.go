@@ -30,15 +30,20 @@ func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
 	}
 
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
 	os.Stdout = w
+	t.Cleanup(func() {
+		os.Stdout = oldStdout
+	})
 
-	err := ProjectListOutput(mock, 1234)
+	listErr := ProjectListOutput(mock, 1234)
 
 	if closeErr := w.Close(); closeErr != nil {
 		t.Fatalf("failed to close pipe writer: %v", closeErr)
 	}
-	os.Stdout = oldStdout
 
 	var buf strings.Builder
 	if _, copyErr := io.Copy(&buf, r); copyErr != nil {
@@ -46,8 +51,8 @@ func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
 	}
 	output := buf.String()
 
-	if err != nil {
-		t.Fatalf("expected no error, got: %v", err)
+	if listErr != nil {
+		t.Fatalf("expected no error, got: %v", listErr)
 	}
 
 	if !strings.Contains(output, "Project A") || !strings.Contains(output, "Project B") {
