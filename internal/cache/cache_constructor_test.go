@@ -6,6 +6,7 @@ import (
 )
 
 func TestNewCacheService_ReturnsNonNil(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	cs, err := NewCacheService()
 	if err != nil {
 		t.Fatalf("NewCacheService: %v", err)
@@ -16,6 +17,7 @@ func TestNewCacheService_ReturnsNonNil(t *testing.T) {
 }
 
 func TestNewCacheService_CacheDirExists(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	cs, err := NewCacheService()
 	if err != nil {
 		t.Fatalf("NewCacheService: %v", err)

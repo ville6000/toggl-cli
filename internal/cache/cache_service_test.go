@@ -3,6 +3,7 @@ package cache
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,7 +48,7 @@ func TestGetCachePath_ContainsCacheDir(t *testing.T) {
 		t.Error("expected non-empty path")
 	}
 	// Path should be inside the configured cache dir.
-	if path[:len(cs.CacheDir)] != cs.CacheDir {
+	if !strings.HasPrefix(path, cs.CacheDir) {
 		t.Errorf("path %q is not inside CacheDir %q", path, cs.CacheDir)
 	}
 }

@@ -5,6 +5,7 @@ import (
 )
 
 func TestNewAPIClient_ReturnsNonNil(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	client := NewAPIClient("test-token")
 	if client == nil {
 		t.Fatal("NewAPIClient returned nil")
@@ -12,6 +13,7 @@ func TestNewAPIClient_ReturnsNonNil(t *testing.T) {
 }
 
 func TestNewAPIClient_SetsAuthToken(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	client := NewAPIClient("my-token")
 	if client == nil {
 		t.Fatal("NewAPIClient returned nil")
@@ -22,6 +24,7 @@ func TestNewAPIClient_SetsAuthToken(t *testing.T) {
 }
 
 func TestNewAPIClient_SetsBaseURL(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	client := NewAPIClient("tok")
 	if client == nil {
 		t.Fatal("NewAPIClient returned nil")
@@ -32,6 +35,7 @@ func TestNewAPIClient_SetsBaseURL(t *testing.T) {
 }
 
 func TestNewAPIClient_SetsHTTPClient(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	client := NewAPIClient("tok")
 	if client == nil {
 		t.Fatal("NewAPIClient returned nil")
@@ -42,6 +46,7 @@ func TestNewAPIClient_SetsHTTPClient(t *testing.T) {
 }
 
 func TestNewAPIClient_SetsCache(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	client := NewAPIClient("tok")
 	if client == nil {
 		t.Fatal("NewAPIClient returned nil")
