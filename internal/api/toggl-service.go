@@ -94,6 +94,21 @@ func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*data.TimeEntryIte
 	return &stoppedEntry, nil
 }
 
+func (c *Client) UpdateTimeEntry(workspaceId int, entryId int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d", workspaceId, entryId)
+	req, err := c.newRequest(http.MethodPut, endpoint, entry)
+	if err != nil {
+		return nil, err
+	}
+
+	var updatedEntry data.TimeEntryItem
+	if reqErr := c.doRequest(req, http.StatusOK, &updatedEntry); reqErr != nil {
+		return nil, reqErr
+	}
+
+	return &updatedEntry, nil
+}
+
 func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
 	cachedProjects, err := c.Cache.GetProjects(workspaceId)
 	if err == nil {
