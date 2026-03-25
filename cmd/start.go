@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/data"
 	"github.com/ville6000/toggl-cli/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -40,13 +42,27 @@ var startCmd = &cobra.Command{
 
 		description := getDescription(args)
 		timeEntry := client.NewTimeEntry(description, workspaceId, projectId, false)
-		_, err = client.CreateTimeEntry(workspaceId, timeEntry)
+		createdEntry, err := client.CreateTimeEntry(workspaceId, timeEntry)
 		if err != nil {
 			return fmt.Errorf("failed to create time entry: %w", err)
 		}
 
-		fmt.Println("Timer started...")
-		return nil
+		projectsMap, err := client.GetProjectsLookupMap(workspaceId)
+		if err != nil {
+			return fmt.Errorf("failed to get projects: %w", err)
+		}
+
+		start, err := time.Parse(time.RFC3339, createdEntry.Start)
+		if err != nil {
+			return fmt.Errorf("failed to parse start time: %w", err)
+		}
+
+		return outputCurrentEntry(&data.TimeEntryItem{
+			ID:          createdEntry.ID,
+			Description: createdEntry.Description,
+			ProjectID:   createdEntry.ProjectID,
+			Start:       start,
+		}, projectsMap)
 	},
 }
 

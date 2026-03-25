@@ -23,6 +23,7 @@ type TimeEntryItem struct {
 }
 
 type TimeEntry struct {
+	ID          int      `json:"id"`
 	CreatedWith string   `json:"created_with"`
 	Description string   `json:"description"`
 	Tags        []string `json:"tags"`
