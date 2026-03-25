@@ -15,7 +15,11 @@ func captureStdout(t *testing.T, fn func()) string {
 	if err != nil {
 		t.Fatalf("os.Pipe: %v", err)
 	}
-	t.Cleanup(func() { r.Close() })
+	t.Cleanup(func() {
+		if err := r.Close(); err != nil {
+			t.Errorf("close pipe reader: %v", err)
+		}
+	})
 	old := os.Stdout
 	os.Stdout = w
 	t.Cleanup(func() { os.Stdout = old })
