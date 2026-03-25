@@ -14,9 +14,9 @@ var workspacesCmd = &cobra.Command{
 	Short: "List workspaces",
 	Long:  "List all workspaces associated with the Toggl account.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, _, err := utils.GetConfig()
+		token, err := utils.GetToken()
 		if err != nil {
-			return fmt.Errorf("failed to get configuration: %w", err)
+			return fmt.Errorf("failed to get API token: %w", err)
 		}
 
 		client := api.NewAPIClient(token)
