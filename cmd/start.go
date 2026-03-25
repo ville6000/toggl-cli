@@ -15,8 +15,16 @@ import (
 	"github.com/spf13/viper"
 )
 
+// ProjectConfig holds project path mappings from config.
 type ProjectConfig struct {
 	Paths []string `mapstructure:"paths"`
+}
+
+// StartService is the subset of api.Client used by the start command.
+type StartService interface {
+	GetProjectIdByName(workspaceId int, projectName string) (int, error)
+	CreateTimeEntry(workspaceId int, entry data.TimeEntry) (*data.TimeEntry, error)
+	GetProjectsLookupMap(workspaceId int) (map[int]string, error)
 }
 
 var startCmd = &cobra.Command{
@@ -41,29 +49,42 @@ var startCmd = &cobra.Command{
 		}
 
 		description := getDescription(args)
-		timeEntry := client.NewTimeEntry(description, workspaceId, projectId, false)
-		createdEntry, err := client.CreateTimeEntry(workspaceId, timeEntry)
-		if err != nil {
-			return fmt.Errorf("failed to create time entry: %w", err)
-		}
-
-		projectsMap, err := client.GetProjectsLookupMap(workspaceId)
-		if err != nil {
-			return fmt.Errorf("failed to get projects: %w", err)
-		}
-
-		start, err := time.Parse(time.RFC3339, createdEntry.Start)
-		if err != nil {
-			return fmt.Errorf("failed to parse start time: %w", err)
-		}
-
-		return outputCurrentEntry(&data.TimeEntryItem{
-			ID:          createdEntry.ID,
-			Description: createdEntry.Description,
-			ProjectID:   createdEntry.ProjectID,
-			Start:       start,
-		}, projectsMap)
+		return runStart(client, description, workspaceId, projectId)
 	},
+}
+
+func runStart(client StartService, description string, workspaceId, projectId int) error {
+	timeEntry := data.TimeEntry{
+		CreatedWith: "toggl-cli",
+		Description: description,
+		Tags:        []string{},
+		WorkspaceID: workspaceId,
+		Duration:    -1,
+		Start:       time.Now().Format(time.RFC3339),
+		ProjectID:   projectId,
+	}
+
+	createdEntry, err := client.CreateTimeEntry(workspaceId, timeEntry)
+	if err != nil {
+		return fmt.Errorf("failed to create time entry: %w", err)
+	}
+
+	projectsMap, err := client.GetProjectsLookupMap(workspaceId)
+	if err != nil {
+		return fmt.Errorf("failed to get projects: %w", err)
+	}
+
+	start, err := time.Parse(time.RFC3339, createdEntry.Start)
+	if err != nil {
+		return fmt.Errorf("failed to parse start time: %w", err)
+	}
+
+	return outputCurrentEntry(&data.TimeEntryItem{
+		ID:          createdEntry.ID,
+		Description: createdEntry.Description,
+		ProjectID:   createdEntry.ProjectID,
+		Start:       start,
+	}, projectsMap)
 }
 
 func init() {
@@ -72,8 +93,7 @@ func init() {
 	startCmd.Flags().StringP("project", "p", "", "Project for the time entry")
 }
 
-func findProjectIdForEntry(projectName string, client *api.Client, workspaceID int) (int, error) {
-	var projectId int
+func findProjectIdForEntry(projectName string, client StartService, workspaceID int) (int, error) {
 	var err error
 
 	if projectName == "" {
@@ -92,12 +112,11 @@ func findProjectIdForEntry(projectName string, client *api.Client, workspaceID i
 		return 0, fmt.Errorf("no project name provided and no matching project found in config for current path")
 	}
 
-	projectId, err = client.GetProjectIdByName(workspaceID, projectName)
+	projectId, err := client.GetProjectIdByName(workspaceID, projectName)
 	if err != nil || projectId == 0 {
 		return 0, fmt.Errorf("failed to get project ID for '%s': %w", projectName, err)
 	}
 
-	fmt.Printf("Using project '%s' with ID %d for time entry\n", projectName, projectId)
 	return projectId, nil
 }
 
