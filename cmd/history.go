@@ -219,7 +219,7 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
 
 	startTime, err := getTimeWithDefault(start, time.Now())
 	if err != nil {
-		return time.Time{}, time.Time{}, err
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid --start value %q: %w", start, err)
 	}
 
 	end, err := cmd.Flags().GetString("end")
@@ -229,7 +229,7 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
 
 	endTime, err := getTimeWithDefault(end, time.Now().AddDate(0, 0, 1))
 	if err != nil {
-		return time.Time{}, time.Time{}, err
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid --end value %q: %w", end, err)
 	}
 
 	return startTime, endTime, nil
