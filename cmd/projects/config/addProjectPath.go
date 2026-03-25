@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -16,13 +15,16 @@ var AddProjectPathCmd = &cobra.Command{
 	Short: "Save project path to be used with start command",
 	Long:  "",
 	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		token, workspaceId := utils.GetTogglConfig()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		token, workspaceId, err := utils.GetConfig()
+		if err != nil {
+			return fmt.Errorf("failed to get configuration: %w", err)
+		}
+
 		projectName := args[0]
 		currentPath, err := os.Getwd()
 		if err != nil {
-			fmt.Println("Error getting current path:", err)
-			return
+			return fmt.Errorf("failed to get current path: %w", err)
 		}
 
 		client := api.NewAPIClient(token)
@@ -31,7 +33,7 @@ var AddProjectPathCmd = &cobra.Command{
 		if projectName != "" {
 			projectId, err = client.GetProjectIdByName(workspaceId, projectName)
 			if err != nil {
-				log.Fatal("Failed to get project ID:", err)
+				return fmt.Errorf("failed to get project ID: %w", err)
 			}
 		}
 
@@ -43,7 +45,7 @@ var AddProjectPathCmd = &cobra.Command{
 		for _, p := range existingPaths {
 			if p == currentPath {
 				fmt.Println("Path already exists for this project.")
-				return
+				return nil
 			}
 		}
 		existingPaths = append(existingPaths, currentPath)
@@ -51,9 +53,10 @@ var AddProjectPathCmd = &cobra.Command{
 		viper.Set(key, existingPaths)
 
 		if err := viper.WriteConfig(); err != nil {
-			log.Fatal("Error saving configuration:", err)
+			return fmt.Errorf("error saving configuration: %w", err)
 		}
 
 		fmt.Println("Configuration saved successfully!")
+		return nil
 	},
 }

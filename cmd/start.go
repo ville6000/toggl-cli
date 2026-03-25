@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"unicode"
@@ -22,27 +21,32 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start a new time entry",
 	Long:  "",
-	Run: func(cmd *cobra.Command, args []string) {
-		token, workspaceId := utils.GetTogglConfig()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		token, workspaceId, err := utils.GetConfig()
+		if err != nil {
+			return fmt.Errorf("failed to get configuration: %w", err)
+		}
+
 		projectName, err := cmd.Flags().GetString("project")
 		if err != nil {
-			log.Fatal("Error retrieving project flag:", err)
+			return fmt.Errorf("failed to get project flag: %w", err)
 		}
 
 		client := api.NewAPIClient(token)
 		projectId, err := findProjectIdForEntry(projectName, client, workspaceId)
 		if err != nil {
-			log.Fatal("Failed to find project ID:", err)
+			return fmt.Errorf("failed to find project ID: %w", err)
 		}
 
 		description := getDescription(args)
 		timeEntry := client.NewTimeEntry(description, workspaceId, projectId, false)
 		_, err = client.CreateTimeEntry(workspaceId, timeEntry)
 		if err != nil {
-			log.Fatal("Failed to create time entry:", err)
+			return fmt.Errorf("failed to create time entry: %w", err)
 		}
 
 		fmt.Println("Timer started...")
+		return nil
 	},
 }
 

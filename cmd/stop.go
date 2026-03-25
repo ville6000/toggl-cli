@@ -15,7 +15,10 @@ var stopCmd = &cobra.Command{
 	Short: "Stop the current timer entry",
 	Long:  "",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, workspaceId := utils.GetTogglConfig()
+		token, workspaceId, err := utils.GetConfig()
+		if err != nil {
+			return fmt.Errorf("failed to get configuration: %w", err)
+		}
 		client := api.NewAPIClient(token)
 		currentEntry, err := client.GetCurrentTimerEntry()
 		if err != nil {

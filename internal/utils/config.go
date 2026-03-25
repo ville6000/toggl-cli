@@ -2,30 +2,28 @@ package utils
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/spf13/viper"
 )
 
-func GetTogglConfig() (string, int) {
+func GetToken() (string, error) {
 	token := viper.GetString("toggl.token")
 	if token == "" {
-		log.Fatal("Missing toggl.token in config file")
+		return "", fmt.Errorf("missing toggl.token in config, please run 'toggl-cli config'")
+	}
+
+	return token, nil
+}
+
+func GetConfig() (string, int, error) {
+	token := viper.GetString("toggl.token")
+	if token == "" {
+		return "", 0, fmt.Errorf("missing toggl.token in config, please run 'toggl-cli config'")
 	}
 
 	workspaceId := viper.GetInt("toggl.workspace_id")
 	if workspaceId == 0 {
-		log.Fatal("Missing toggl.workspace_id in config file")
-	}
-
-	return token, workspaceId
-}
-
-func GetConfig() (string, int, error) {
-	token, workspaceId := GetTogglConfig()
-
-	if token == "" || workspaceId == 0 {
-		return "", 0, fmt.Errorf("invalid configuration, please run 'toggl-cli config'")
+		return "", 0, fmt.Errorf("missing toggl.workspace_id in config, please run 'toggl-cli config'")
 	}
 
 	return token, workspaceId, nil

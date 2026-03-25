@@ -11,11 +11,11 @@ var wwwCmd = &cobra.Command{
 	Use:   "www",
 	Short: "Open Toggl in the browser",
 	Long:  "",
-	Run: func(cmd *cobra.Command, args []string) {
-		err := browser.OpenURL("https://track.toggl.com/timer")
-		if err != nil {
-			fmt.Println("Error opening browser:", err)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := browser.OpenURL("https://track.toggl.com/timer"); err != nil {
+			return fmt.Errorf("failed to open browser: %w", err)
 		}
+		return nil
 	},
 }
 

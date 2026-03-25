@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"time"
 
@@ -24,33 +23,41 @@ var historyCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Fetch the history of time entries",
 	Long:  "Fetch the history of time entries from Toggl",
-	Run: func(cmd *cobra.Command, args []string) {
-		token, workspaceId := utils.GetTogglConfig()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		token, workspaceId, err := utils.GetConfig()
+		if err != nil {
+			return fmt.Errorf("failed to get configuration: %w", err)
+		}
+
 		displayVerboseOutput, err := cmd.Flags().GetBool("verbose")
 		if err != nil {
-			log.Fatal("Error retrieving verbose flag:", err)
+			return fmt.Errorf("failed to get verbose flag: %w", err)
 		}
 
 		client := api.NewAPIClient(token)
 		projectsLookup, err := client.GetProjectsLookupMap(workspaceId)
 		if err != nil {
-			log.Fatal("Failed to get projects:", err)
+			return fmt.Errorf("failed to get projects: %w", err)
 		}
 
-		startTime, endTime := getDateParams(cmd)
+		startTime, endTime, err := getDateParams(cmd)
+		if err != nil {
+			return err
+		}
+
 		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
-			log.Fatal("Failed to get history:", err)
+			return fmt.Errorf("failed to get history: %w", err)
 		}
 
 		groupedEntries := groupEntriesByDate(timeEntries)
 		if len(groupedEntries) == 0 {
-			log.Fatal("No time entries found for the specified date range.")
+			return fmt.Errorf("no time entries found for the specified date range")
 		}
 
 		location, err := time.LoadLocation("Europe/Helsinki")
 		if err != nil {
-			log.Fatal("Failed to load location:", err)
+			return fmt.Errorf("failed to load location: %w", err)
 		}
 
 		sortedKeys := getSortedTimeEntryDates(groupedEntries)
@@ -61,7 +68,9 @@ var historyCmd = &cobra.Command{
 			fmt.Println()
 
 			if displayVerboseOutput {
-				outputDateEntries(key, headers, groupedEntries, projectsLookup, location)
+				if err := outputDateEntries(key, headers, groupedEntries, projectsLookup, location); err != nil {
+					return err
+				}
 			}
 
 			summaryEntries := sumEntriesByDescriptionAndProject(
@@ -73,6 +82,8 @@ var historyCmd = &cobra.Command{
 				outputSummaryEntries(key, summaryHeaders, summaryEntries)
 			}
 		}
+
+		return nil
 	},
 }
 
@@ -128,10 +139,10 @@ func outputDateEntries(
 	groupedEntries map[string][]data.TimeEntryItem,
 	projectsLookup map[int]string,
 	location *time.Location,
-) {
+) error {
 	parsedDate, err := time.Parse("2006-01-02", key)
 	if err != nil {
-		log.Fatal("Error parsing date:", err)
+		return fmt.Errorf("error parsing date: %w", err)
 	}
 
 	title := fmt.Sprintf("Entries for: %s", parsedDate.In(location).Format("02.01.2006"))
@@ -153,6 +164,7 @@ func outputDateEntries(
 
 	utils.RenderTable(title, headers, rows, nil)
 	fmt.Println()
+	return nil
 }
 
 func groupEntriesByDate(entries []data.TimeEntryItem) map[string][]data.TimeEntryItem {
@@ -179,40 +191,48 @@ func getSortedTimeEntryDates(groupedEntries map[string][]data.TimeEntryItem) []s
 	return sortedKeys
 }
 
-func getDateParams(cmd *cobra.Command) (time.Time, time.Time) {
+func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
 	week, err := cmd.Flags().GetBool("week")
 	if err != nil {
-		log.Fatal("Error retrieving week flag:", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to get week flag: %w", err)
 	}
 
 	if week {
-		return getCurrentWeekTimeInterval()
+		start, end := getCurrentWeekTimeInterval()
+		return start, end, nil
 	}
 
 	month, err := cmd.Flags().GetBool("month")
 	if err != nil {
-		log.Fatal("Error retrieving month flag:", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to get month flag: %w", err)
 	}
 
 	if month {
-		return getCurrentMonthTimeInterval()
+		start, end := getCurrentMonthTimeInterval()
+		return start, end, nil
 	}
 
 	start, err := cmd.Flags().GetString("start")
 	if err != nil {
-		log.Fatal("Error retrieving start flag:", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to get start flag: %w", err)
 	}
 
-	startTime := getTimeWithDefault(start, time.Now())
+	startTime, err := getTimeWithDefault(start, time.Now())
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid --start value %q: %w", start, err)
+	}
 
 	end, err := cmd.Flags().GetString("end")
 	if err != nil {
-		log.Fatal("Error retrieving end flag:", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to get end flag: %w", err)
 	}
 
-	endTime := getTimeWithDefault(end, time.Now().AddDate(0, 0, 1))
+	endTime, err := getTimeWithDefault(end, time.Now().AddDate(0, 0, 1))
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid --end value %q: %w", end, err)
+	}
 
-	return startTime, endTime
+	return startTime, endTime, nil
 }
 
 func getCurrentWeekTimeInterval() (time.Time, time.Time) {
@@ -233,15 +253,15 @@ func getCurrentMonthTimeInterval() (time.Time, time.Time) {
 	return start, end
 }
 
-func getTimeWithDefault(date string, fallback time.Time) time.Time {
+func getTimeWithDefault(date string, fallback time.Time) (time.Time, error) {
 	if date == "" {
-		return fallback
+		return fallback, nil
 	}
 	parsedTime, err := time.Parse("2006-01-02", date)
 	if err != nil {
-		log.Fatal("Error parsing date:", err)
+		return time.Time{}, fmt.Errorf("error parsing date: %w", err)
 	}
-	return parsedTime
+	return parsedTime, nil
 }
 
 func init() {
