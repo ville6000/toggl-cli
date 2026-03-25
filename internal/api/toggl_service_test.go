@@ -336,8 +336,9 @@ func TestUpdateTimeEntry_URLContainsIDs(t *testing.T) {
 	client, _ := newTestClient(t, handler)
 
 	_, _ = client.UpdateTimeEntry(10, 20, data.TimeEntry{})
-	if !strings.Contains(capturedPath, "10") || !strings.Contains(capturedPath, "20") {
-		t.Errorf("URL path %q missing workspace/entry IDs", capturedPath)
+	const wantPath = "/workspaces/10/time_entries/20"
+	if capturedPath != wantPath {
+		t.Errorf("URL path: got %q, want %q", capturedPath, wantPath)
 	}
 }
 

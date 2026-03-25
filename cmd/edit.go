@@ -24,7 +24,7 @@ var editCmd = &cobra.Command{
 	Short: "Edit a recent or running time entry",
 	Long:  "Edit the description or project of a recent or currently running time entry.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, workspaceId, err := utils.GetConfig()
+		token, _, err := utils.GetConfig()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
@@ -50,11 +50,11 @@ var editCmd = &cobra.Command{
 
 		client := api.NewAPIClient(token)
 
-		return runEdit(client, index, workspaceId, description, project)
+		return runEdit(client, index, description, project)
 	},
 }
 
-func runEdit(client EditService, index, workspaceId int, newDescription, newProject string) error {
+func runEdit(client EditService, index int, newDescription, newProject string) error {
 	entries, err := client.GetHistory(nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get history: %w", err)
@@ -70,6 +70,10 @@ func runEdit(client EditService, index, workspaceId int, newDescription, newProj
 
 	entry := entries[index]
 
+	// Use the workspace from the selected entry for all subsequent operations
+	// so multi-workspace accounts target the correct workspace.
+	wsID := entry.WorkspaceID
+
 	description := entry.Description
 	if newDescription != "" {
 		description = newDescription
@@ -77,7 +81,7 @@ func runEdit(client EditService, index, workspaceId int, newDescription, newProj
 
 	projectId := entry.ProjectID
 	if newProject != "" {
-		projectId, err = client.GetProjectIdByName(workspaceId, newProject)
+		projectId, err = client.GetProjectIdByName(wsID, newProject)
 		if err != nil {
 			return fmt.Errorf("failed to find project '%s': %w", newProject, err)
 		}
@@ -88,21 +92,31 @@ func runEdit(client EditService, index, workspaceId int, newDescription, newProj
 		Description: description,
 		Tags:        entry.Tags,
 		Billable:    entry.Billable,
-		WorkspaceID: workspaceId,
+		WorkspaceID: wsID,
 		Duration:    entry.Duration,
 		Start:       entry.Start.Format(time.RFC3339),
 		ProjectID:   projectId,
 	}
 
-	updatedEntry, err := client.UpdateTimeEntry(workspaceId, entry.ID, updated)
+	// Preserve stop time for stopped entries to avoid converting them back to running.
+	if entry.Duration >= 0 {
+		stopTime := entry.Start.Add(time.Duration(entry.Duration) * time.Second).Format(time.RFC3339)
+		updated.Stop = &stopTime
+	}
+
+	updatedEntry, err := client.UpdateTimeEntry(wsID, entry.ID, updated)
 	if err != nil {
 		return fmt.Errorf("failed to update time entry: %w", err)
 	}
 
-	projectsMap, err := client.GetProjectsLookupMap(workspaceId)
+	projectsMap, err := client.GetProjectsLookupMap(wsID)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "warning: failed to get projects, showing entry without project name:", err)
 		projectsMap = nil
+	}
+
+	if updatedEntry.Duration >= 0 {
+		return outputStoppedTimeEntry(updatedEntry, projectsMap)
 	}
 
 	return outputCurrentEntry(updatedEntry, projectsMap)
