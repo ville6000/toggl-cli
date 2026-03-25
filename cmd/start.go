@@ -71,12 +71,17 @@ func runStart(client StartService, description string, workspaceId, projectId in
 
 	projectsMap, err := client.GetProjectsLookupMap(workspaceId)
 	if err != nil {
-		return fmt.Errorf("failed to get projects: %w", err)
+		// Non-fatal: the entry was already created. Show it without project name.
+		fmt.Fprintln(os.Stderr, "warning: failed to get projects, showing entry without project name:", err)
+		projectsMap = nil
 	}
 
-	start, err := time.Parse(time.RFC3339, createdEntry.Start)
+	start, err := time.Parse(time.RFC3339Nano, createdEntry.Start)
 	if err != nil {
-		return fmt.Errorf("failed to parse start time: %w", err)
+		start, err = time.Parse(time.RFC3339, createdEntry.Start)
+		if err != nil {
+			return fmt.Errorf("failed to parse start time: %w", err)
+		}
 	}
 
 	return outputCurrentEntry(&data.TimeEntryItem{

@@ -115,12 +115,16 @@ func TestRunStart_GetProjectsMapError(t *testing.T) {
 		projectsMapErr: errors.New("projects unavailable"),
 	}
 
-	err := runStart(mock, "task", 1, 7)
-	if err == nil {
-		t.Fatal("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "failed to get projects") {
-		t.Errorf("unexpected error message: %q", err.Error())
+	// Project lookup failure is non-fatal: entry was already created.
+	// The command should succeed and print a warning to stderr instead.
+	out := captureOutput(t, func() {
+		if err := runStart(mock, "task", 1, 7); err != nil {
+			t.Errorf("expected success despite projects lookup failure, got: %v", err)
+		}
+	})
+	// Output should still contain the entry table even without project name.
+	if !strings.Contains(out, "Current timer entry") {
+		t.Errorf("expected entry table in output: %q", out)
 	}
 }
 
@@ -139,6 +143,28 @@ func TestRunStart_InvalidStartTime(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "failed to parse start time") {
 		t.Errorf("unexpected error message: %q", err.Error())
+	}
+}
+
+func TestRunStart_RFC3339NanoStartTime(t *testing.T) {
+	// API may return fractional seconds; ensure they parse correctly.
+	start := time.Date(2024, 6, 15, 9, 30, 0, 123000000, time.UTC)
+	mock := &mockStartService{
+		createEntry: &data.TimeEntry{
+			ID:          1,
+			Description: "work",
+			Start:       start.Format(time.RFC3339Nano),
+		},
+		projectsMap: map[int]string{},
+	}
+
+	out := captureOutput(t, func() {
+		if err := runStart(mock, "work", 1, 0); err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+	if !strings.Contains(out, "15.06.2024") {
+		t.Errorf("output missing formatted start date: %q", out)
 	}
 }
 
