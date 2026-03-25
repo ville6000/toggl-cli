@@ -73,27 +73,42 @@ func writeConfig(token string, workspaceID int) error {
 	return writeErr
 }
 
-// ConfigPath returns the path to the configuration file.
-// It checks for the XDG_CONFIG_HOME environment variable first,
-// then checks for the $HOME/.config directory, and finally defaults to $HOME/.toggl-cli.yaml.
-// It returns an error if the home directory cannot be determined.
+// ConfigPath returns the config file to use: the first existing candidate,
+// or the preferred XDG path for new installs.
 func ConfigPath() (string, error) {
+	candidates, err := configCandidates()
+	if err != nil {
+		return "", err
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+
+	return candidates[0], nil
+}
+
+// configCandidates returns config file paths in priority order:
+// XDG_CONFIG_HOME, then ~/.config/toggl-cli, then ~/.toggl-cli.yaml.
+func configCandidates() ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
+		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	// Check if XDG_CONFIG_HOME is set and use it if available
-	if xdgConfigHome := os.Getenv("XDG_CONFIG_HOME"); xdgConfigHome != "" {
-		return filepath.Join(xdgConfigHome, "toggl-cli", "config.yaml"), nil
+	candidates := []string{}
+
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		candidates = append(candidates, filepath.Join(xdg, "toggl-cli", "config.yaml"))
 	}
 
-	// Check if $HOME/.config directory exists. and use it if available
-	if homeConfig, _ := os.Stat(filepath.Join(home, ".config")); homeConfig != nil && homeConfig.IsDir() {
-		return filepath.Join(home, ".config", "toggl-cli", "config.yaml"), nil
-	}
+	candidates = append(candidates,
+		filepath.Join(home, ".config", "toggl-cli", "config.yaml"),
+		filepath.Join(home, ".toggl-cli.yaml"),
+	)
 
-	return filepath.Join(home, ".toggl-cli.yaml"), nil
+	return candidates, nil
 }
 
 func init() {

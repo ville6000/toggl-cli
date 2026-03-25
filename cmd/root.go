@@ -42,7 +42,7 @@ func init() {
 		&cfgFile,
 		"config",
 		"",
-		"config file (default is $HOME/.toggl-cli.yaml)",
+		"config file (default is $XDG_CONFIG_HOME/toggl-cli/config.yaml or $HOME/.toggl-cli.yaml)",
 	)
 
 	// Cobra also supports local flags, which will only run
@@ -58,14 +58,9 @@ func initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find home directory.
-		home, err := os.UserHomeDir()
+		configPath, err := ConfigPath()
 		cobra.CheckErr(err)
-
-		// Search config in home directory with name ".toggl-cli" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".toggl-cli")
+		viper.SetConfigFile(configPath)
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
