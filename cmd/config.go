@@ -37,7 +37,7 @@ var configCmd = &cobra.Command{
 			return fmt.Errorf("invalid workspace ID: %w", err)
 		}
 
-		fmt.Printf("Please enter your timezone (leave empty for system default %q): ", time.Local)
+		fmt.Printf("Please enter your timezone (leave empty for system default %q): ", time.Now().Location().String())
 		tz, err := reader.ReadString('\n')
 		if err != nil {
 			return fmt.Errorf("error reading input: %w", err)

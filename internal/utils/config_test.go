@@ -144,9 +144,12 @@ func TestGetTimezone_Valid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	want, _ := time.LoadLocation("America/New_York")
+	want, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatalf("unexpected error from time.LoadLocation: %v", err)
+	}
 	if loc.String() != want.String() {
-		t.Errorf("got %q, want %q", loc, want)
+		t.Errorf("got %s, want %s", loc.String(), want.String())
 	}
 }
 
