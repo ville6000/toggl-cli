@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -27,13 +28,29 @@ var configCmd = &cobra.Command{
 		token = strings.TrimSpace(token)
 
 		fmt.Print("Please enter your default workspace ID: ")
-		var workspaceID int
-		_, err = fmt.Scanf("%d", &workspaceID)
+		wsLine, err := reader.ReadString('\n')
 		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+		var workspaceID int
+		if _, err = fmt.Sscanf(strings.TrimSpace(wsLine), "%d", &workspaceID); err != nil {
 			return fmt.Errorf("invalid workspace ID: %w", err)
 		}
 
-		if err = writeConfig(token, workspaceID); err != nil {
+		fmt.Printf("Please enter your timezone (leave empty for system default %q): ", time.Now().Location().String())
+		tz, err := reader.ReadString('\n')
+		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+		tz = strings.TrimSpace(tz)
+
+		if tz != "" {
+			if _, err := time.LoadLocation(tz); err != nil {
+				return fmt.Errorf("invalid timezone %q: %w", tz, err)
+			}
+		}
+
+		if err = writeConfig(token, workspaceID, tz); err != nil {
 			return fmt.Errorf("error saving configuration: %w", err)
 		}
 
@@ -42,7 +59,7 @@ var configCmd = &cobra.Command{
 	},
 }
 
-func writeConfig(token string, workspaceID int) error {
+func writeConfig(token string, workspaceID int, timezone string) error {
 	configPath, err := ConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
@@ -51,6 +68,7 @@ func writeConfig(token string, workspaceID int) error {
 
 	viper.Set("toggl.token", token)
 	viper.Set("toggl.workspace_id", workspaceID)
+	viper.Set("toggl.timezone", timezone)
 
 	writeErr := viper.WriteConfig()
 

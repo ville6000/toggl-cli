@@ -3,6 +3,7 @@ package utils
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -118,5 +119,49 @@ func TestGetConfig_ZeroWorkspaceID(t *testing.T) {
 
 	if _, _, err := GetConfig(); err == nil {
 		t.Error("expected error for zero workspace_id")
+	}
+}
+
+// ---------- GetTimezone ----------
+
+func TestGetTimezone_Unset(t *testing.T) {
+	resetViper()
+
+	loc, err := GetTimezone()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if loc != time.Local {
+		t.Errorf("expected time.Local, got %v", loc)
+	}
+}
+
+func TestGetTimezone_Valid(t *testing.T) {
+	resetViper()
+	viper.Set("toggl.timezone", "America/New_York")
+
+	loc, err := GetTimezone()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatalf("unexpected error from time.LoadLocation: %v", err)
+	}
+	if loc.String() != want.String() {
+		t.Errorf("got %s, want %s", loc.String(), want.String())
+	}
+}
+
+func TestGetTimezone_Invalid(t *testing.T) {
+	resetViper()
+	viper.Set("toggl.timezone", "Not/A/Timezone")
+
+	_, err := GetTimezone()
+	if err == nil {
+		t.Fatal("expected error for invalid timezone")
+	}
+	if !strings.Contains(err.Error(), "invalid timezone") {
+		t.Errorf("error should mention 'invalid timezone', got: %q", err.Error())
 	}
 }
