@@ -55,9 +55,9 @@ var historyCmd = &cobra.Command{
 			return fmt.Errorf("no time entries found for the specified date range")
 		}
 
-		location, err := time.LoadLocation("Europe/Helsinki")
+		location, err := utils.GetTimezone()
 		if err != nil {
-			return fmt.Errorf("failed to load location: %w", err)
+			return err
 		}
 
 		sortedKeys := getSortedTimeEntryDates(groupedEntries)

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -27,4 +28,18 @@ func GetConfig() (string, int, error) {
 	}
 
 	return token, workspaceId, nil
+}
+
+func GetTimezone() (*time.Location, error) {
+	tz := viper.GetString("toggl.timezone")
+	if tz == "" {
+		return time.Local, nil
+	}
+
+	location, err := time.LoadLocation(tz)
+	if err != nil {
+		return nil, fmt.Errorf("invalid timezone %q in config: %w", tz, err)
+	}
+
+	return location, nil
 }
