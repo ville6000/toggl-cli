@@ -28,14 +28,14 @@ var configCmd = &cobra.Command{
 		token = strings.TrimSpace(token)
 
 		fmt.Print("Please enter your default workspace ID: ")
-		var workspaceID int
-		_, err = fmt.Scanf("%d", &workspaceID)
+		wsLine, err := reader.ReadString('\n')
 		if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+		var workspaceID int
+		if _, err = fmt.Sscanf(strings.TrimSpace(wsLine), "%d", &workspaceID); err != nil {
 			return fmt.Errorf("invalid workspace ID: %w", err)
 		}
-
-		// Consume trailing newline left by Scanf
-		reader.ReadString('\n')
 
 		fmt.Printf("Please enter your timezone (leave empty for system default %q): ", time.Local)
 		tz, err := reader.ReadString('\n')
@@ -68,9 +68,7 @@ func writeConfig(token string, workspaceID int, timezone string) error {
 
 	viper.Set("toggl.token", token)
 	viper.Set("toggl.workspace_id", workspaceID)
-	if timezone != "" {
-		viper.Set("toggl.timezone", timezone)
-	}
+	viper.Set("toggl.timezone", timezone)
 
 	writeErr := viper.WriteConfig()
 
