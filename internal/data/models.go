@@ -49,3 +49,18 @@ type ProjectCache struct {
 	Timestamp time.Time `json:"timestamp"`
 	Data      []Project `json:"data"`
 }
+
+// SevenPaceWorkLog is the request/response body for the 7pace Timetracker
+// REST worklog endpoint. Length is in seconds. A worklog must have either a
+// comment or an associated work item, and Length must be greater than 0.
+type SevenPaceWorkLog struct {
+	Timestamp    string                `json:"timestamp"`
+	Length       int                   `json:"length"`
+	WorkItemID   *int                  `json:"workItemId,omitempty"`
+	Comment      string                `json:"comment,omitempty"`
+	ActivityType *SevenPaceActivityRef `json:"activityType,omitempty"`
+}
+
+type SevenPaceActivityRef struct {
+	ID string `json:"id"`
+}
