@@ -192,6 +192,19 @@ func getSortedTimeEntryDates(groupedEntries map[string][]data.TimeEntryItem) []s
 }
 
 func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
+	// --today is optional and only defined on some commands; it is also the
+	// default range when no date flags are given.
+	if cmd.Flags().Lookup("today") != nil {
+		today, err := cmd.Flags().GetBool("today")
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("failed to get today flag: %w", err)
+		}
+		if today {
+			start := time.Now()
+			return start, start.AddDate(0, 0, 1), nil
+		}
+	}
+
 	week, err := cmd.Flags().GetBool("week")
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("failed to get week flag: %w", err)

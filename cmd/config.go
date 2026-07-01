@@ -50,7 +50,12 @@ var configCmd = &cobra.Command{
 			}
 		}
 
-		if err = writeConfig(token, workspaceID, tz); err != nil {
+		sp, err := readSevenPaceInput(reader)
+		if err != nil {
+			return err
+		}
+
+		if err = writeConfig(token, workspaceID, tz, sp); err != nil {
 			return fmt.Errorf("error saving configuration: %w", err)
 		}
 
@@ -59,7 +64,59 @@ var configCmd = &cobra.Command{
 	},
 }
 
-func writeConfig(token string, workspaceID int, timezone string) error {
+// sevenPaceInput holds the optional on-prem 7pace Timetracker settings gathered
+// during interactive configuration.
+type sevenPaceInput struct {
+	baseURL        string
+	domain         string
+	username       string
+	password       string
+	activityTypeID string
+}
+
+// readSevenPaceInput prompts for the optional 7pace settings. Leaving the base
+// URL empty skips 7pace configuration entirely.
+//
+// Note: the password is stored in plaintext in the config file — this is the
+// tradeoff of using NTLM credentials from config.
+func readSevenPaceInput(reader *bufio.Reader) (sevenPaceInput, error) {
+	fmt.Print("Configure 7pace Timetracker? Enter base URL (leave empty to skip): ")
+	baseURL, err := reader.ReadString('\n')
+	if err != nil {
+		return sevenPaceInput{}, fmt.Errorf("error reading input: %w", err)
+	}
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		return sevenPaceInput{}, nil
+	}
+
+	prompt := func(label string) (string, error) {
+		fmt.Print(label)
+		line, readErr := reader.ReadString('\n')
+		if readErr != nil {
+			return "", fmt.Errorf("error reading input: %w", readErr)
+		}
+		return strings.TrimSpace(line), nil
+	}
+
+	sp := sevenPaceInput{baseURL: baseURL}
+	if sp.domain, err = prompt("Windows domain (leave empty if none): "); err != nil {
+		return sevenPaceInput{}, err
+	}
+	if sp.username, err = prompt("Windows username: "); err != nil {
+		return sevenPaceInput{}, err
+	}
+	if sp.password, err = prompt("Windows password (stored in plaintext): "); err != nil {
+		return sevenPaceInput{}, err
+	}
+	if sp.activityTypeID, err = prompt("Activity type UUID (optional): "); err != nil {
+		return sevenPaceInput{}, err
+	}
+
+	return sp, nil
+}
+
+func writeConfig(token string, workspaceID int, timezone string, sp sevenPaceInput) error {
 	configPath, err := ConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
@@ -69,6 +126,14 @@ func writeConfig(token string, workspaceID int, timezone string) error {
 	viper.Set("toggl.token", token)
 	viper.Set("toggl.workspace_id", workspaceID)
 	viper.Set("toggl.timezone", timezone)
+
+	if sp.baseURL != "" {
+		viper.Set("sevenpace.base_url", sp.baseURL)
+		viper.Set("sevenpace.domain", sp.domain)
+		viper.Set("sevenpace.username", sp.username)
+		viper.Set("sevenpace.password", sp.password)
+		viper.Set("sevenpace.activity_type_id", sp.activityTypeID)
+	}
 
 	writeErr := viper.WriteConfig()
 
