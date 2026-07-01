@@ -47,6 +47,51 @@ func parseWorkItemID(description string) (int, bool) {
 	return 0, false
 }
 
+// roundUpToMinute rounds a duration in seconds up to the nearest whole minute.
+// Non-positive durations return 0.
+func roundUpToMinute(seconds int) int {
+	if seconds <= 0 {
+		return 0
+	}
+	return ((seconds + 59) / 60) * 60
+}
+
+// aggregateEntries combines Toggl time entries that share the same description
+// into a single entry. Durations are summed and rounded up to the nearest
+// minute, and the earliest Start is kept. First-seen order is preserved. Entries
+// with a non-positive Duration are skipped.
+func aggregateEntries(entries []data.TimeEntryItem) []data.TimeEntryItem {
+	order := make([]string, 0, len(entries))
+	groups := make(map[string]*data.TimeEntryItem, len(entries))
+
+	for _, entry := range entries {
+		if entry.Duration <= 0 {
+			continue
+		}
+
+		if g, ok := groups[entry.Description]; ok {
+			g.Duration += entry.Duration
+			if entry.Start.Before(g.Start) {
+				g.Start = entry.Start
+			}
+			continue
+		}
+
+		combined := entry
+		groups[entry.Description] = &combined
+		order = append(order, entry.Description)
+	}
+
+	result := make([]data.TimeEntryItem, 0, len(order))
+	for _, description := range order {
+		g := groups[description]
+		g.Duration = roundUpToMinute(g.Duration)
+		result = append(result, *g)
+	}
+
+	return result
+}
+
 // toWorkLog maps a Toggl time entry to a 7pace worklog. The bool return
 // reports whether a work item id was found in the description.
 func toWorkLog(entry data.TimeEntryItem, activityTypeID string, location *time.Location) (data.SevenPaceWorkLog, bool) {

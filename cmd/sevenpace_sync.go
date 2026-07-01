@@ -25,10 +25,12 @@ type plannedWorkLog struct {
 var sevenpaceSyncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync Toggl time entries to 7pace as worklogs",
-	Long: "Fetch Toggl time entries for a date range and post each one to 7pace as a worklog.\n" +
-		"The work item id is parsed from the entry description (e.g. \"#1234\" or a leading number);\n" +
-		"entries without a work item id are skipped. There is no de-duplication, so re-running the\n" +
-		"same range creates duplicate worklogs — use --dry-run first to preview.",
+	Long: "Fetch Toggl time entries for a date range and post them to 7pace as worklogs.\n" +
+		"Entries sharing the same description are combined into a single worklog, with their\n" +
+		"durations summed and rounded up to the nearest minute. The work item id is parsed from\n" +
+		"the description (e.g. \"#1234\" or a leading number); entries without a work item id are\n" +
+		"skipped. There is no de-duplication, so re-running the same range creates duplicate\n" +
+		"worklogs — use --dry-run first to preview.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		token, _, err := utils.GetConfig()
 		if err != nil {
@@ -66,13 +68,14 @@ var sevenpaceSyncCmd = &cobra.Command{
 			return fmt.Errorf("failed to get history: %w", err)
 		}
 
+		// Combine entries sharing a description into a single worklog, summing
+		// their durations and rounding up to the nearest minute. Running or
+		// zero-length entries are dropped here.
+		entries := aggregateEntries(timeEntries)
+
 		var planned []plannedWorkLog
 		var skipped [][]interface{}
-		for _, entry := range timeEntries {
-			if entry.Duration <= 0 {
-				continue // skip running or zero-length entries
-			}
-
+		for _, entry := range entries {
 			workLog, ok := toWorkLog(entry, spCfg.ActivityTypeID, location)
 			started := entry.Start.In(location).Format("2006-01-02 15:04")
 			duration := api.FormatDuration(float64(entry.Duration))
