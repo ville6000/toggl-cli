@@ -22,7 +22,7 @@ type EditService interface {
 var editCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Edit a recent or running time entry",
-	Long:  "Edit the description or project of a recent or currently running time entry.",
+	Long:  "Edit the description, project or start time of a recent or currently running time entry.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		token, _, err := utils.GetConfig()
 		if err != nil {
@@ -44,17 +44,27 @@ var editCmd = &cobra.Command{
 			return fmt.Errorf("failed to get project flag: %w", err)
 		}
 
-		if description == "" && project == "" {
-			return fmt.Errorf("at least one of --description or --project must be provided")
+		start, err := cmd.Flags().GetString("start")
+		if err != nil {
+			return fmt.Errorf("failed to get start flag: %w", err)
+		}
+
+		if description == "" && project == "" && start == "" {
+			return fmt.Errorf("at least one of --description, --project or --start must be provided")
+		}
+
+		location, err := utils.GetTimezone()
+		if err != nil {
+			return err
 		}
 
 		client := api.NewAPIClient(token)
 
-		return runEdit(client, index, description, project)
+		return runEdit(client, index, description, project, start, location)
 	},
 }
 
-func runEdit(client EditService, index int, newDescription, newProject string) error {
+func runEdit(client EditService, index int, newDescription, newProject, newStart string, location *time.Location) error {
 	entries, err := client.GetHistory(nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get history: %w", err)
@@ -98,8 +108,28 @@ func runEdit(client EditService, index int, newDescription, newProject string) e
 		ProjectID:   projectId,
 	}
 
-	// Preserve stop time for stopped entries to avoid converting them back to running.
-	if entry.Duration >= 0 {
+	if newStart != "" {
+		newStartT, err := parseStartTime(newStart, location, entry.Start)
+		if err != nil {
+			return err
+		}
+
+		updated.Start = newStartT.Format(time.RFC3339)
+
+		// For stopped entries, keep the recorded end time fixed and recompute
+		// the duration so the entry grows or shrinks around the new start.
+		if entry.Duration >= 0 {
+			stopT := entry.Start.Add(time.Duration(entry.Duration) * time.Second)
+			if !newStartT.Before(stopT) {
+				return fmt.Errorf("start time must be before the end time (%s)", stopT.In(location).Format("2006-01-02 15:04"))
+			}
+
+			stopTime := stopT.Format(time.RFC3339)
+			updated.Stop = &stopTime
+			updated.Duration = int(stopT.Sub(newStartT).Seconds())
+		}
+	} else if entry.Duration >= 0 {
+		// Preserve stop time for stopped entries to avoid converting them back to running.
 		stopTime := entry.Start.Add(time.Duration(entry.Duration) * time.Second).Format(time.RFC3339)
 		updated.Stop = &stopTime
 	}
@@ -122,10 +152,29 @@ func runEdit(client EditService, index int, newDescription, newProject string) e
 	return outputCurrentEntry(updatedEntry, projectsMap)
 }
 
+// parseStartTime parses the --start flag in the given location. It accepts
+// "YYYY-MM-DD HH:MM", "YYYY-MM-DD" (midnight) or "HH:MM". The time-only form
+// keeps the year, month and day of the entry's existing start (entryDate).
+func parseStartTime(value string, location *time.Location, entryDate time.Time) (time.Time, error) {
+	for _, layout := range []string{"2006-01-02 15:04", "2006-01-02"} {
+		if t, err := time.ParseInLocation(layout, value, location); err == nil {
+			return t, nil
+		}
+	}
+
+	if t, err := time.ParseInLocation("15:04", value, location); err == nil {
+		day := entryDate.In(location)
+		return time.Date(day.Year(), day.Month(), day.Day(), t.Hour(), t.Minute(), 0, 0, location), nil
+	}
+
+	return time.Time{}, fmt.Errorf("invalid --start %q: use \"YYYY-MM-DD HH:MM\", HH:MM or YYYY-MM-DD", value)
+}
+
 func init() {
 	rootCmd.AddCommand(editCmd)
 
 	editCmd.Flags().IntP("index", "i", 0, "Index of the time entry to edit (0 = most recent)")
 	editCmd.Flags().StringP("description", "d", "", "New description for the time entry")
 	editCmd.Flags().StringP("project", "p", "", "New project for the time entry")
+	editCmd.Flags().StringP("start", "s", "", "New start time in your timezone: \"YYYY-MM-DD HH:MM\", HH:MM (keeps entry's date) or YYYY-MM-DD")
 }

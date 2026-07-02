@@ -39,12 +39,29 @@ the instance also requires being on the corporate network / VPN.
 - `toggl-cli current` - Show the current time entry
 - `toggl-cli continue` - Continue the last time entry
 - `toggl-cli stop` - Stop the current time entry
+- `toggl-cli edit` - Edit a recent/running entry's description, project or start time
 - `toggl-cli history` - List time entries
 - `toggl-cli projects` - List projects
 - `toggl-cli www` - Open the Toggl website
 - `toggl-cli config` - Generate config for the CLI tool
 - `toggl-cli 7pace sync` - Post Toggl entries for a date range to 7pace as worklogs
 - `toggl-cli 7pace add` - Post a single worklog to 7pace
+
+### Editing entries
+
+`toggl-cli edit` updates a recent or running entry (select an older one with
+`--index/-i`, `0` = most recent). Change the description (`--description/-d`),
+project (`--project/-p`) or start time (`--start/-s`).
+
+The start time is interpreted in your configured timezone (`toggl.timezone`).
+It accepts `"YYYY-MM-DD HH:MM"`, `HH:MM` (keeps the entry's date) or
+`YYYY-MM-DD`. For a stopped entry the end time stays fixed and the duration is
+recomputed:
+
+```sh
+toggl-cli edit --start 09:00                    # fix today's running/last entry
+toggl-cli edit -i 1 --start "2024-06-01 08:30"  # older entry, full date+time
+```
 
 ### 7pace worklogs
 
