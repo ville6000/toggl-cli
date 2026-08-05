@@ -57,7 +57,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 			return fmt.Errorf("failed to get yes flag: %w", err)
 		}
 
-		startTime, endTime, err := getDateParams(cmd)
+		startTime, endTime, err := getDateParams(cmd, true)
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ func init() {
 	sevenpaceSyncCmd.Flags().BoolP("week", "w", false, "Sync entries for the current week")
 	sevenpaceSyncCmd.Flags().BoolP("month", "m", false, "Sync entries for the current month")
 	sevenpaceSyncCmd.Flags().StringP("start", "s", "", "Start date, format: YYYY-MM-DD")
-	sevenpaceSyncCmd.Flags().StringP("end", "e", "", "End date, format: YYYY-MM-DD")
+	sevenpaceSyncCmd.Flags().StringP("end", "e", "", "End date (inclusive), format: YYYY-MM-DD (defaults to --start)")
 	sevenpaceSyncCmd.Flags().Bool("dry-run", false, "Preview the worklogs without posting")
 	sevenpaceSyncCmd.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt")
 }
