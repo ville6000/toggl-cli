@@ -40,7 +40,7 @@ var historyCmd = &cobra.Command{
 			return fmt.Errorf("failed to get projects: %w", err)
 		}
 
-		startTime, endTime, err := getDateParams(cmd)
+		startTime, endTime, err := getDateParams(cmd, false)
 		if err != nil {
 			return err
 		}
@@ -191,17 +191,30 @@ func getSortedTimeEntryDates(groupedEntries map[string][]data.TimeEntryItem) []s
 	return sortedKeys
 }
 
-func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
+// getDateParams resolves the date flags into a half-open [start, end) range of
+// instants in the configured timezone: start is midnight of the first day,
+// end is midnight of the day *after* the last one, so --end is inclusive.
+//
+// When only --start is given, endDefaultsToStart selects the range that day
+// alone (used by 7pace sync, where silently including today would post
+// unwanted worklogs) instead of running through the end of today.
+func getDateParams(cmd *cobra.Command, endDefaultsToStart bool) (time.Time, time.Time, error) {
+	location, err := utils.GetTimezone()
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+
+	today := startOfDay(time.Now(), location)
+
 	// --today is optional and only defined on some commands; it is also the
 	// default range when no date flags are given.
 	if cmd.Flags().Lookup("today") != nil {
-		today, err := cmd.Flags().GetBool("today")
+		todayFlag, err := cmd.Flags().GetBool("today")
 		if err != nil {
 			return time.Time{}, time.Time{}, fmt.Errorf("failed to get today flag: %w", err)
 		}
-		if today {
-			start := time.Now()
-			return start, start.AddDate(0, 0, 1), nil
+		if todayFlag {
+			return today, today.AddDate(0, 0, 1), nil
 		}
 	}
 
@@ -211,8 +224,11 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
 	}
 
 	if week {
-		start, end := getCurrentWeekTimeInterval()
-		return start, end, nil
+		start := today
+		for start.Weekday() != time.Monday {
+			start = start.AddDate(0, 0, -1)
+		}
+		return start, start.AddDate(0, 0, 7), nil
 	}
 
 	month, err := cmd.Flags().GetBool("month")
@@ -221,8 +237,8 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
 	}
 
 	if month {
-		start, end := getCurrentMonthTimeInterval()
-		return start, end, nil
+		start := today.AddDate(0, 0, -(today.Day() - 1))
+		return start, start.AddDate(0, 1, 0), nil
 	}
 
 	start, err := cmd.Flags().GetString("start")
@@ -230,7 +246,7 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
 		return time.Time{}, time.Time{}, fmt.Errorf("failed to get start flag: %w", err)
 	}
 
-	startTime, err := getTimeWithDefault(start, time.Now())
+	startTime, err := parseDate(start, location, today)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("invalid --start value %q: %w", start, err)
 	}
@@ -240,37 +256,36 @@ func getDateParams(cmd *cobra.Command) (time.Time, time.Time, error) {
 		return time.Time{}, time.Time{}, fmt.Errorf("failed to get end flag: %w", err)
 	}
 
-	endTime, err := getTimeWithDefault(end, time.Now().AddDate(0, 0, 1))
+	endFallback := today
+	if endDefaultsToStart && start != "" {
+		endFallback = startTime
+	}
+
+	endTime, err := parseDate(end, location, endFallback)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("invalid --end value %q: %w", end, err)
+	}
+
+	// --end names the last day to include, so extend it to the next midnight.
+	endTime = endTime.AddDate(0, 0, 1)
+
+	if endTime.Before(startTime) {
+		return time.Time{}, time.Time{}, fmt.Errorf("--end %q is before --start %q", end, start)
 	}
 
 	return startTime, endTime, nil
 }
 
-func getCurrentWeekTimeInterval() (time.Time, time.Time) {
-	start := time.Now()
-	for start.Weekday() != time.Monday {
-		start = start.AddDate(0, 0, -1)
-	}
-	end := start.AddDate(0, 0, 6)
-
-	return start, end
+func startOfDay(t time.Time, location *time.Location) time.Time {
+	t = t.In(location)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, location)
 }
 
-func getCurrentMonthTimeInterval() (time.Time, time.Time) {
-	start := time.Now()
-	start = start.AddDate(0, 0, -(start.Day() - 1))
-	end := start.AddDate(0, 1, 0)
-
-	return start, end
-}
-
-func getTimeWithDefault(date string, fallback time.Time) (time.Time, error) {
+func parseDate(date string, location *time.Location, fallback time.Time) (time.Time, error) {
 	if date == "" {
 		return fallback, nil
 	}
-	parsedTime, err := time.Parse("2006-01-02", date)
+	parsedTime, err := time.ParseInLocation("2006-01-02", date, location)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("error parsing date: %w", err)
 	}
@@ -283,6 +298,6 @@ func init() {
 	historyCmd.Flags().BoolP("week", "w", false, "History for the current week")
 	historyCmd.Flags().BoolP("month", "m", false, "History for the current month")
 	historyCmd.Flags().StringP("start", "s", "", "Start date for the history, format: YYYY-MM-DD")
-	historyCmd.Flags().StringP("end", "e", "", "End date for the history, format: YYYY-MM-DD")
+	historyCmd.Flags().StringP("end", "e", "", "End date for the history (inclusive), format: YYYY-MM-DD")
 	historyCmd.Flags().BoolP("verbose", "v", false, "Display separate timer entries for each day")
 }
