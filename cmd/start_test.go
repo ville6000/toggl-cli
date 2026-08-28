@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -255,12 +256,15 @@ func TestFindProjectIdForEntry_WithExplicitName(t *testing.T) {
 		projectIdByName: map[string]int{"MyProject": 99},
 	}
 
-	id, err := findProjectIdForEntry("MyProject", mock, 1)
+	id, name, err := findProjectIdForEntry("MyProject", mock, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if id != 99 {
 		t.Errorf("got id %d, want 99", id)
+	}
+	if name != "MyProject" {
+		t.Errorf("got name %q, want %q", name, "MyProject")
 	}
 }
 
@@ -269,7 +273,7 @@ func TestFindProjectIdForEntry_ProjectNotFound(t *testing.T) {
 		projectIdErr: errors.New("not found"),
 	}
 
-	if _, err := findProjectIdForEntry("Missing", mock, 1); err == nil {
+	if _, _, err := findProjectIdForEntry("Missing", mock, 1); err == nil {
 		t.Error("expected error for missing project")
 	}
 }
@@ -278,13 +282,13 @@ func TestFindProjectIdForEntry_EmptyNameNoConfig(t *testing.T) {
 	resetViperForStartTests()
 	mock := &mockStartService{}
 
-	_, err := findProjectIdForEntry("", mock, 1)
+	_, _, err := findProjectIdForEntry("", mock, 1)
 	if err == nil {
 		t.Error("expected error when no name and no config match")
 	}
 }
 
-// ---------- getTicketNumberFromPath (existing, kept for completeness) ----------
+// ---------- getTicketNumberFromPath ----------
 
 func TestGetTicketNumberFromPath(t *testing.T) {
 	tests := []struct {
@@ -295,29 +299,146 @@ func TestGetTicketNumberFromPath(t *testing.T) {
 		{"path with numbers", "ticket-123", "123"},
 		{"path with mixed characters", "abc-123-xyz", "123"},
 		{"path with no numbers", "no-numbers", ""},
-		{"path with multiple number groups", "abc-123-xyz-456", "123456"},
+		{"hash prefixed ticket", "AB#1234", "1234"},
+		{"underscore separated", "fix_4321_thing", "4321"},
+		{"leading number", "123-fix-thing", "123"},
+		{"trailing number", "fix-thing-123", "123"},
+		{"same number twice", "123-fix-123", "123"},
+		{"ambiguous: date and ticket", "proj-2024-fix-123", ""},
+		{"ambiguous: two number groups", "abc-123-xyz-456", ""},
+		{"ambiguous: adjacent groups", "a-1-2-b", ""},
+		{"digits glued to letters", "php8", ""},
+		{"version suffix", "v2", ""},
+		{"version and ticket", "api-v3-1234", "1234"},
+		{"dotted version", "release-2024.1", ""},
 		{"empty path", "", ""},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getTicketNumberFromPath(tt.path)
+			result := getTicketNumberFromPath(tt.path, defaultTicketRe)
 			if result != tt.expected {
-				t.Errorf("getTicketNumberFromPath(%s) = %s, want %s", tt.path, result, tt.expected)
+				t.Errorf("getTicketNumberFromPath(%q) = %q, want %q", tt.path, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestGetTicketNumberFromPath_CustomPattern(t *testing.T) {
+	// A pattern capturing a full JIRA-style key rather than bare digits.
+	re := regexp.MustCompile(`([A-Z]+-[0-9]+)`)
+
+	if got := getTicketNumberFromPath("ABC-123-some-branch", re); got != "ABC-123" {
+		t.Errorf("got %q, want %q", got, "ABC-123")
+	}
+	// Digits alone are no longer a candidate for this pattern.
+	if got := getTicketNumberFromPath("ticket-123", re); got != "" {
+		t.Errorf("got %q, want empty", got)
+	}
+}
+
+func TestGetTicketNumberFromPath_PatternWithoutCaptureGroup(t *testing.T) {
+	re := regexp.MustCompile(`[0-9]+`)
+
+	if got := getTicketNumberFromPath("ticket-123", re); got != "123" {
+		t.Errorf("got %q, want %q", got, "123")
+	}
+}
+
+func TestGetTicketNumberFromPath_PatternMatchingEmptyString(t *testing.T) {
+	// A degenerate user pattern must not spin forever.
+	re := regexp.MustCompile(`[0-9]*`)
+
+	done := make(chan string, 1)
+	go func() { done <- getTicketNumberFromPath("ticket-123", re) }()
+
+	select {
+	case got := <-done:
+		if got != "123" {
+			t.Errorf("got %q, want %q", got, "123")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("getTicketNumberFromPath did not terminate")
+	}
+}
+
+// ---------- ticketPattern ----------
+
+func TestTicketPattern_DefaultWhenUnconfigured(t *testing.T) {
+	resetViperForStartTests()
+
+	if got := ticketPattern("myproject"); got != defaultTicketRe {
+		t.Errorf("expected the default pattern, got %v", got)
+	}
+}
+
+func TestTicketPattern_GlobalOverride(t *testing.T) {
+	resetViperForStartTests()
+	viper.Set("start.ticket_pattern", `([A-Z]+-[0-9]+)`)
+
+	if got := getTicketNumberFromPath("ABC-123-fix", ticketPattern("")); got != "ABC-123" {
+		t.Errorf("got %q, want %q", got, "ABC-123")
+	}
+}
+
+func TestTicketPattern_ProjectOverridesGlobal(t *testing.T) {
+	resetViperForStartTests()
+	viper.Set("start.ticket_pattern", `([A-Z]+-[0-9]+)`)
+	viper.Set("projects.myproject.ticket_pattern", `task-([0-9]+)`)
+
+	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern("myproject")); got != "987" {
+		t.Errorf("got %q, want %q", got, "987")
+	}
+	// A project without its own pattern still gets the global one.
+	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern("other")); got != "ABC-123" {
+		t.Errorf("got %q, want %q", got, "ABC-123")
+	}
+}
+
+func TestTicketPattern_InvalidFallsBackToDefault(t *testing.T) {
+	resetViperForStartTests()
+	viper.Set("start.ticket_pattern", `([0-9]+`)
+
+	if got := ticketPattern(""); got != defaultTicketRe {
+		t.Errorf("expected fallback to the default pattern, got %v", got)
 	}
 }
 
 // ---------- getDescription ----------
 
 func TestGetDescriptionWithArgs(t *testing.T) {
-	result := getDescription([]string{"test description"})
+	result := getDescription([]string{"test description"}, "")
 	if result != "test description" {
 		t.Errorf("getDescription() with args = %s, want %s", result, "test description")
 	}
 
 	// Empty/nil args fall back to path detection — just verify no panic.
-	t.Logf("getDescription([]) = %q", getDescription([]string{}))
-	t.Logf("getDescription(nil) = %q", getDescription(nil))
+	t.Logf("getDescription([]) = %q", getDescription([]string{}, ""))
+	t.Logf("getDescription(nil) = %q", getDescription(nil, ""))
+}
+
+func TestDetectDescriptionFromCurrentPath(t *testing.T) {
+	resetViperForStartTests()
+
+	tests := []struct {
+		dir      string
+		expected string
+	}{
+		{"ticket-123", "123"},
+		{"proj-2024-fix-123", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.dir, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			if err := os.Mkdir(tt.dir, 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+			t.Chdir(tt.dir)
+
+			if got := detectDescriptionFromCurrentPath(""); got != tt.expected {
+				t.Errorf("detectDescriptionFromCurrentPath() in %q = %q, want %q", tt.dir, got, tt.expected)
+			}
+		})
+	}
 }
