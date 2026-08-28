@@ -3,7 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -62,7 +62,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 			return err
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
 			return fmt.Errorf("failed to get history: %w", err)
@@ -98,32 +98,33 @@ var sevenpaceSyncCmd = &cobra.Command{
 			return fmt.Errorf("no time entries found for the specified date range")
 		}
 
+		out := cmd.OutOrStdout()
 		headers := []interface{}{"Work Item", "Started At", "Duration", "Comment"}
 		if len(planned) > 0 {
 			rows := make([][]interface{}, 0, len(planned))
 			for _, p := range planned {
 				rows = append(rows, []interface{}{p.workItem, p.started, p.duration, p.comment})
 			}
-			utils.RenderTable("Worklogs to post", headers, rows, nil)
-			fmt.Println()
+			utils.RenderTable(out, "Worklogs to post", headers, rows, nil)
+			fmt.Fprintln(out)
 		}
 		if len(skipped) > 0 {
-			utils.RenderTable("Skipped (no work item id)", headers, skipped, nil)
-			fmt.Println()
+			utils.RenderTable(out, "Skipped (no work item id)", headers, skipped, nil)
+			fmt.Fprintln(out)
 		}
 
 		if dryRun {
-			fmt.Printf("Dry run: %d worklog(s) would be posted, %d skipped.\n", len(planned), len(skipped))
+			fmt.Fprintf(out, "Dry run: %d worklog(s) would be posted, %d skipped.\n", len(planned), len(skipped))
 			return nil
 		}
 
 		if len(planned) == 0 {
-			fmt.Println("Nothing to post.")
+			fmt.Fprintln(out, "Nothing to post.")
 			return nil
 		}
 
-		if !assumeYes && !confirm(fmt.Sprintf("Post %d worklog(s) to 7pace?", len(planned))) {
-			fmt.Println("Aborted.")
+		if !assumeYes && !confirm(out, cmd.InOrStdin(), fmt.Sprintf("Post %d worklog(s) to 7pace?", len(planned))) {
+			fmt.Fprintln(out, "Aborted.")
 			return nil
 		}
 
@@ -138,9 +139,9 @@ var sevenpaceSyncCmd = &cobra.Command{
 			posted++
 		}
 
-		fmt.Printf("Posted %d worklog(s), %d skipped, %d failed.\n", posted, len(skipped), len(failures))
+		fmt.Fprintf(out, "Posted %d worklog(s), %d skipped, %d failed.\n", posted, len(skipped), len(failures))
 		if len(failures) > 0 {
-			utils.RenderTable("Failed", []interface{}{"Work Item", "Started At", "Duration", "Error"}, failures, nil)
+			utils.RenderTable(out, "Failed", []interface{}{"Work Item", "Started At", "Duration", "Error"}, failures, nil)
 			return fmt.Errorf("%d worklog(s) failed to post", len(failures))
 		}
 
@@ -148,9 +149,9 @@ var sevenpaceSyncCmd = &cobra.Command{
 	},
 }
 
-func confirm(prompt string) bool {
-	fmt.Printf("%s [y/N]: ", prompt)
-	reader := bufio.NewReader(os.Stdin)
+func confirm(out io.Writer, in io.Reader, prompt string) bool {
+	fmt.Fprintf(out, "%s [y/N]: ", prompt)
+	reader := bufio.NewReader(in)
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return false

@@ -1,21 +1,22 @@
 package utils
 
 import (
-	"os"
+	"io"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-// RenderTable renders a table to the standard output.
+// RenderTable renders a table to out.
 // It takes headers and rows as parameters.
 func RenderTable(
+	out io.Writer,
 	title string,
 	headers []interface{},
 	rows [][]interface{},
 	footer table.Row,
 ) {
 	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
+	t.SetOutputMirror(out)
 
 	if title != "" {
 		t.SetTitle(title)

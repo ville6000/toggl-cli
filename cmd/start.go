@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -53,18 +54,18 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("failed to get project flag: %w", err)
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 		projectId, resolvedProject, err := findProjectIdForEntry(projectName, client, workspaceId)
 		if err != nil {
 			return fmt.Errorf("failed to find project ID: %w", err)
 		}
 
 		description := getDescription(args, resolvedProject)
-		return runStart(client, description, workspaceId, projectId)
+		return runStart(cmd.OutOrStdout(), cmd.ErrOrStderr(), client, description, workspaceId, projectId)
 	},
 }
 
-func runStart(client StartService, description string, workspaceId, projectId int) error {
+func runStart(out, errOut io.Writer, client StartService, description string, workspaceId, projectId int) error {
 	timeEntry := data.TimeEntry{
 		CreatedWith: "toggl-cli",
 		Description: description,
@@ -83,7 +84,7 @@ func runStart(client StartService, description string, workspaceId, projectId in
 	projectsMap, err := client.GetProjectsLookupMap(workspaceId)
 	if err != nil {
 		// Non-fatal: the entry was already created. Show it without project name.
-		fmt.Fprintln(os.Stderr, "warning: failed to get projects, showing entry without project name:", err)
+		fmt.Fprintln(errOut, "warning: failed to get projects, showing entry without project name:", err)
 		projectsMap = nil
 	}
 
@@ -95,7 +96,7 @@ func runStart(client StartService, description string, workspaceId, projectId in
 		}
 	}
 
-	return outputCurrentEntry(&data.TimeEntryItem{
+	return outputCurrentEntry(out, &data.TimeEntryItem{
 		ID:          createdEntry.ID,
 		Description: createdEntry.Description,
 		ProjectID:   createdEntry.ProjectID,

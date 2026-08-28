@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"time"
 
@@ -34,7 +35,7 @@ var historyCmd = &cobra.Command{
 			return fmt.Errorf("failed to get verbose flag: %w", err)
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 		projectsLookup, err := client.GetProjectsLookupMap(workspaceId)
 		if err != nil {
 			return fmt.Errorf("failed to get projects: %w", err)
@@ -50,25 +51,27 @@ var historyCmd = &cobra.Command{
 			return fmt.Errorf("failed to get history: %w", err)
 		}
 
-		groupedEntries := groupEntriesByDate(timeEntries)
-		if len(groupedEntries) == 0 {
-			return fmt.Errorf("no time entries found for the specified date range")
-		}
-
 		location, err := utils.GetTimezone()
 		if err != nil {
 			return err
 		}
 
+		groupedEntries := groupEntriesByDate(timeEntries, location)
+		if len(groupedEntries) == 0 {
+			return fmt.Errorf("no time entries found for the specified date range")
+		}
+
+		out := cmd.OutOrStdout()
+		now := time.Now()
 		sortedKeys := getSortedTimeEntryDates(groupedEntries)
 		headers := []interface{}{"Started At", "Duration", "Description", "Project"}
 		summaryHeaders := []interface{}{"Description", "Project", "Duration"}
 		for _, key := range sortedKeys {
-			fmt.Printf("# %s\n", key)
-			fmt.Println()
+			fmt.Fprintf(out, "# %s\n", key)
+			fmt.Fprintln(out)
 
 			if displayVerboseOutput {
-				if err := outputDateEntries(key, headers, groupedEntries, projectsLookup, location); err != nil {
+				if err := outputDateEntries(out, key, headers, groupedEntries, projectsLookup, location, now); err != nil {
 					return err
 				}
 			}
@@ -76,10 +79,11 @@ var historyCmd = &cobra.Command{
 			summaryEntries := sumEntriesByDescriptionAndProject(
 				groupedEntries[key],
 				projectsLookup,
+				now,
 			)
 
 			if len(summaryEntries) > 0 {
-				outputSummaryEntries(key, summaryHeaders, summaryEntries)
+				outputSummaryEntries(out, key, summaryHeaders, summaryEntries)
 			}
 		}
 
@@ -87,7 +91,7 @@ var historyCmd = &cobra.Command{
 	},
 }
 
-func outputSummaryEntries(key string, headers []interface{}, entries map[string]HistoryEntry) {
+func outputSummaryEntries(out io.Writer, key string, headers []interface{}, entries map[string]HistoryEntry) {
 	totalDuration := 0
 	var rows [][]interface{}
 	for _, entry := range entries {
@@ -104,27 +108,29 @@ func outputSummaryEntries(key string, headers []interface{}, entries map[string]
 	footer := table.Row{"", "Total", api.FormatDuration(float64(totalDuration))}
 	title := fmt.Sprintf("Summary for: %s", key)
 
-	utils.RenderTable(title, headers, rows, footer)
-	fmt.Println()
+	utils.RenderTable(out, title, headers, rows, footer)
+	fmt.Fprintln(out)
 }
 
 func sumEntriesByDescriptionAndProject(
 	entries []data.TimeEntryItem,
 	projectsLookup map[int]string,
+	now time.Time,
 ) map[string]HistoryEntry {
 	summary := make(map[string]HistoryEntry)
 
 	for _, entry := range entries {
 		projectName := projectsLookup[entry.ProjectID]
 		key := fmt.Sprintf("%s - %s", entry.Description, projectName)
+		duration := entryDuration(entry, now)
 
 		if existingEntry, exists := summary[key]; exists {
-			existingEntry.Duration += entry.Duration
+			existingEntry.Duration += duration
 			summary[key] = existingEntry
 		} else {
 			summary[key] = HistoryEntry{
 				Description: entry.Description,
-				Duration:    entry.Duration,
+				Duration:    duration,
 				Project:     projectName,
 			}
 		}
@@ -133,45 +139,66 @@ func sumEntriesByDescriptionAndProject(
 	return summary
 }
 
+// entryDuration returns how long an entry has run, in seconds. Toggl encodes a
+// running entry as a negative duration (the negated start timestamp), so those
+// are reported as the time elapsed so far instead of the raw sentinel, which
+// would otherwise wreck the daily totals.
+func entryDuration(entry data.TimeEntryItem, now time.Time) int {
+	if entry.Duration < 0 {
+		elapsed := int(now.Sub(entry.Start).Seconds())
+		if elapsed < 0 {
+			return 0
+		}
+		return elapsed
+	}
+
+	return entry.Duration
+}
+
 func outputDateEntries(
+	out io.Writer,
 	key string,
 	headers []interface{},
 	groupedEntries map[string][]data.TimeEntryItem,
 	projectsLookup map[int]string,
 	location *time.Location,
+	now time.Time,
 ) error {
-	parsedDate, err := time.Parse("2006-01-02", key)
+	parsedDate, err := time.ParseInLocation("2006-01-02", key, location)
 	if err != nil {
 		return fmt.Errorf("error parsing date: %w", err)
 	}
 
-	title := fmt.Sprintf("Entries for: %s", parsedDate.In(location).Format("02.01.2006"))
+	title := fmt.Sprintf("Entries for: %s", parsedDate.Format("02.01.2006"))
 
 	entries := groupedEntries[key]
 	var rows [][]interface{}
 	for _, entry := range entries {
-		formattedDuration := api.FormatDuration(float64(entry.Duration))
+		formattedDuration := api.FormatDuration(float64(entryDuration(entry, now)))
 		projectName := projectsLookup[entry.ProjectID]
-		startTimeInFinnish := entry.Start.In(location)
+		localStart := entry.Start.In(location)
 
 		rows = append(rows, []interface{}{
-			startTimeInFinnish.Format("15:04"),
+			localStart.Format("15:04"),
 			formattedDuration,
 			entry.Description,
 			projectName,
 		})
 	}
 
-	utils.RenderTable(title, headers, rows, nil)
-	fmt.Println()
+	utils.RenderTable(out, title, headers, rows, nil)
+	fmt.Fprintln(out)
 	return nil
 }
 
-func groupEntriesByDate(entries []data.TimeEntryItem) map[string][]data.TimeEntryItem {
+// groupEntriesByDate buckets entries by their calendar date in the configured
+// timezone. The API hands back UTC timestamps, so grouping on those directly
+// would file an entry started at 01:00 in a UTC+2 zone under the previous day.
+func groupEntriesByDate(entries []data.TimeEntryItem, location *time.Location) map[string][]data.TimeEntryItem {
 	groupedEntries := make(map[string][]data.TimeEntryItem)
 
 	for _, entry := range entries {
-		date := entry.Start.Format("2006-01-02")
+		date := entry.Start.In(location).Format("2006-01-02")
 		groupedEntries[date] = append(groupedEntries[date], entry)
 	}
 

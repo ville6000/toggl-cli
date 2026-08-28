@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"os"
@@ -38,34 +39,6 @@ func (m *mockStartService) GetProjectsLookupMap(_ int) (map[int]string, error) {
 	return m.projectsMap, m.projectsMapErr
 }
 
-// captureOutput redirects stdout and returns whatever was printed.
-func captureOutput(t *testing.T, fn func()) string {
-	t.Helper()
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("os.Pipe: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := r.Close(); err != nil {
-			t.Errorf("close pipe reader: %v", err)
-		}
-	})
-	old := os.Stdout
-	os.Stdout = w
-	t.Cleanup(func() { os.Stdout = old })
-
-	fn()
-
-	if err := w.Close(); err != nil {
-		t.Fatalf("close pipe writer: %v", err)
-	}
-	var buf strings.Builder
-	if _, err := io.Copy(&buf, r); err != nil {
-		t.Fatalf("read pipe: %v", err)
-	}
-	return buf.String()
-}
-
 // ---------- runStart ----------
 
 func TestRunStart_Success(t *testing.T) {
@@ -79,11 +52,11 @@ func TestRunStart_Success(t *testing.T) {
 		projectsMap: map[int]string{7: "MyProject"},
 	}
 
-	out := captureOutput(t, func() {
-		if err := runStart(mock, "my task", 1, 7); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	var buf bytes.Buffer
+	if err := runStart(&buf, io.Discard, mock, "my task", 1, 7); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	out := buf.String()
 
 	if !strings.Contains(out, "my task") {
 		t.Errorf("output missing description: %q", out)
@@ -98,7 +71,7 @@ func TestRunStart_CreateTimeEntryError(t *testing.T) {
 		createErr: errors.New("API unavailable"),
 	}
 
-	err := runStart(mock, "task", 1, 7)
+	err := runStart(io.Discard, io.Discard, mock, "task", 1, 7)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -118,11 +91,11 @@ func TestRunStart_GetProjectsMapError(t *testing.T) {
 
 	// Project lookup failure is non-fatal: entry was already created.
 	// The command should succeed and print a warning to stderr instead.
-	out := captureOutput(t, func() {
-		if err := runStart(mock, "task", 1, 7); err != nil {
-			t.Errorf("expected success despite projects lookup failure, got: %v", err)
-		}
-	})
+	var buf bytes.Buffer
+	if err := runStart(&buf, io.Discard, mock, "task", 1, 7); err != nil {
+		t.Errorf("expected success despite projects lookup failure, got: %v", err)
+	}
+	out := buf.String()
 	// Output should still contain the entry table even without project name.
 	if !strings.Contains(out, "Current timer entry") {
 		t.Errorf("expected entry table in output: %q", out)
@@ -138,7 +111,7 @@ func TestRunStart_InvalidStartTime(t *testing.T) {
 		projectsMap: map[int]string{},
 	}
 
-	err := runStart(mock, "task", 1, 7)
+	err := runStart(io.Discard, io.Discard, mock, "task", 1, 7)
 	if err == nil {
 		t.Fatal("expected error for invalid start time")
 	}
@@ -159,11 +132,11 @@ func TestRunStart_RFC3339NanoStartTime(t *testing.T) {
 		projectsMap: map[int]string{},
 	}
 
-	out := captureOutput(t, func() {
-		if err := runStart(mock, "work", 1, 0); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	var buf bytes.Buffer
+	if err := runStart(&buf, io.Discard, mock, "work", 1, 0); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	out := buf.String()
 	if !strings.Contains(out, "15.06.2024") {
 		t.Errorf("output missing formatted start date: %q", out)
 	}
@@ -180,11 +153,11 @@ func TestRunStart_OutputContainsStartTime(t *testing.T) {
 		projectsMap: map[int]string{},
 	}
 
-	out := captureOutput(t, func() {
-		if err := runStart(mock, "work", 1, 0); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	var buf bytes.Buffer
+	if err := runStart(&buf, io.Discard, mock, "work", 1, 0); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	out := buf.String()
 
 	if !strings.Contains(out, "15.06.2024") {
 		t.Errorf("output missing formatted start date: %q", out)

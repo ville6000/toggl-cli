@@ -8,6 +8,8 @@
 toggl:
   token: <your_api_token>
   workspace_id: <your_workspace_id>
+  # optional, defaults to the public Toggl API
+  # base_url: https://api.track.toggl.com/api/v9
 ```
 
 The configuration can be generated using the `toggl-cli config` command.

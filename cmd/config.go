@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,16 +19,17 @@ var configCmd = &cobra.Command{
 	Short: "Manage configuration settings",
 	Long:  "Manage configuration settings for the Toggl CLI.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		reader := bufio.NewReader(os.Stdin)
+		out := cmd.OutOrStdout()
+		reader := bufio.NewReader(cmd.InOrStdin())
 
-		fmt.Print("Please enter your Toggl API token: ")
+		fmt.Fprint(out, "Please enter your Toggl API token: ")
 		token, err := reader.ReadString('\n')
 		if err != nil {
 			return fmt.Errorf("error reading input: %w", err)
 		}
 		token = strings.TrimSpace(token)
 
-		fmt.Print("Please enter your default workspace ID: ")
+		fmt.Fprint(out, "Please enter your default workspace ID: ")
 		wsLine, err := reader.ReadString('\n')
 		if err != nil {
 			return fmt.Errorf("error reading input: %w", err)
@@ -37,7 +39,7 @@ var configCmd = &cobra.Command{
 			return fmt.Errorf("invalid workspace ID: %w", err)
 		}
 
-		fmt.Printf("Please enter your timezone (leave empty for system default %q): ", time.Now().Location().String())
+		fmt.Fprintf(out, "Please enter your timezone (leave empty for system default %q): ", time.Now().Location().String())
 		tz, err := reader.ReadString('\n')
 		if err != nil {
 			return fmt.Errorf("error reading input: %w", err)
@@ -50,7 +52,7 @@ var configCmd = &cobra.Command{
 			}
 		}
 
-		sp, err := readSevenPaceInput(reader)
+		sp, err := readSevenPaceInput(out, reader)
 		if err != nil {
 			return err
 		}
@@ -59,7 +61,7 @@ var configCmd = &cobra.Command{
 			return fmt.Errorf("error saving configuration: %w", err)
 		}
 
-		fmt.Println("Configuration saved successfully!")
+		fmt.Fprintln(out, "Configuration saved successfully!")
 		return nil
 	},
 }
@@ -79,8 +81,8 @@ type sevenPaceInput struct {
 //
 // Note: the password is stored in plaintext in the config file — this is the
 // tradeoff of using NTLM credentials from config.
-func readSevenPaceInput(reader *bufio.Reader) (sevenPaceInput, error) {
-	fmt.Print("Configure 7pace Timetracker? Enter base URL (leave empty to skip): ")
+func readSevenPaceInput(out io.Writer, reader *bufio.Reader) (sevenPaceInput, error) {
+	fmt.Fprint(out, "Configure 7pace Timetracker? Enter base URL (leave empty to skip): ")
 	baseURL, err := reader.ReadString('\n')
 	if err != nil {
 		return sevenPaceInput{}, fmt.Errorf("error reading input: %w", err)
@@ -91,7 +93,7 @@ func readSevenPaceInput(reader *bufio.Reader) (sevenPaceInput, error) {
 	}
 
 	prompt := func(label string) (string, error) {
-		fmt.Print(label)
+		fmt.Fprint(out, label)
 		line, readErr := reader.ReadString('\n')
 		if readErr != nil {
 			return "", fmt.Errorf("error reading input: %w", readErr)
@@ -121,6 +123,14 @@ func writeConfig(token string, workspaceID int, timezone string, sp sevenPaceInp
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
 	}
+
+	// The directory does not exist yet on a fresh install, and viper only
+	// creates the file. Keep it private: the file holds an API token and,
+	// when 7pace is configured, a plaintext password.
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
 	viper.SetConfigFile(configPath)
 
 	viper.Set("toggl.token", token)
