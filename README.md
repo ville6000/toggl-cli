@@ -13,6 +13,32 @@ toggl:
 The configuration can be generated using the `toggl-cli config` command.
 The token can be obtained from the Toggl website.
 
+### Projects and description auto-detection (optional)
+
+Map directories to Toggl projects so `toggl-cli start` can pick the project
+without `--project`. When no description is given, `start` also tries to read a
+ticket number from the current directory's name:
+
+```yaml
+projects:
+  myproject:
+    paths:
+      - /Users/me/Code/myproject
+    # optional, overrides start.ticket_pattern for this project
+    ticket_pattern: "task-([0-9]+)"
+
+start:
+  # optional, applies to every project
+  ticket_pattern: "([A-Z]+-[0-9]+)"
+```
+
+By default a standalone run of digits is used, so `ticket-123` and `AB#123`
+both give `123`, while `php8` and `v2` give nothing. If the directory name
+contains more than one distinct candidate — `proj-2024-fix-123`, say — the
+description is left empty rather than guessing wrong. Set `ticket_pattern` to a
+regular expression matching your own ticket format; its first capture group (or
+the whole match, if it has no groups) becomes the description.
+
 ### 7pace Timetracker (optional)
 
 To post worklogs to an on-prem 7pace Timetracker instance, add a `sevenpace`
