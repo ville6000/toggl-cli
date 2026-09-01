@@ -6,8 +6,8 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 )
 
-// RenderTable renders a table to out.
-// It takes headers and rows as parameters.
+// RenderTable renders a table to out. The title and footer are optional:
+// an empty title or a nil footer omits that section.
 func RenderTable(
 	out io.Writer,
 	title string,

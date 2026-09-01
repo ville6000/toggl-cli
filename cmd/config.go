@@ -147,22 +147,24 @@ func writeConfig(token string, workspaceID int, timezone string, sp sevenPaceInp
 
 	writeErr := viper.WriteConfig()
 
-	if writeErr == nil {
-		return nil
-	}
+	if writeErr != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(writeErr, &configFileNotFoundError) {
+			return writeErr
+		}
 
-	var configFileNotFoundError viper.ConfigFileNotFoundError
-	if errors.As(writeErr, &configFileNotFoundError) {
-		err = viper.SafeWriteConfig()
-
-		if err != nil {
+		if err := viper.SafeWriteConfig(); err != nil {
 			return fmt.Errorf("failed to create config file: %w", err)
-		} else {
-			return nil
 		}
 	}
 
-	return writeErr
+	// Viper creates the file with the process umask, which can leave the
+	// token and 7pace password readable by other users.
+	if err := os.Chmod(configPath, 0o600); err != nil {
+		return fmt.Errorf("failed to restrict config file permissions: %w", err)
+	}
+
+	return nil
 }
 
 // ConfigPath returns the config file to use: the first existing candidate,

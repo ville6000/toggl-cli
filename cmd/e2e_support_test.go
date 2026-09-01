@@ -71,6 +71,8 @@ func (s *apiStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.t.Errorf("read request body: %v", err)
 	}
+	// Recording the body drains it; hand the handler a fresh reader.
+	r.Body = io.NopCloser(bytes.NewReader(body))
 
 	s.mu.Lock()
 	s.requests = append(s.requests, stubRequest{

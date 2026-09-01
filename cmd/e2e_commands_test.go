@@ -454,6 +454,15 @@ func TestConfigCommand_WritesTheConfigFile(t *testing.T) {
 			t.Errorf("config file missing %q:\n%s", want, written)
 		}
 	}
+
+	// The file holds an API token, so it must not be readable by anyone else.
+	info, err := os.Stat(configPath)
+	if err != nil {
+		t.Fatalf("stat written config: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("config file permissions: got %#o, want 0600", perm)
+	}
 }
 
 func TestConfigCommand_RejectsAnInvalidTimezone(t *testing.T) {
