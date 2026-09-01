@@ -99,6 +99,10 @@ The Azure DevOps work item id is parsed from the entry description (e.g.
 work item id are skipped and reported. It accepts the same date flags as
 `history` (`--week`, `--month`, `--start`, `--end`).
 
+Both preview tables total their Duration column, and the dry-run, confirmation
+and result lines report the total time being logged, so you can see how much
+time is about to land in 7pace before confirming.
+
 There is **no de-duplication** — re-running the same range creates duplicate
 worklogs. Always preview first with `--dry-run`:
 
