@@ -91,14 +91,22 @@ func TestRunStart_GetProjectsMapError(t *testing.T) {
 
 	// Project lookup failure is non-fatal: entry was already created.
 	// The command should succeed and print a warning to stderr instead.
-	var buf bytes.Buffer
-	if err := runStart(&buf, io.Discard, mock, "task", 1, 7); err != nil {
+	var buf, errBuf bytes.Buffer
+	if err := runStart(&buf, &errBuf, mock, "task", 1, 7); err != nil {
 		t.Errorf("expected success despite projects lookup failure, got: %v", err)
 	}
 	out := buf.String()
 	// Output should still contain the entry table even without project name.
 	if !strings.Contains(out, "Current timer entry") {
 		t.Errorf("expected entry table in output: %q", out)
+	}
+	// The warning belongs on stderr, away from the table on stdout.
+	if warning := errBuf.String(); !strings.Contains(warning, "warning: failed to get projects") ||
+		!strings.Contains(warning, "projects unavailable") {
+		t.Errorf("expected the projects warning on stderr, got: %q", warning)
+	}
+	if strings.Contains(out, "warning:") {
+		t.Errorf("warning leaked into stdout: %q", out)
 	}
 }
 

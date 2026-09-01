@@ -358,14 +358,20 @@ func TestRunEdit_ProjectsMapErrorNonFatal(t *testing.T) {
 		projectsMapErr: errors.New("projects unavailable"),
 	}
 
-	var buf bytes.Buffer
-	if err := runEdit(&buf, io.Discard, mock, 0, "task", "", "", time.UTC); err != nil {
+	var buf, errBuf bytes.Buffer
+	if err := runEdit(&buf, &errBuf, mock, 0, "task", "", "", time.UTC); err != nil {
 		t.Errorf("expected success despite projects map failure, got: %v", err)
 	}
 	out := buf.String()
 
 	if !strings.Contains(out, "Stopped timer entry") {
 		t.Errorf("expected entry table in output: %q", out)
+	}
+
+	// The failure is only reported on stderr, so the table stays parseable.
+	if warning := errBuf.String(); !strings.Contains(warning, "warning: failed to get projects") ||
+		!strings.Contains(warning, "projects unavailable") {
+		t.Errorf("expected the projects warning on stderr, got: %q", warning)
 	}
 }
 
