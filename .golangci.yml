@@ -12,6 +12,15 @@ linters:
     - misspell
     - nilerr
     - unconvert
+  settings:
+    errcheck:
+      # errcheck ignores terminal writes to os.Stdout/os.Stderr out of the box.
+      # Commands write through an injected io.Writer so tests can capture the
+      # output, which is the same write with the same unactionable error.
+      exclude-functions:
+        - fmt.Fprint(io.Writer)
+        - fmt.Fprintf(io.Writer)
+        - fmt.Fprintln(io.Writer)
 
 formatters:
   enable:

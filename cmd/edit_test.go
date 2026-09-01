@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -69,7 +71,7 @@ func runningEntry(id int, desc string, projectId int) data.TimeEntryItem {
 func TestRunEdit_NoEntries(t *testing.T) {
 	mock := &mockEditService{history: []data.TimeEntryItem{}}
 
-	if err := runEdit(mock, 0, "new desc", "", "", time.UTC); err == nil {
+	if err := runEdit(io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC); err == nil {
 		t.Error("expected error for empty history")
 	}
 }
@@ -79,7 +81,7 @@ func TestRunEdit_IndexOutOfRange(t *testing.T) {
 		history: []data.TimeEntryItem{baseEntry(1, "task", 5)},
 	}
 
-	if err := runEdit(mock, 5, "new desc", "", "", time.UTC); err == nil {
+	if err := runEdit(io.Discard, io.Discard, mock, 5, "new desc", "", "", time.UTC); err == nil {
 		t.Error("expected error for out-of-range index")
 	}
 }
@@ -89,7 +91,7 @@ func TestRunEdit_NegativeIndex(t *testing.T) {
 		history: []data.TimeEntryItem{baseEntry(1, "task", 5)},
 	}
 
-	if err := runEdit(mock, -1, "new desc", "", "", time.UTC); err == nil {
+	if err := runEdit(io.Discard, io.Discard, mock, -1, "new desc", "", "", time.UTC); err == nil {
 		t.Error("expected error for negative index")
 	}
 }
@@ -97,7 +99,7 @@ func TestRunEdit_NegativeIndex(t *testing.T) {
 func TestRunEdit_HistoryError(t *testing.T) {
 	mock := &mockEditService{historyErr: errors.New("API error")}
 
-	err := runEdit(mock, 0, "new desc", "", "", time.UTC)
+	err := runEdit(io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -119,11 +121,11 @@ func TestRunEdit_UpdateDescription(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	out := captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "new desc", "", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	var buf bytes.Buffer
+	if err := runEdit(&buf, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	out := buf.String()
 
 	if capturedEntry.Description != "new desc" {
 		t.Errorf("description sent to API: got %q, want %q", capturedEntry.Description, "new desc")
@@ -145,11 +147,9 @@ func TestRunEdit_KeepsDescriptionWhenNotProvided(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "", "NewProj", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "NewProj", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.Description != "original" {
 		t.Errorf("description should be preserved: got %q, want %q", capturedEntry.Description, "original")
@@ -170,11 +170,9 @@ func TestRunEdit_UpdateProject(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "", "NewProj", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "NewProj", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.ProjectID != 10 {
 		t.Errorf("project ID sent to API: got %d, want 10", capturedEntry.ProjectID)
@@ -187,7 +185,7 @@ func TestRunEdit_ProjectNotFound(t *testing.T) {
 		projectIdErr: errors.New("not found"),
 	}
 
-	err := runEdit(mock, 0, "", "Ghost", "", time.UTC)
+	err := runEdit(io.Discard, io.Discard, mock, 0, "", "Ghost", "", time.UTC)
 	if err == nil {
 		t.Fatal("expected error for unknown project")
 	}
@@ -207,11 +205,9 @@ func TestRunEdit_KeepsProjectWhenNotProvided(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "new desc", "", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.ProjectID != 5 {
 		t.Errorf("project ID should be preserved: got %d, want 5", capturedEntry.ProjectID)
@@ -232,11 +228,9 @@ func TestRunEdit_UsesEntryWorkspaceID(t *testing.T) {
 
 	ws := &captureWorkspaceMock{mockEditService: mock}
 
-	captureOutput(t, func() {
-		if err := runEdit(ws, 0, "", "Proj", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, ws, 0, "", "Proj", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if ws.projectLookupWS != 100 {
 		t.Errorf("GetProjectIdByName workspace: got %d, want 100", ws.projectLookupWS)
@@ -264,11 +258,9 @@ func TestRunEdit_PreservesStopTimeForStoppedEntry(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "new desc", "", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.Stop == nil {
 		t.Fatal("Stop should be set for stopped entries")
@@ -290,11 +282,9 @@ func TestRunEdit_NoStopTimeForRunningEntry(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "new desc", "", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.Stop != nil {
 		t.Errorf("Stop should be nil for running entries, got %q", *capturedEntry.Stop)
@@ -311,11 +301,11 @@ func TestRunEdit_StoppedEntryUsesStoppedOutput(t *testing.T) {
 		projectsMap:  map[int]string{},
 	}
 
-	out := captureOutput(t, func() {
-		if err := runEdit(mock, 0, "task", "", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	var buf bytes.Buffer
+	if err := runEdit(&buf, io.Discard, mock, 0, "task", "", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	out := buf.String()
 
 	if !strings.Contains(out, "Stopped timer entry") {
 		t.Errorf("expected 'Stopped timer entry' in output for stopped entry: %q", out)
@@ -330,11 +320,11 @@ func TestRunEdit_RunningEntryUsesCurrentOutput(t *testing.T) {
 		projectsMap:  map[int]string{},
 	}
 
-	out := captureOutput(t, func() {
-		if err := runEdit(mock, 0, "task", "", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	var buf bytes.Buffer
+	if err := runEdit(&buf, io.Discard, mock, 0, "task", "", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	out := buf.String()
 
 	if !strings.Contains(out, "Current timer entry") {
 		t.Errorf("expected 'Current timer entry' in output for running entry: %q", out)
@@ -349,7 +339,7 @@ func TestRunEdit_UpdateError(t *testing.T) {
 		updateErr: errors.New("server error"),
 	}
 
-	err := runEdit(mock, 0, "new desc", "", "", time.UTC)
+	err := runEdit(io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -368,14 +358,20 @@ func TestRunEdit_ProjectsMapErrorNonFatal(t *testing.T) {
 		projectsMapErr: errors.New("projects unavailable"),
 	}
 
-	out := captureOutput(t, func() {
-		if err := runEdit(mock, 0, "task", "", "", time.UTC); err != nil {
-			t.Errorf("expected success despite projects map failure, got: %v", err)
-		}
-	})
+	var buf, errBuf bytes.Buffer
+	if err := runEdit(&buf, &errBuf, mock, 0, "task", "", "", time.UTC); err != nil {
+		t.Errorf("expected success despite projects map failure, got: %v", err)
+	}
+	out := buf.String()
 
 	if !strings.Contains(out, "Stopped timer entry") {
 		t.Errorf("expected entry table in output: %q", out)
+	}
+
+	// The failure is only reported on stderr, so the table stays parseable.
+	if warning := errBuf.String(); !strings.Contains(warning, "warning: failed to get projects") ||
+		!strings.Contains(warning, "projects unavailable") {
+		t.Errorf("expected the projects warning on stderr, got: %q", warning)
 	}
 }
 
@@ -397,11 +393,9 @@ func TestRunEdit_SelectsByIndex(t *testing.T) {
 	var capturedID int
 	mock2 := &captureIDMock{mockEditService: mock, capturedID: &capturedID}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 1, "updated second", "", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 1, "updated second", "", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedID != 2 {
 		t.Errorf("updated entry ID: got %d, want 2", capturedID)
@@ -429,11 +423,9 @@ func TestRunEdit_PreservesEntryFields(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "new desc", "", "", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.Duration != 1800 {
 		t.Errorf("Duration not preserved: got %d, want 1800", capturedEntry.Duration)
@@ -466,11 +458,9 @@ func TestRunEdit_UpdateStartKeepsEndRecomputesDuration(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "", "", "2024-06-01 08:00", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "", "2024-06-01 08:00", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.Start != "2024-06-01T08:00:00Z" {
 		t.Errorf("Start: got %q, want %q", capturedEntry.Start, "2024-06-01T08:00:00Z")
@@ -494,11 +484,9 @@ func TestRunEdit_UpdateStartTimeOnlyUsesEntryDate(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "", "", "08:30", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "", "08:30", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.Start != "2024-06-01T08:30:00Z" {
 		t.Errorf("Start: got %q, want %q", capturedEntry.Start, "2024-06-01T08:30:00Z")
@@ -521,11 +509,9 @@ func TestRunEdit_UpdateStartRespectsTimezoneOffset(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "", "", "2024-06-01 09:00", loc); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "", "2024-06-01 09:00", loc); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	// Helsinki is UTC+3 in June (DST) => 09:00 local carries a +03:00 offset.
 	if capturedEntry.Start != "2024-06-01T09:00:00+03:00" {
@@ -539,7 +525,7 @@ func TestRunEdit_StartAtOrAfterEndFails(t *testing.T) {
 		projectsMap: map[int]string{},
 	}
 
-	err := runEdit(mock, 0, "", "", "2024-06-01 10:30", time.UTC)
+	err := runEdit(io.Discard, io.Discard, mock, 0, "", "", "2024-06-01 10:30", time.UTC)
 	if err == nil {
 		t.Fatal("expected error when start is after end")
 	}
@@ -554,7 +540,7 @@ func TestRunEdit_InvalidStartFormatFails(t *testing.T) {
 		projectsMap: map[int]string{},
 	}
 
-	err := runEdit(mock, 0, "", "", "not-a-time", time.UTC)
+	err := runEdit(io.Discard, io.Discard, mock, 0, "", "", "not-a-time", time.UTC)
 	if err == nil {
 		t.Fatal("expected error for invalid start format")
 	}
@@ -576,11 +562,9 @@ func TestRunEdit_UpdateStartOnRunningEntryStaysRunning(t *testing.T) {
 	var capturedEntry data.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	captureOutput(t, func() {
-		if err := runEdit(mock2, 0, "", "", "08:00", time.UTC); err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "", "08:00", time.UTC); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
 	if capturedEntry.Start != "2024-06-01T08:00:00Z" {
 		t.Errorf("Start: got %q, want %q", capturedEntry.Start, "2024-06-01T08:00:00Z")

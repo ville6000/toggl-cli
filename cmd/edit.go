@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -58,13 +58,19 @@ var editCmd = &cobra.Command{
 			return err
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 
-		return runEdit(client, index, description, project, start, location)
+		return runEdit(cmd.OutOrStdout(), cmd.ErrOrStderr(), client, index, description, project, start, location)
 	},
 }
 
-func runEdit(client EditService, index int, newDescription, newProject, newStart string, location *time.Location) error {
+func runEdit(
+	out, errOut io.Writer,
+	client EditService,
+	index int,
+	newDescription, newProject, newStart string,
+	location *time.Location,
+) error {
 	entries, err := client.GetHistory(nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get history: %w", err)
@@ -141,15 +147,15 @@ func runEdit(client EditService, index int, newDescription, newProject, newStart
 
 	projectsMap, err := client.GetProjectsLookupMap(wsID)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "warning: failed to get projects, showing entry without project name:", err)
+		fmt.Fprintln(errOut, "warning: failed to get projects, showing entry without project name:", err)
 		projectsMap = nil
 	}
 
 	if updatedEntry.Duration >= 0 {
-		return outputStoppedTimeEntry(updatedEntry, projectsMap)
+		return outputStoppedTimeEntry(out, updatedEntry, projectsMap)
 	}
 
-	return outputCurrentEntry(updatedEntry, projectsMap)
+	return outputCurrentEntry(out, updatedEntry, projectsMap)
 }
 
 // parseStartTime parses the --start flag in the given location. It accepts

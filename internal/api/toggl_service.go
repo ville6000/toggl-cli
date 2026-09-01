@@ -111,9 +111,11 @@ func (c *Client) UpdateTimeEntry(workspaceId int, entryId int, entry data.TimeEn
 }
 
 func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
-	cachedProjects, err := c.Cache.GetProjects(workspaceId)
-	if err == nil {
-		return cachedProjects, nil
+	if c.Cache != nil {
+		cachedProjects, cacheErr := c.Cache.GetProjects(workspaceId)
+		if cacheErr == nil {
+			return cachedProjects, nil
+		}
 	}
 
 	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceId)
@@ -127,9 +129,10 @@ func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
 		return nil, reqErr
 	}
 
-	err = c.Cache.SaveProjects(workspaceId, projects)
-	if err != nil {
-		log.Printf("Failed to save projects to cache: %v", err)
+	if c.Cache != nil {
+		if saveErr := c.Cache.SaveProjects(workspaceId, projects); saveErr != nil {
+			log.Printf("Failed to save projects to cache: %v", saveErr)
+		}
 	}
 
 	return projects, nil

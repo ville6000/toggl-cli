@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 // newDateFlagCmd builds a command carrying the same date flags as history /
@@ -182,5 +183,128 @@ func TestGetDateParams_InvalidDateErrors(t *testing.T) {
 
 	if _, _, err := getDateParams(cmd, false); err == nil {
 		t.Error("expected an error for a malformed --start")
+	}
+}
+
+// ---------- entryDuration ----------
+
+func TestEntryDuration(t *testing.T) {
+	now := time.Date(2024, 3, 4, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name  string
+		entry data.TimeEntryItem
+		want  int
+	}{
+		{
+			name:  "stopped entry keeps its duration",
+			entry: data.TimeEntryItem{Duration: 3600, Start: now.Add(-2 * time.Hour)},
+			want:  3600,
+		},
+		{
+			name: "running entry counts the elapsed time",
+			// Toggl encodes a running entry as the negated start timestamp.
+			entry: data.TimeEntryItem{Duration: int(-now.Add(-90 * time.Minute).Unix()), Start: now.Add(-90 * time.Minute)},
+			want:  5400,
+		},
+		{
+			name:  "running entry starting in the future is not negative",
+			entry: data.TimeEntryItem{Duration: -1, Start: now.Add(time.Hour)},
+			want:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := entryDuration(tt.entry, now); got != tt.want {
+				t.Errorf("entryDuration() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+// ---------- groupEntriesByDate ----------
+
+func TestGroupEntriesByDate_UsesTheConfiguredTimezone(t *testing.T) {
+	// +09:00, so 22:30 UTC belongs to the next local day.
+	location := time.FixedZone("TEST", 9*60*60)
+	entries := []data.TimeEntryItem{
+		{ID: 1, Start: time.Date(2024, 3, 4, 22, 30, 0, 0, time.UTC)},
+		{ID: 2, Start: time.Date(2024, 3, 5, 1, 0, 0, 0, time.UTC)},
+		{ID: 3, Start: time.Date(2024, 3, 4, 10, 0, 0, 0, time.UTC)},
+	}
+
+	grouped := groupEntriesByDate(entries, location)
+
+	if got := len(grouped["2024-03-05"]); got != 2 {
+		t.Errorf("2024-03-05: got %d entries, want 2", got)
+	}
+	if got := len(grouped["2024-03-04"]); got != 1 {
+		t.Errorf("2024-03-04: got %d entries, want 1", got)
+	}
+}
+
+// ---------- sumEntriesByDescriptionAndProject ----------
+
+func TestSumEntriesByDescriptionAndProject(t *testing.T) {
+	now := time.Date(2024, 3, 4, 12, 0, 0, 0, time.UTC)
+	projects := map[int]string{7: "Alpha"}
+	entries := []data.TimeEntryItem{
+		{Description: "review", ProjectID: 7, Duration: 3600, Start: now.Add(-4 * time.Hour)},
+		{Description: "review", ProjectID: 7, Duration: 1800, Start: now.Add(-2 * time.Hour)},
+		{Description: "standup", ProjectID: 7, Duration: 900, Start: now.Add(-time.Hour)},
+	}
+
+	summary := sumEntriesByDescriptionAndProject(entries, projects, now)
+
+	if got := len(summary); got != 2 {
+		t.Fatalf("got %d summary rows, want 2", got)
+	}
+	if got := summary["review - Alpha"].Duration; got != 5400 {
+		t.Errorf("review duration: got %d, want 5400", got)
+	}
+	if got := summary["review - Alpha"].Project; got != "Alpha" {
+		t.Errorf("review project: got %q, want %q", got, "Alpha")
+	}
+	if got := summary["standup - Alpha"].Duration; got != 900 {
+		t.Errorf("standup duration: got %d, want 900", got)
+	}
+}
+
+func TestSumEntriesByDescriptionAndProject_RunningEntryDoesNotCorruptTheTotal(t *testing.T) {
+	now := time.Date(2024, 3, 4, 12, 0, 0, 0, time.UTC)
+	start := now.Add(-30 * time.Minute)
+	entries := []data.TimeEntryItem{
+		{Description: "review", ProjectID: 7, Duration: 3600, Start: now.Add(-4 * time.Hour)},
+		{Description: "review", ProjectID: 7, Duration: int(-start.Unix()), Start: start},
+	}
+
+	summary := sumEntriesByDescriptionAndProject(entries, map[int]string{7: "Alpha"}, now)
+
+	// An hour done plus half an hour still running, not the raw sentinel.
+	if got := summary["review - Alpha"].Duration; got != 5400 {
+		t.Errorf("duration: got %d, want 5400", got)
+	}
+}
+
+// ---------- getSortedTimeEntryDates ----------
+
+func TestGetSortedTimeEntryDates_NewestFirst(t *testing.T) {
+	grouped := map[string][]data.TimeEntryItem{
+		"2024-03-04": nil,
+		"2024-03-06": nil,
+		"2024-03-05": nil,
+	}
+
+	got := getSortedTimeEntryDates(grouped)
+	want := []string{"2024-03-06", "2024-03-05", "2024-03-04"}
+
+	if len(got) != len(want) {
+		t.Fatalf("got %d dates, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("date %d: got %q, want %q", i, got[i], want[i])
+		}
 	}
 }
