@@ -2,12 +2,13 @@ package list
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/utils"
 )
 
-func ProjectListOutput(client api.ProjectService, workspaceId int) error {
+func ProjectListOutput(out io.Writer, client api.ProjectService, workspaceId int) error {
 	projects, err := client.GetProjects(workspaceId)
 	if err != nil {
 		return fmt.Errorf("failed to get projects: %w", err)
@@ -22,7 +23,7 @@ func ProjectListOutput(client api.ProjectService, workspaceId int) error {
 	}
 
 	headers := []interface{}{"ID", "Project Name"}
-	utils.RenderTable("Project list", headers, rows, nil)
+	utils.RenderTable(out, "Project list", headers, rows, nil)
 
 	return nil
 }

@@ -3,9 +3,10 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"os"
+	"io"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/data"
@@ -57,12 +58,12 @@ var sevenpaceSyncCmd = &cobra.Command{
 			return fmt.Errorf("failed to get yes flag: %w", err)
 		}
 
-		startTime, endTime, err := getDateParams(cmd)
+		startTime, endTime, err := getDateParams(cmd, true)
 		if err != nil {
 			return err
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
 			return fmt.Errorf("failed to get history: %w", err)
@@ -75,6 +76,8 @@ var sevenpaceSyncCmd = &cobra.Command{
 
 		var planned []plannedWorkLog
 		var skipped [][]interface{}
+		plannedSeconds := 0
+		skippedSeconds := 0
 		for _, entry := range entries {
 			workLog, ok := toWorkLog(entry, spCfg.ActivityTypeID, location)
 			started := entry.Start.In(location).Format("2006-01-02 15:04")
@@ -82,6 +85,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 
 			if !ok {
 				skipped = append(skipped, []interface{}{"—", started, duration, entry.Description})
+				skippedSeconds += entry.Duration
 				continue
 			}
 
@@ -92,43 +96,48 @@ var sevenpaceSyncCmd = &cobra.Command{
 				comment:  entry.Description,
 				payload:  workLog,
 			})
+			plannedSeconds += workLog.Length
 		}
 
 		if len(planned) == 0 && len(skipped) == 0 {
 			return fmt.Errorf("no time entries found for the specified date range")
 		}
 
+		out := cmd.OutOrStdout()
 		headers := []interface{}{"Work Item", "Started At", "Duration", "Comment"}
 		if len(planned) > 0 {
 			rows := make([][]interface{}, 0, len(planned))
 			for _, p := range planned {
 				rows = append(rows, []interface{}{p.workItem, p.started, p.duration, p.comment})
 			}
-			utils.RenderTable("Worklogs to post", headers, rows, nil)
-			fmt.Println()
+			utils.RenderTable(out, "Worklogs to post", headers, rows, totalFooter(plannedSeconds))
+			fmt.Fprintln(out)
 		}
 		if len(skipped) > 0 {
-			utils.RenderTable("Skipped (no work item id)", headers, skipped, nil)
-			fmt.Println()
+			utils.RenderTable(out, "Skipped (no work item id)", headers, skipped, totalFooter(skippedSeconds))
+			fmt.Fprintln(out)
 		}
 
 		if dryRun {
-			fmt.Printf("Dry run: %d worklog(s) would be posted, %d skipped.\n", len(planned), len(skipped))
+			fmt.Fprintf(out, "Dry run: %d worklog(s) (%s) would be posted, %d skipped.\n",
+				len(planned), api.FormatDuration(float64(plannedSeconds)), len(skipped))
 			return nil
 		}
 
 		if len(planned) == 0 {
-			fmt.Println("Nothing to post.")
+			fmt.Fprintln(out, "Nothing to post.")
 			return nil
 		}
 
-		if !assumeYes && !confirm(fmt.Sprintf("Post %d worklog(s) to 7pace?", len(planned))) {
-			fmt.Println("Aborted.")
+		prompt := fmt.Sprintf("Post %d worklog(s) (%s) to 7pace?", len(planned), api.FormatDuration(float64(plannedSeconds)))
+		if !assumeYes && !confirm(out, cmd.InOrStdin(), prompt) {
+			fmt.Fprintln(out, "Aborted.")
 			return nil
 		}
 
 		spClient := api.NewSevenPaceClient(spCfg)
 		posted := 0
+		postedSeconds := 0
 		var failures [][]interface{}
 		for _, p := range planned {
 			if _, postErr := spClient.CreateWorkLog(p.payload); postErr != nil {
@@ -136,11 +145,13 @@ var sevenpaceSyncCmd = &cobra.Command{
 				continue
 			}
 			posted++
+			postedSeconds += p.payload.Length
 		}
 
-		fmt.Printf("Posted %d worklog(s), %d skipped, %d failed.\n", posted, len(skipped), len(failures))
+		fmt.Fprintf(out, "Posted %d worklog(s) (%s), %d skipped, %d failed.\n",
+			posted, api.FormatDuration(float64(postedSeconds)), len(skipped), len(failures))
 		if len(failures) > 0 {
-			utils.RenderTable("Failed", []interface{}{"Work Item", "Started At", "Duration", "Error"}, failures, nil)
+			utils.RenderTable(out, "Failed", []interface{}{"Work Item", "Started At", "Duration", "Error"}, failures, nil)
 			return fmt.Errorf("%d worklog(s) failed to post", len(failures))
 		}
 
@@ -148,9 +159,15 @@ var sevenpaceSyncCmd = &cobra.Command{
 	},
 }
 
-func confirm(prompt string) bool {
-	fmt.Printf("%s [y/N]: ", prompt)
-	reader := bufio.NewReader(os.Stdin)
+// totalFooter builds the footer row summing the Duration column of the sync
+// tables, so the time about to be logged to 7pace is visible at a glance.
+func totalFooter(seconds int) table.Row {
+	return table.Row{"", "Total", api.FormatDuration(float64(seconds)), ""}
+}
+
+func confirm(out io.Writer, in io.Reader, prompt string) bool {
+	fmt.Fprintf(out, "%s [y/N]: ", prompt)
+	reader := bufio.NewReader(in)
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return false
@@ -166,7 +183,7 @@ func init() {
 	sevenpaceSyncCmd.Flags().BoolP("week", "w", false, "Sync entries for the current week")
 	sevenpaceSyncCmd.Flags().BoolP("month", "m", false, "Sync entries for the current month")
 	sevenpaceSyncCmd.Flags().StringP("start", "s", "", "Start date, format: YYYY-MM-DD")
-	sevenpaceSyncCmd.Flags().StringP("end", "e", "", "End date, format: YYYY-MM-DD")
+	sevenpaceSyncCmd.Flags().StringP("end", "e", "", "End date (inclusive), format: YYYY-MM-DD (defaults to --start)")
 	sevenpaceSyncCmd.Flags().Bool("dry-run", false, "Preview the worklogs without posting")
 	sevenpaceSyncCmd.Flags().BoolP("yes", "y", false, "Skip the confirmation prompt")
 }

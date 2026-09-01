@@ -19,14 +19,14 @@ var workspacesCmd = &cobra.Command{
 			return fmt.Errorf("failed to get API token: %w", err)
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 		workspaces, err := client.GetWorkspaces()
 		if err != nil {
 			return fmt.Errorf("failed to get workspaces: %w", err)
 		}
 
 		for _, workspace := range workspaces {
-			fmt.Printf("ID: %d, Name: %s\n", workspace.ID, workspace.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "ID: %d, Name: %s\n", workspace.ID, workspace.Name)
 		}
 
 		return nil

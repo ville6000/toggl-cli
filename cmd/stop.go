@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/ville6000/toggl-cli/internal/data"
 
@@ -19,14 +20,14 @@ var stopCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 		currentEntry, err := client.GetCurrentTimerEntry()
 		if err != nil {
 			return fmt.Errorf("failed to get current timer entry: %w", err)
 		}
 
 		if currentEntry == nil || currentEntry.ID == 0 {
-			fmt.Println("No current timer entry.")
+			fmt.Fprintln(cmd.OutOrStdout(), "No current timer entry.")
 			return nil
 		}
 
@@ -40,7 +41,7 @@ var stopCmd = &cobra.Command{
 			return fmt.Errorf("failed to get projects lookup map: %w", err)
 		}
 
-		return outputStoppedTimeEntry(stoppedEntry, projectsMap)
+		return outputStoppedTimeEntry(cmd.OutOrStdout(), stoppedEntry, projectsMap)
 	},
 }
 
@@ -48,7 +49,7 @@ func init() {
 	rootCmd.AddCommand(stopCmd)
 }
 
-func outputStoppedTimeEntry(entry *data.TimeEntryItem, projectsMap map[int]string) error {
+func outputStoppedTimeEntry(out io.Writer, entry *data.TimeEntryItem, projectsMap map[int]string) error {
 	headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
 	duration := float64(entry.Duration)
 	projectName := projectsMap[entry.ProjectID]
@@ -62,6 +63,6 @@ func outputStoppedTimeEntry(entry *data.TimeEntryItem, projectsMap map[int]strin
 		},
 	}
 
-	utils.RenderTable("Stopped timer entry", headers, rows, nil)
+	utils.RenderTable(out, "Stopped timer entry", headers, rows, nil)
 	return nil
 }

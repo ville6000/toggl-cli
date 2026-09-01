@@ -486,15 +486,16 @@ func TestGetHistory_NoParams(t *testing.T) {
 }
 
 func TestGetHistory_WithBothDates(t *testing.T) {
-	from := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	to := time.Date(2024, 1, 31, 0, 0, 0, 0, time.UTC)
+	loc := time.FixedZone("EET", 2*60*60)
+	from := time.Date(2024, 1, 1, 0, 0, 0, 0, loc)
+	to := time.Date(2024, 1, 31, 0, 0, 0, 0, loc)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		if q.Get("start_date") != "2024-01-01" {
-			t.Errorf("start_date: got %q, want 2024-01-01", q.Get("start_date"))
+		if q.Get("start_date") != "2024-01-01T00:00:00+02:00" {
+			t.Errorf("start_date: got %q, want 2024-01-01T00:00:00+02:00", q.Get("start_date"))
 		}
-		if q.Get("end_date") != "2024-01-31" {
-			t.Errorf("end_date: got %q, want 2024-01-31", q.Get("end_date"))
+		if q.Get("end_date") != "2024-01-31T00:00:00+02:00" {
+			t.Errorf("end_date: got %q, want 2024-01-31T00:00:00+02:00", q.Get("end_date"))
 		}
 		if err := json.NewEncoder(w).Encode([]data.TimeEntryItem{}); err != nil {
 			t.Errorf("encode: %v", err)
@@ -511,7 +512,7 @@ func TestGetHistory_OnlyFromDate(t *testing.T) {
 	from := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		if q.Get("start_date") != "2024-06-01" {
+		if q.Get("start_date") != "2024-06-01T00:00:00Z" {
 			t.Errorf("start_date: got %q", q.Get("start_date"))
 		}
 		if q.Get("end_date") != "" {
@@ -532,7 +533,7 @@ func TestGetHistory_OnlyToDate(t *testing.T) {
 	to := time.Date(2024, 6, 30, 0, 0, 0, 0, time.UTC)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		if q.Get("end_date") != "2024-06-30" {
+		if q.Get("end_date") != "2024-06-30T00:00:00Z" {
 			t.Errorf("end_date: got %q", q.Get("end_date"))
 		}
 		if q.Get("start_date") != "" {

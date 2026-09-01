@@ -21,7 +21,7 @@ var continueCmd = &cobra.Command{
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 		timeEntries, err := client.GetHistory(nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve latest time entries: %w", err)
@@ -41,7 +41,7 @@ var continueCmd = &cobra.Command{
 			return fmt.Errorf("failed to create time entry: %w", err)
 		}
 
-		fmt.Println("Continuing timer for:", timeEntryDescription)
+		fmt.Fprintln(cmd.OutOrStdout(), "Continuing timer for:", timeEntryDescription)
 
 		return nil
 	},
@@ -52,12 +52,25 @@ func init() {
 	continueCmd.Flags().IntP("index", "i", 0, "Index of the time entry to continue")
 }
 
-func createTimeEntryFrom(index int, timeEntries []data.TimeEntryItem, client *api.Client, workspaceId int) (string, error) {
+// ContinueService is the subset of api.Client used by the continue command.
+type ContinueService interface {
+	NewTimeEntry(description string, workspaceID, projectID int, billable bool) data.TimeEntry
+	CreateTimeEntry(workspaceId int, entry data.TimeEntry) (*data.TimeEntry, error)
+}
+
+// createTimeEntryFrom restarts the entry at index. The new entry is created in
+// the workspace of the entry being continued — its project id only exists
+// there — falling back to the configured workspace when the entry has none.
+func createTimeEntryFrom(index int, timeEntries []data.TimeEntryItem, client ContinueService, workspaceId int) (string, error) {
 	if index < 0 || index >= len(timeEntries) {
 		return "", fmt.Errorf("index out of range")
 	}
 
 	e := timeEntries[index]
+	if e.WorkspaceID != 0 {
+		workspaceId = e.WorkspaceID
+	}
+
 	timeEntry := client.NewTimeEntry(e.Description, workspaceId, e.ProjectID, e.Billable)
 	_, err := client.CreateTimeEntry(workspaceId, timeEntry)
 	if err != nil {

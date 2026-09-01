@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -110,9 +111,11 @@ func (c *Client) UpdateTimeEntry(workspaceId int, entryId int, entry data.TimeEn
 }
 
 func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
-	cachedProjects, err := c.Cache.GetProjects(workspaceId)
-	if err == nil {
-		return cachedProjects, nil
+	if c.Cache != nil {
+		cachedProjects, cacheErr := c.Cache.GetProjects(workspaceId)
+		if cacheErr == nil {
+			return cachedProjects, nil
+		}
 	}
 
 	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceId)
@@ -126,9 +129,10 @@ func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
 		return nil, reqErr
 	}
 
-	err = c.Cache.SaveProjects(workspaceId, projects)
-	if err != nil {
-		log.Printf("Failed to save projects to cache: %v", err)
+	if c.Cache != nil {
+		if saveErr := c.Cache.SaveProjects(workspaceId, projects); saveErr != nil {
+			log.Printf("Failed to save projects to cache: %v", saveErr)
+		}
 	}
 
 	return projects, nil
@@ -152,12 +156,14 @@ func (c *Client) GetProjectIdByName(workspaceId int, projectName string) (int, e
 func (c *Client) GetHistory(from, to *time.Time) ([]data.TimeEntryItem, error) {
 	endpoint := "/me/time_entries"
 	queryParams := make([]string, 0)
+	// RFC3339 instants rather than bare dates: a bare date is interpreted as
+	// UTC by the API, which pulls in entries from the neighbouring local day.
 	if from != nil {
-		queryParams = append(queryParams, fmt.Sprintf("start_date=%s", from.Format("2006-01-02")))
+		queryParams = append(queryParams, "start_date="+url.QueryEscape(from.Format(time.RFC3339)))
 	}
 
 	if to != nil {
-		queryParams = append(queryParams, fmt.Sprintf("end_date=%s", to.Format("2006-01-02")))
+		queryParams = append(queryParams, "end_date="+url.QueryEscape(to.Format(time.RFC3339)))
 	}
 
 	if len(queryParams) > 0 {

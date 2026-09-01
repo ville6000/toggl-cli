@@ -8,10 +8,38 @@
 toggl:
   token: <your_api_token>
   workspace_id: <your_workspace_id>
+  # optional, defaults to the public Toggl API
+  # base_url: https://api.track.toggl.com/api/v9
 ```
 
 The configuration can be generated using the `toggl-cli config` command.
 The token can be obtained from the Toggl website.
+
+### Projects and description auto-detection (optional)
+
+Map directories to Toggl projects so `toggl-cli start` can pick the project
+without `--project`. When no description is given, `start` also tries to read a
+ticket number from the current directory's name:
+
+```yaml
+projects:
+  myproject:
+    paths:
+      - /Users/me/Code/myproject
+    # optional, overrides start.ticket_pattern for this project
+    ticket_pattern: "task-([0-9]+)"
+
+start:
+  # optional, applies to every project
+  ticket_pattern: "([A-Z]+-[0-9]+)"
+```
+
+By default a standalone run of digits is used, so `ticket-123` and `AB#123`
+both give `123`, while `php8` and `v2` give nothing. If the directory name
+contains more than one distinct candidate — `proj-2024-fix-123`, say — the
+description is left empty rather than guessing wrong. Set `ticket_pattern` to a
+regular expression matching your own ticket format; its first capture group (or
+the whole match, if it has no groups) becomes the description.
 
 ### 7pace Timetracker (optional)
 
@@ -70,6 +98,10 @@ The Azure DevOps work item id is parsed from the entry description (e.g.
 `#1234 fix bug`, `AB#1234 ...`, or a leading `1234 - ...`); entries without a
 work item id are skipped and reported. It accepts the same date flags as
 `history` (`--week`, `--month`, `--start`, `--end`).
+
+Both preview tables total their Duration column, and the dry-run, confirmation
+and result lines report the total time being logged, so you can see how much
+time is about to land in 7pace before confirming.
 
 There is **no de-duplication** — re-running the same range creates duplicate
 worklogs. Always preview first with `--dry-run`:

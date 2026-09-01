@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/ville6000/toggl-cli/internal/data"
@@ -21,7 +22,7 @@ var currentCmd = &cobra.Command{
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 		currentEntry, err := client.GetCurrentTimerEntry()
 		if err != nil {
 			return fmt.Errorf("failed to get current timer entry: %w", err)
@@ -32,13 +33,13 @@ var currentCmd = &cobra.Command{
 			return fmt.Errorf("failed to get projects: %w", err)
 		}
 
-		return outputCurrentEntry(currentEntry, projectsMap)
+		return outputCurrentEntry(cmd.OutOrStdout(), currentEntry, projectsMap)
 	},
 }
 
-func outputCurrentEntry(entry *data.TimeEntryItem, projectsMap map[int]string) error {
+func outputCurrentEntry(out io.Writer, entry *data.TimeEntryItem, projectsMap map[int]string) error {
 	if entry == nil || entry.ID == 0 {
-		fmt.Println("No current timer entry.")
+		fmt.Fprintln(out, "No current timer entry.")
 		return nil
 	}
 
@@ -56,7 +57,7 @@ func outputCurrentEntry(entry *data.TimeEntryItem, projectsMap map[int]string) e
 	}
 
 	headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
-	utils.RenderTable("Current timer entry", headers, rows, nil)
+	utils.RenderTable(out, "Current timer entry", headers, rows, nil)
 	return nil
 }
 

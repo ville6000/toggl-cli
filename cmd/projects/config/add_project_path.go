@@ -27,7 +27,7 @@ var AddProjectPathCmd = &cobra.Command{
 			return fmt.Errorf("failed to get current path: %w", err)
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 
 		var projectId int
 		if projectName != "" {
@@ -44,7 +44,7 @@ var AddProjectPathCmd = &cobra.Command{
 
 		for _, p := range existingPaths {
 			if p == currentPath {
-				fmt.Println("Path already exists for this project.")
+				fmt.Fprintln(cmd.OutOrStdout(), "Path already exists for this project.")
 				return nil
 			}
 		}
@@ -56,7 +56,7 @@ var AddProjectPathCmd = &cobra.Command{
 			return fmt.Errorf("error saving configuration: %w", err)
 		}
 
-		fmt.Println("Configuration saved successfully!")
+		fmt.Fprintln(cmd.OutOrStdout(), "Configuration saved successfully!")
 		return nil
 	},
 }

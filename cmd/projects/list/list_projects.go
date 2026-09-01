@@ -19,8 +19,8 @@ var ProjectsListCmd = &cobra.Command{
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
 
-		client := api.NewAPIClient(token)
+		client := api.NewAPIClientFromConfig(token)
 
-		return ProjectListOutput(client, workspaceId)
+		return ProjectListOutput(cmd.OutOrStdout(), client, workspaceId)
 	},
 }

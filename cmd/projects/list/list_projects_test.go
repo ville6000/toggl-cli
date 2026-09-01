@@ -1,9 +1,9 @@
 package list
 
 import (
+	"bytes"
 	"errors"
 	"io"
-	"os"
 	"strings"
 	"testing"
 
@@ -29,26 +29,8 @@ func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
 		},
 	}
 
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-	os.Stdout = w
-	t.Cleanup(func() {
-		os.Stdout = oldStdout
-	})
-
-	listErr := ProjectListOutput(mock, 1234)
-
-	if closeErr := w.Close(); closeErr != nil {
-		t.Fatalf("failed to close pipe writer: %v", closeErr)
-	}
-
-	var buf strings.Builder
-	if _, copyErr := io.Copy(&buf, r); copyErr != nil {
-		t.Fatalf("failed to copy output: %v", copyErr)
-	}
+	var buf bytes.Buffer
+	listErr := ProjectListOutput(&buf, mock, 1234)
 	output := buf.String()
 
 	if listErr != nil {
@@ -69,7 +51,7 @@ func TestListProjects_ErrorHandling(t *testing.T) {
 		Err: errors.New("api error"),
 	}
 
-	err := ProjectListOutput(mock, 1234)
+	err := ProjectListOutput(io.Discard, mock, 1234)
 	if err == nil || !strings.Contains(err.Error(), "failed to get projects") {
 		t.Errorf("expected error wrapping 'failed to get projects', got: %v", err)
 	}

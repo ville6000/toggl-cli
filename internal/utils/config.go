@@ -30,6 +30,13 @@ func GetConfig() (string, int, error) {
 	return token, workspaceId, nil
 }
 
+// GetTogglBaseURL returns the toggl.base_url config override, or "" when the
+// default Toggl API endpoint should be used. Pointing this at a stub server is
+// how the command tests exercise the CLI end to end.
+func GetTogglBaseURL() string {
+	return viper.GetString("toggl.base_url")
+}
+
 // SevenPaceConfig holds the settings for talking to an on-prem 7pace
 // Timetracker instance using NTLM (Windows) authentication.
 type SevenPaceConfig struct {
