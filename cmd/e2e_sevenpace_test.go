@@ -54,7 +54,7 @@ func TestSevenPaceSync_DryRunPostsNothing(t *testing.T) {
 		"1234",
 		"Skipped (no work item id)",
 		"no work item",
-		"Dry run: 1 worklog(s) would be posted, 1 skipped.",
+		"Dry run: 1 worklog(s) (00:27:00) would be posted, 1 skipped.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
@@ -63,6 +63,37 @@ func TestSevenPaceSync_DryRunPostsNothing(t *testing.T) {
 
 	if posted := sevenPace.requestsFor(http.MethodPost, sevenPaceWorkLogPath); len(posted) != 0 {
 		t.Errorf("--dry-run posted %d worklog(s), want 0", len(posted))
+	}
+}
+
+// Each preview table footers its Duration column, so the time about to be
+// logged to 7pace is visible before confirming the post.
+func TestSevenPaceSync_TablesTotalTheDurationColumn(t *testing.T) {
+	toggl := newAPIStub(t)
+	setupSevenPaceTest(t, toggl)
+
+	toggl.stubHistory(syncEntries()...)
+
+	out, _, err := executeCommand(t, "7pace", "sync", "--start", "2024-03-04", "--dry-run")
+	if err != nil {
+		t.Fatalf("7pace sync --dry-run: %v", err)
+	}
+
+	planned, skipped, found := strings.Cut(out, "Skipped (no work item id)")
+	if !found {
+		t.Fatalf("output missing the skipped table:\n%s", out)
+	}
+
+	// The single row plus the footer: 1500 + 100 seconds, rounded up to the
+	// next whole minute.
+	if got := strings.Count(planned, "00:27:00"); got != 2 {
+		t.Errorf("worklogs table has %d occurrences of 00:27:00, want 2 (row + total):\n%s", got, planned)
+	}
+	if got := strings.Count(skipped, "00:15:00"); got != 2 {
+		t.Errorf("skipped table has %d occurrences of 00:15:00, want 2 (row + total):\n%s", got, skipped)
+	}
+	if got := strings.Count(out, "TOTAL"); got != 2 {
+		t.Errorf("output has %d total rows, want 2:\n%s", got, out)
 	}
 }
 
@@ -99,7 +130,7 @@ func TestSevenPaceSync_AggregatesEntriesSharingADescription(t *testing.T) {
 		t.Errorf("activity type: got %v, want the configured uuid", posted.ActivityType)
 	}
 
-	if want := "Posted 1 worklog(s), 1 skipped, 0 failed."; !strings.Contains(out, want) {
+	if want := "Posted 1 worklog(s) (00:27:00), 1 skipped, 0 failed."; !strings.Contains(out, want) {
 		t.Errorf("output missing %q:\n%s", want, out)
 	}
 }
@@ -133,7 +164,7 @@ func TestSevenPaceSync_AbortsWhenConfirmationIsDeclined(t *testing.T) {
 		t.Fatalf("7pace sync: %v", err)
 	}
 
-	if !strings.Contains(out, "Post 1 worklog(s) to 7pace? [y/N]: ") {
+	if !strings.Contains(out, "Post 1 worklog(s) (00:27:00) to 7pace? [y/N]: ") {
 		t.Errorf("output missing the confirmation prompt:\n%s", out)
 	}
 	if !strings.Contains(out, "Aborted.") {
@@ -174,7 +205,7 @@ func TestSevenPaceSync_ReportsFailedWorklogs(t *testing.T) {
 	if !strings.Contains(err.Error(), "1 worklog(s) failed to post") {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if !strings.Contains(out, "Posted 0 worklog(s), 1 skipped, 1 failed.") {
+	if !strings.Contains(out, "Posted 0 worklog(s) (00:00:00), 1 skipped, 1 failed.") {
 		t.Errorf("output missing the failure summary:\n%s", out)
 	}
 	if !strings.Contains(out, "Failed") {
