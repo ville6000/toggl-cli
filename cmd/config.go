@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 )
 
 func newConfigCmd(v *viper.Viper) *cobra.Command {
@@ -21,14 +22,14 @@ func newConfigCmd(v *viper.Viper) *cobra.Command {
 		Long:  "Manage configuration settings for the Toggl CLI.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			out := cmd.OutOrStdout()
-			reader := bufio.NewReader(cmd.InOrStdin())
+			in := cmd.InOrStdin()
+			reader := bufio.NewReader(in)
 
 			fmt.Fprint(out, "Please enter your Toggl API token: ")
-			token, err := reader.ReadString('\n')
+			token, err := readSecret(out, in, reader)
 			if err != nil {
-				return fmt.Errorf("error reading input: %w", err)
+				return err
 			}
-			token = strings.TrimSpace(token)
 
 			fmt.Fprint(out, "Please enter your default workspace ID: ")
 			wsLine, err := reader.ReadString('\n')
@@ -53,7 +54,7 @@ func newConfigCmd(v *viper.Viper) *cobra.Command {
 				}
 			}
 
-			sp, err := readSevenPaceInput(out, reader)
+			sp, err := readSevenPaceInput(out, in, reader)
 			if err != nil {
 				return err
 			}
@@ -85,7 +86,7 @@ type sevenPaceInput struct {
 //
 // Note: the password is stored in plaintext in the config file — this is the
 // tradeoff of using NTLM credentials from config.
-func readSevenPaceInput(out io.Writer, reader *bufio.Reader) (sevenPaceInput, error) {
+func readSevenPaceInput(out io.Writer, in io.Reader, reader *bufio.Reader) (sevenPaceInput, error) {
 	fmt.Fprint(out, "Configure 7pace Timetracker? Enter base URL (leave empty to skip): ")
 	baseURL, err := reader.ReadString('\n')
 	if err != nil {
@@ -112,7 +113,8 @@ func readSevenPaceInput(out io.Writer, reader *bufio.Reader) (sevenPaceInput, er
 	if sp.username, err = prompt("Windows username: "); err != nil {
 		return sevenPaceInput{}, err
 	}
-	if sp.password, err = prompt("Windows password (stored in plaintext): "); err != nil {
+	fmt.Fprint(out, "Windows password (stored in plaintext): ")
+	if sp.password, err = readSecret(out, in, reader); err != nil {
 		return sevenPaceInput{}, err
 	}
 	if sp.activityTypeID, err = prompt("Activity type UUID (optional): "); err != nil {
@@ -120,6 +122,33 @@ func readSevenPaceInput(out io.Writer, reader *bufio.Reader) (sevenPaceInput, er
 	}
 
 	return sp, nil
+}
+
+// Terminal access used by readSecret, replaced in tests.
+var (
+	isTerminal   = term.IsTerminal
+	readPassword = term.ReadPassword
+)
+
+// readSecret reads a line without echoing it when in is a terminal, so a token
+// or password doesn't end up on screen or in scrollback. Otherwise (piped
+// input, tests) it reads the next line from reader like any other prompt.
+func readSecret(out io.Writer, in io.Reader, reader *bufio.Reader) (string, error) {
+	if f, ok := in.(*os.File); ok && isTerminal(int(f.Fd())) {
+		secret, err := readPassword(int(f.Fd()))
+		// The Enter that ended the input wasn't echoed either.
+		fmt.Fprintln(out)
+		if err != nil {
+			return "", fmt.Errorf("error reading input: %w", err)
+		}
+		return strings.TrimSpace(string(secret)), nil
+	}
+
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return "", fmt.Errorf("error reading input: %w", err)
+	}
+	return strings.TrimSpace(line), nil
 }
 
 func writeConfig(v *viper.Viper, token string, workspaceID int, timezone string, sp sevenPaceInput) error {
