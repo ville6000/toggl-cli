@@ -7,6 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/ville6000/toggl-cli/internal/config"
 )
 
 // Execute runs the command line with ctx, which every command passes on to its
@@ -74,7 +76,7 @@ func loadConfig(cmd *cobra.Command, v *viper.Viper, cfgFile string) error {
 		v.SetConfigFile(configPath)
 	}
 
-	v.AutomaticEnv()
+	config.UseEnv(v)
 
 	if err := v.ReadInConfig(); err == nil {
 		fmt.Fprintln(cmd.ErrOrStderr(), "Using config file:", v.ConfigFileUsed())

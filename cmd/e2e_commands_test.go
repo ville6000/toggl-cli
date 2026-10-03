@@ -577,6 +577,29 @@ func TestConfigCommand_StoresTheSevenPaceSettings(t *testing.T) {
 	}
 }
 
+// Credentials can come from the environment alone, without a config file:
+// the command succeeds only if both the token and the stub base URL are read.
+func TestRootCommand_ReadsConfigFromTheEnvironment(t *testing.T) {
+	stub := newAPIStub(t)
+	setupCLITest(t, stub)
+	// Preset values outrank the environment, so start from an empty
+	// configuration: this test is about the variables actually being read.
+	v := viper.New()
+
+	t.Setenv("TOGGL_CLI_TOGGL_TOKEN", "env-token")
+	t.Setenv("TOGGL_CLI_TOGGL_BASE_URL", stub.server.URL)
+
+	stub.respond(http.MethodGet, "/workspaces", http.StatusOK, []api.Workspace{{ID: 1, Name: "Personal"}})
+
+	out, _, err := executeCommand(t, v, "workspaces")
+	if err != nil {
+		t.Fatalf("workspaces: %v", err)
+	}
+	if !strings.Contains(out, "Personal") {
+		t.Errorf("output missing the workspace:\n%s", out)
+	}
+}
+
 func TestProjectsAddPathCommand_AppendsTheWorkingDirectory(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)

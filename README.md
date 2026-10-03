@@ -15,6 +15,23 @@ toggl:
 The configuration can be generated using the `toggl-cli config` command.
 The token can be obtained from the Toggl website.
 
+### Environment variables
+
+Every config key can also be set with an environment variable named
+`TOGGL_CLI_` followed by the key in upper case, with `.` replaced by `_`. A
+variable outranks the config file, so credentials can be supplied without one
+(for example in CI or a container):
+
+```sh
+export TOGGL_CLI_TOGGL_TOKEN=<your_api_token>
+export TOGGL_CLI_TOGGL_WORKSPACE_ID=<your_workspace_id>
+export TOGGL_CLI_TOGGL_TIMEZONE=Europe/Helsinki
+export TOGGL_CLI_SEVENPACE_PASSWORD=<your_windows_password>
+export TOGGL_CLI_START_TICKET_PATTERN='([A-Z]+-[0-9]+)'
+```
+
+Project path mappings (`projects`) can only be set in the config file.
+
 ### Projects and description auto-detection (optional)
 
 Map directories to Toggl projects so `toggl-cli start` can pick the project
