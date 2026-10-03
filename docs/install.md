@@ -22,7 +22,8 @@ BASE=https://github.com/ville6000/toggl-cli/releases/latest/download
 curl -fsSLO "$BASE/toggl-cli_$PLATFORM.tar.gz"
 curl -fsSLO "$BASE/checksums.txt"
 grep "toggl-cli_$PLATFORM.tar.gz" checksums.txt | shasum -a 256 -c
-gh attestation verify "toggl-cli_$PLATFORM.tar.gz" --repo ville6000/toggl-cli
+gh attestation verify "toggl-cli_$PLATFORM.tar.gz" --repo ville6000/toggl-cli \
+  --signer-workflow ville6000/toggl-cli/.github/workflows/release.yml
 tar -xzf "toggl-cli_$PLATFORM.tar.gz" toggl-cli
 sudo mv toggl-cli /usr/local/bin/
 ```
