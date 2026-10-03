@@ -63,7 +63,7 @@ func outputCurrentEntry(out io.Writer, entry *api.TimeEntryItem, projectsMap map
 		},
 	}
 
-	headers := []any{"#", "Started At", "Duration", "Description", "Project"}
+	headers := []any{"ID", "Started At", "Duration", "Description", "Project"}
 	output.RenderTable(out, "Current timer entry", headers, rows, nil)
 	return nil
 }

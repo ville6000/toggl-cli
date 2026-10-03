@@ -95,9 +95,18 @@ the instance also requires being on the corporate network / VPN.
 
 ### Editing entries
 
-`toggl-cli edit` updates a recent or running entry (select an older one with
-`--index/-i`, `0` = most recent). Change the description (`--description/-d`),
-project (`--project/-p`) or start time (`--start/-s`).
+`toggl-cli edit` updates a recent or running entry. Change the description
+(`--description/-d`), project (`--project/-p`) or start time (`--start/-s`).
+
+By default it edits the most recent entry. Pick another one with:
+
+- `--id <ID>`: the entry's ID, as shown in the ID column of `current`, `stop`
+  and `history --verbose`. IDs don't change, so this is the reliable choice,
+  and it also reaches entries older than the recent list.
+- `--index/-i <n>`: the position among your recent entries, `0` = most recent.
+  Positions shift whenever a new entry starts.
+
+`toggl-cli continue` accepts the same `--id` and `--index/-i` flags.
 
 The start time is interpreted in your configured timezone (`toggl.timezone`).
 It accepts `"YYYY-MM-DD HH:MM"`, `HH:MM` (keeps the entry's date) or
@@ -107,6 +116,7 @@ recomputed:
 ```sh
 toggl-cli edit --start 09:00                    # fix today's running/last entry
 toggl-cli edit -i 1 --start "2024-06-01 08:30"  # older entry, full date+time
+toggl-cli edit --id 4123456789 -d "code review" # any entry, by its ID
 ```
 
 ### 7pace worklogs

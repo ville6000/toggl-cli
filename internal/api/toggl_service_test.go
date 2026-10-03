@@ -179,6 +179,35 @@ func TestCurrentTimeEntry_HTTPError(t *testing.T) {
 
 // ---------- CreateTimeEntry ----------
 
+func TestTimeEntry_FetchesByID(t *testing.T) {
+	var gotPath string
+	client := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		if err := json.NewEncoder(w).Encode(TimeEntryItem{ID: 4123, Description: "old"}); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	}))
+
+	entry, err := client.TimeEntry(t.Context(), 4123)
+	if err != nil {
+		t.Fatalf("TimeEntry: %v", err)
+	}
+	if gotPath != "/me/time_entries/4123" {
+		t.Errorf("path: got %q", gotPath)
+	}
+	if entry.ID != 4123 || entry.Description != "old" {
+		t.Errorf("got %+v", entry)
+	}
+}
+
+func TestTimeEntry_HTTPError(t *testing.T) {
+	client := newTestClient(t, errorHandler(http.StatusNotFound))
+
+	if _, err := client.TimeEntry(t.Context(), 1); err == nil {
+		t.Error("expected error for HTTP 404")
+	}
+}
+
 func TestCreateTimeEntry_Success(t *testing.T) {
 	input := TimeEntry{Description: "coding", WorkspaceID: 5, Duration: -1}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

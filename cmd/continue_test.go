@@ -34,7 +34,7 @@ func continueEntries() []api.TimeEntryItem {
 func TestCreateTimeEntryFrom_UsesTheWorkspaceOfTheSelectedEntry(t *testing.T) {
 	mock := &mockContinueService{}
 
-	description, err := createTimeEntryFrom(t.Context(), 0, continueEntries(), mock, 100)
+	description, err := createTimeEntryFrom(t.Context(), continueEntries()[0], mock, 100)
 	if err != nil {
 		t.Fatalf("createTimeEntryFrom: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestCreateTimeEntryFrom_FallsBackToTheConfiguredWorkspace(t *testing.T) {
 	mock := &mockContinueService{}
 	entries := []api.TimeEntryItem{{ID: 1, Description: "no workspace", ProjectID: 9}}
 
-	if _, err := createTimeEntryFrom(t.Context(), 0, entries, mock, 100); err != nil {
+	if _, err := createTimeEntryFrom(t.Context(), entries[0], mock, 100); err != nil {
 		t.Fatalf("createTimeEntryFrom: %v", err)
 	}
 
@@ -70,10 +70,10 @@ func TestCreateTimeEntryFrom_FallsBackToTheConfiguredWorkspace(t *testing.T) {
 	}
 }
 
-func TestCreateTimeEntryFrom_SelectsByIndex(t *testing.T) {
+func TestCreateTimeEntryFrom_ContinuesTheGivenEntry(t *testing.T) {
 	mock := &mockContinueService{}
 
-	description, err := createTimeEntryFrom(t.Context(), 1, continueEntries(), mock, 100)
+	description, err := createTimeEntryFrom(t.Context(), continueEntries()[1], mock, 100)
 	if err != nil {
 		t.Fatalf("createTimeEntryFrom: %v", err)
 	}
@@ -86,19 +86,10 @@ func TestCreateTimeEntryFrom_SelectsByIndex(t *testing.T) {
 	}
 }
 
-func TestCreateTimeEntryFrom_IndexOutOfRange(t *testing.T) {
-	for _, index := range []int{-1, 2} {
-		mock := &mockContinueService{}
-		if _, err := createTimeEntryFrom(t.Context(), index, continueEntries(), mock, 100); err == nil {
-			t.Errorf("index %d: expected an error", index)
-		}
-	}
-}
-
 func TestCreateTimeEntryFrom_CreateError(t *testing.T) {
 	mock := &mockContinueService{createErr: errors.New("API unavailable")}
 
-	_, err := createTimeEntryFrom(t.Context(), 0, continueEntries(), mock, 100)
+	_, err := createTimeEntryFrom(t.Context(), continueEntries()[0], mock, 100)
 	if err == nil {
 		t.Fatal("expected an error")
 	}

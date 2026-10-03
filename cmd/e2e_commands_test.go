@@ -33,7 +33,7 @@ func TestCurrentCommand_RendersTheRunningEntry(t *testing.T) {
 		t.Fatalf("current: %v", err)
 	}
 
-	for _, want := range []string{"Current timer entry", "55", "writing tests", "Alpha"} {
+	for _, want := range []string{"Current timer entry", "| ID ", "55", "writing tests", "Alpha"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}
@@ -230,6 +230,49 @@ func TestContinueCommand_SelectsEntryByIndex(t *testing.T) {
 	}
 }
 
+// An ID picks the entry directly, even one older than the recent list.
+func TestContinueCommand_SelectsEntryByID(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	createPath := fmt.Sprintf("/workspaces/%d/time_entries", testWorkspaceID)
+	stub.respond(http.MethodGet, "/me/time_entries/4123", http.StatusOK, api.TimeEntryItem{
+		ID: 4123, Description: "last month", ProjectID: 8, WorkspaceID: testWorkspaceID, Duration: 600,
+	})
+	stub.respond(http.MethodPost, createPath, http.StatusOK, api.TimeEntry{ID: 5})
+
+	out, _, err := executeCommand(t, v, "continue", "--id", "4123")
+	if err != nil {
+		t.Fatalf("continue --id: %v", err)
+	}
+
+	var created api.TimeEntry
+	stub.onlyRequestFor(http.MethodPost, createPath).decodeBody(t, &created)
+
+	if created.Description != "last month" || created.ProjectID != 8 {
+		t.Errorf("created %+v, want a copy of entry 4123", created)
+	}
+	if !strings.Contains(out, "Continuing timer for: last month") {
+		t.Errorf("unexpected output:\n%s", out)
+	}
+}
+
+func TestEntrySelection_RejectsBothIndexAndID(t *testing.T) {
+	for _, args := range [][]string{
+		{"continue", "--index", "1", "--id", "4123"},
+		{"edit", "--index", "1", "--id", "4123", "-d", "x"},
+	} {
+		t.Run(args[0], func(t *testing.T) {
+			v := setupCLITest(t, nil)
+
+			_, _, err := executeCommand(t, v, args...)
+			if err == nil || !strings.Contains(err.Error(), "none of the others can be") {
+				t.Errorf("expected a mutually exclusive flags error, got %v", err)
+			}
+		})
+	}
+}
+
 func TestContinueCommand_IndexOutOfRange(t *testing.T) {
 	stub := newAPIStub(t)
 	v := setupCLITest(t, stub)
@@ -240,7 +283,7 @@ func TestContinueCommand_IndexOutOfRange(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for an out of range index")
 	}
-	if !strings.Contains(err.Error(), "index out of range") {
+	if !strings.Contains(err.Error(), "index 5 out of range") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -284,6 +327,30 @@ func TestEditCommand_RecomputesDurationAroundANewStartTime(t *testing.T) {
 	}
 	if !strings.Contains(out, "Stopped timer entry") {
 		t.Errorf("unexpected output:\n%s", out)
+	}
+}
+
+func TestEditCommand_SelectsEntryByID(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	updatePath := fmt.Sprintf("/workspaces/%d/time_entries/4123", testWorkspaceID)
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	stub.respond(http.MethodGet, "/me/time_entries/4123", http.StatusOK,
+		utcEntry(4123, time.Date(2024, 5, 2, 9, 0, 0, 0, time.UTC), 3600, "old text"))
+	stub.respond(http.MethodPut, updatePath, http.StatusOK, api.TimeEntryItem{
+		ID: 4123, Description: "new text", Duration: 3600, ProjectID: 7, WorkspaceID: testWorkspaceID,
+		Start: time.Date(2024, 5, 2, 9, 0, 0, 0, time.UTC),
+	})
+
+	if _, _, err := executeCommand(t, v, "edit", "--id", "4123", "-d", "new text"); err != nil {
+		t.Fatalf("edit --id: %v", err)
+	}
+
+	var updated api.TimeEntry
+	stub.onlyRequestFor(http.MethodPut, updatePath).decodeBody(t, &updated)
+	if updated.Description != "new text" {
+		t.Errorf("description: got %q, want %q", updated.Description, "new text")
 	}
 }
 

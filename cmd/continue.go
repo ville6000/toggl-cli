@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/ville6000/toggl-cli/internal/api"
@@ -25,22 +24,18 @@ func newContinueCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to get configuration: %w", err)
 			}
 
+			sel, err := readEntrySelector(cmd)
+			if err != nil {
+				return err
+			}
+
 			client := newTogglClient(v, token)
-			timeEntries, err := client.TimeEntries(ctx, nil, nil)
+			entry, err := selectEntry(ctx, client, sel)
 			if err != nil {
-				return fmt.Errorf("failed to retrieve latest time entries: %w", err)
+				return err
 			}
 
-			if len(timeEntries) == 0 {
-				return errors.New("no time entries found")
-			}
-
-			index, err := cmd.Flags().GetInt("index")
-			if err != nil {
-				return fmt.Errorf("failed to get index flag: %w", err)
-			}
-
-			timeEntryDescription, err := createTimeEntryFrom(ctx, index, timeEntries, client, workspaceID)
+			timeEntryDescription, err := createTimeEntryFrom(ctx, entry, client, workspaceID)
 			if err != nil {
 				return fmt.Errorf("failed to create time entry: %w", err)
 			}
@@ -51,7 +46,7 @@ func newContinueCmd(v *viper.Viper) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().IntP("index", "i", 0, "Index of the time entry to continue")
+	addEntrySelectorFlags(cmd, "continue")
 
 	return cmd
 }
@@ -61,15 +56,10 @@ type ContinueService interface {
 	CreateTimeEntry(ctx context.Context, workspaceID int, entry api.TimeEntry) (*api.TimeEntry, error)
 }
 
-// createTimeEntryFrom restarts the entry at index. The new entry is created in
-// the workspace of the entry being continued — its project id only exists
-// there — falling back to the configured workspace when the entry has none.
-func createTimeEntryFrom(ctx context.Context, index int, timeEntries []api.TimeEntryItem, client ContinueService, workspaceID int) (string, error) {
-	if index < 0 || index >= len(timeEntries) {
-		return "", errors.New("index out of range")
-	}
-
-	e := timeEntries[index]
+// createTimeEntryFrom restarts e. The new entry is created in the workspace of
+// the entry being continued — its project id only exists there — falling back
+// to the configured workspace when the entry has none.
+func createTimeEntryFrom(ctx context.Context, e api.TimeEntryItem, client ContinueService, workspaceID int) (string, error) {
 	if e.WorkspaceID != 0 {
 		workspaceID = e.WorkspaceID
 	}

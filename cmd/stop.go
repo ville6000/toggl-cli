@@ -53,7 +53,7 @@ func newStopCmd(v *viper.Viper) *cobra.Command {
 }
 
 func outputStoppedTimeEntry(out io.Writer, entry *api.TimeEntryItem, projectsMap map[int]string) error {
-	headers := []any{"#", "Started At", "Duration", "Description", "Project"}
+	headers := []any{"ID", "Started At", "Duration", "Description", "Project"}
 	projectName := projectsMap[entry.ProjectID]
 	rows := [][]any{
 		{

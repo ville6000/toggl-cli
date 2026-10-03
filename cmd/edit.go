@@ -16,7 +16,7 @@ import (
 
 // EditService is the subset of api.Client used by the edit command.
 type EditService interface {
-	TimeEntries(ctx context.Context, from, to *time.Time) ([]api.TimeEntryItem, error)
+	EntryLookup
 	ProjectIDByName(ctx context.Context, workspaceID int, projectName string) (int, error)
 	UpdateTimeEntry(ctx context.Context, workspaceID int, entryID int, entry api.TimeEntry) (*api.TimeEntryItem, error)
 	ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error)
@@ -33,9 +33,9 @@ func newEditCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to get configuration: %w", err)
 			}
 
-			index, err := cmd.Flags().GetInt("index")
+			sel, err := readEntrySelector(cmd)
 			if err != nil {
-				return fmt.Errorf("failed to get index flag: %w", err)
+				return err
 			}
 
 			description, err := cmd.Flags().GetString("description")
@@ -64,11 +64,11 @@ func newEditCmd(v *viper.Viper) *cobra.Command {
 
 			client := newTogglClient(v, token)
 
-			return runEdit(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), client, index, description, project, start, location)
+			return runEdit(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), client, sel, description, project, start, location)
 		},
 	}
 
-	cmd.Flags().IntP("index", "i", 0, "Index of the time entry to edit (0 = most recent)")
+	addEntrySelectorFlags(cmd, "edit")
 	cmd.Flags().StringP("description", "d", "", "New description for the time entry")
 	cmd.Flags().StringP("project", "p", "", "New project for the time entry")
 	cmd.Flags().StringP("start", "s", "", "New start time in your timezone: \"YYYY-MM-DD HH:MM\", HH:MM (keeps entry's date) or YYYY-MM-DD")
@@ -80,24 +80,14 @@ func runEdit(
 	ctx context.Context,
 	out, errOut io.Writer,
 	client EditService,
-	index int,
+	sel entrySelector,
 	newDescription, newProject, newStart string,
 	location *time.Location,
 ) error {
-	entries, err := client.TimeEntries(ctx, nil, nil)
+	entry, err := selectEntry(ctx, client, sel)
 	if err != nil {
-		return fmt.Errorf("failed to get history: %w", err)
+		return err
 	}
-
-	if len(entries) == 0 {
-		return errors.New("no time entries found")
-	}
-
-	if index < 0 || index >= len(entries) {
-		return fmt.Errorf("index %d out of range (0-%d)", index, len(entries)-1)
-	}
-
-	entry := entries[index]
 
 	// Use the workspace from the selected entry for all subsequent operations
 	// so multi-workspace accounts target the correct workspace.
