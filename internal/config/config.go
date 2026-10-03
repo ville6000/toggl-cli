@@ -1,6 +1,8 @@
+// Package config reads toggl-cli settings from the loaded config file.
 package config
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,7 +13,7 @@ import (
 func Token() (string, error) {
 	token := viper.GetString("toggl.token")
 	if token == "" {
-		return "", fmt.Errorf("missing toggl.token in config, please run 'toggl-cli config'")
+		return "", errors.New("missing toggl.token in config, please run 'toggl-cli config'")
 	}
 
 	return token, nil
@@ -22,12 +24,12 @@ func Token() (string, error) {
 func TokenAndWorkspace() (string, int, error) {
 	token := viper.GetString("toggl.token")
 	if token == "" {
-		return "", 0, fmt.Errorf("missing toggl.token in config, please run 'toggl-cli config'")
+		return "", 0, errors.New("missing toggl.token in config, please run 'toggl-cli config'")
 	}
 
 	workspaceID := viper.GetInt("toggl.workspace_id")
 	if workspaceID == 0 {
-		return "", 0, fmt.Errorf("missing toggl.workspace_id in config, please run 'toggl-cli config'")
+		return "", 0, errors.New("missing toggl.workspace_id in config, please run 'toggl-cli config'")
 	}
 
 	return token, workspaceID, nil
@@ -64,10 +66,10 @@ func LoadSevenPace() (SevenPace, error) {
 	}
 
 	if cfg.BaseURL == "" {
-		return SevenPace{}, fmt.Errorf("missing sevenpace.base_url in config, please run 'toggl-cli config'")
+		return SevenPace{}, errors.New("missing sevenpace.base_url in config, please run 'toggl-cli config'")
 	}
 	if cfg.Username == "" || cfg.Password == "" {
-		return SevenPace{}, fmt.Errorf("missing sevenpace.username or sevenpace.password in config, please run 'toggl-cli config'")
+		return SevenPace{}, errors.New("missing sevenpace.username or sevenpace.password in config, please run 'toggl-cli config'")
 	}
 
 	return cfg, nil

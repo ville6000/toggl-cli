@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -19,7 +20,7 @@ func (c *Client) Workspaces() ([]data.Workspace, error) {
 	}
 
 	var workspaces []data.Workspace
-	if reqErr := c.doRequest(req, http.StatusOK, &workspaces); reqErr != nil {
+	if reqErr := c.doRequest(req, &workspaces); reqErr != nil {
 		return nil, reqErr
 	}
 
@@ -35,7 +36,7 @@ func (c *Client) CurrentTimeEntry() (*data.TimeEntryItem, error) {
 	}
 
 	var entry data.TimeEntryItem
-	if reqErr := c.doRequest(req, http.StatusOK, &entry); reqErr != nil {
+	if reqErr := c.doRequest(req, &entry); reqErr != nil {
 		return nil, reqErr
 	}
 
@@ -52,7 +53,7 @@ func (c *Client) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.T
 	}
 
 	var createdEntry data.TimeEntry
-	if reqErr := c.doRequest(req, http.StatusOK, &createdEntry); reqErr != nil {
+	if reqErr := c.doRequest(req, &createdEntry); reqErr != nil {
 		return nil, reqErr
 	}
 
@@ -84,7 +85,7 @@ func (c *Client) StopTimeEntry(workspaceID int, entryID int) (*data.TimeEntryIte
 	}
 
 	var stoppedEntry data.TimeEntryItem
-	if reqErr := c.doRequest(req, http.StatusOK, &stoppedEntry); reqErr != nil {
+	if reqErr := c.doRequest(req, &stoppedEntry); reqErr != nil {
 		return nil, reqErr
 	}
 
@@ -101,7 +102,7 @@ func (c *Client) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEn
 	}
 
 	var updatedEntry data.TimeEntryItem
-	if reqErr := c.doRequest(req, http.StatusOK, &updatedEntry); reqErr != nil {
+	if reqErr := c.doRequest(req, &updatedEntry); reqErr != nil {
 		return nil, reqErr
 	}
 
@@ -125,7 +126,7 @@ func (c *Client) Projects(workspaceID int) ([]data.Project, error) {
 	}
 
 	var projects []data.Project
-	if reqErr := c.doRequest(req, http.StatusOK, &projects); reqErr != nil {
+	if reqErr := c.doRequest(req, &projects); reqErr != nil {
 		return nil, reqErr
 	}
 
@@ -180,7 +181,7 @@ func (c *Client) TimeEntries(from, to *time.Time) ([]data.TimeEntryItem, error) 
 	}
 
 	var timeEntries []data.TimeEntryItem
-	if reqErr := c.doRequest(req, http.StatusOK, &timeEntries); reqErr != nil {
+	if reqErr := c.doRequest(req, &timeEntries); reqErr != nil {
 		return nil, reqErr
 	}
 
@@ -203,7 +204,8 @@ func (c *Client) ProjectNames(workspaceID int) (map[int]string, error) {
 }
 
 func (c *Client) newRequest(method, endpoint string, body any) (*http.Request, error) {
-	req, err := newJSONRequest(method, c.BaseURL+endpoint, body)
+	// context.TODO until the API methods take a context from their callers.
+	req, err := newJSONRequest(context.TODO(), method, c.BaseURL+endpoint, body)
 	if err != nil {
 		return nil, err
 	}
@@ -213,8 +215,8 @@ func (c *Client) newRequest(method, endpoint string, body any) (*http.Request, e
 	return req, nil
 }
 
-func (c *Client) doRequest(req *http.Request, expectedStatus int, result any) error {
-	return doJSON(c.HTTPClient, req, expectedStatus, result)
+func (c *Client) doRequest(req *http.Request, result any) error {
+	return doJSON(c.HTTPClient, req, result)
 }
 
 func (c *Client) setAuthHeader(req *http.Request) {

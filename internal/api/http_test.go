@@ -29,7 +29,7 @@ func TestStatusError_Message(t *testing.T) {
 }
 
 func TestDoRequest_ErrorIncludesResponseBody(t *testing.T) {
-	client, _ := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "workspace not found", http.StatusNotFound)
 	}))
 
@@ -45,7 +45,7 @@ func TestDoRequest_ErrorIncludesResponseBody(t *testing.T) {
 }
 
 func TestSevenPaceDoRequest_UnauthorizedAddsCredentialHint(t *testing.T) {
-	client := newTestSevenPaceClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newTestSevenPaceClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("WWW-Authenticate", "NTLM")
 		w.WriteHeader(http.StatusUnauthorized)
 	}))

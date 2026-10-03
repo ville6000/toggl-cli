@@ -1,3 +1,5 @@
+// Package api holds the clients for the Toggl Track and 7pace Timetracker
+// REST APIs.
 package api
 
 import (

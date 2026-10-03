@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Azure/go-ntlmssp"
+
 	"github.com/ville6000/toggl-cli/internal/config"
 )
 

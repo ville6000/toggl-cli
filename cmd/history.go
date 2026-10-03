@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
+
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/output"
@@ -27,7 +29,7 @@ var historyCmd = &cobra.Command{
 	Use:   "history",
 	Short: "Fetch the history of time entries",
 	Long:  "Fetch the history of time entries from Toggl",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
@@ -61,7 +63,7 @@ var historyCmd = &cobra.Command{
 
 		groupedEntries := groupEntriesByDate(timeEntries, location)
 		if len(groupedEntries) == 0 {
-			return fmt.Errorf("no time entries found for the specified date range")
+			return errors.New("no time entries found for the specified date range")
 		}
 
 		out := cmd.OutOrStdout()
@@ -109,7 +111,7 @@ func outputSummaryEntries(out io.Writer, key string, headers []any, entries map[
 	}
 
 	footer := table.Row{"", "Total", output.FormatDuration(totalDuration)}
-	title := fmt.Sprintf("Summary for: %s", key)
+	title := "Summary for: " + key
 
 	output.RenderTable(out, title, headers, rows, footer)
 	fmt.Fprintln(out)
@@ -172,7 +174,7 @@ func outputDateEntries(
 		return fmt.Errorf("error parsing date: %w", err)
 	}
 
-	title := fmt.Sprintf("Entries for: %s", parsedDate.Format("02.01.2006"))
+	title := "Entries for: " + parsedDate.Format("02.01.2006")
 
 	entries := groupedEntries[key]
 	var rows [][]any

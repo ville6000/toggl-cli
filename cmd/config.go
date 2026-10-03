@@ -18,7 +18,7 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "Manage configuration settings",
 	Long:  "Manage configuration settings for the Toggl CLI.",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		out := cmd.OutOrStdout()
 		reader := bufio.NewReader(cmd.InOrStdin())
 
@@ -148,8 +148,7 @@ func writeConfig(token string, workspaceID int, timezone string, sp sevenPaceInp
 	writeErr := viper.WriteConfig()
 
 	if writeErr != nil {
-		var configFileNotFoundError viper.ConfigFileNotFoundError
-		if !errors.As(writeErr, &configFileNotFoundError) {
+		if _, ok := errors.AsType[viper.ConfigFileNotFoundError](writeErr); !ok {
 			return writeErr
 		}
 

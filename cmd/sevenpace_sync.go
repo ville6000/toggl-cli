@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
+
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/data"
@@ -33,7 +36,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 		"the description (e.g. \"#1234\" or a leading number); entries without a work item id are\n" +
 		"skipped. There is no de-duplication, so re-running the same range creates duplicate\n" +
 		"worklogs — use --dry-run first to preview.",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		token, _, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
@@ -91,7 +94,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 			}
 
 			planned = append(planned, plannedWorkLog{
-				workItem: fmt.Sprintf("%d", *workLog.WorkItemID),
+				workItem: strconv.Itoa(*workLog.WorkItemID),
 				started:  started,
 				duration: duration,
 				comment:  entry.Description,
@@ -101,7 +104,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 		}
 
 		if len(planned) == 0 && len(skipped) == 0 {
-			return fmt.Errorf("no time entries found for the specified date range")
+			return errors.New("no time entries found for the specified date range")
 		}
 
 		out := cmd.OutOrStdout()

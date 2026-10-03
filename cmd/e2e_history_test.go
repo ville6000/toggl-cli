@@ -12,12 +12,12 @@ import (
 
 // utcEntry builds a stopped entry as the API returns it: a UTC timestamp and a
 // positive duration in seconds.
-func utcEntry(id int, start time.Time, duration int, description string, projectID int) data.TimeEntryItem {
+func utcEntry(id int, start time.Time, duration int, description string) data.TimeEntryItem {
 	return data.TimeEntryItem{
 		ID:          id,
 		Description: description,
 		Duration:    duration,
-		ProjectID:   projectID,
+		ProjectID:   7,
 		WorkspaceID: testWorkspaceID,
 		Start:       start.UTC(),
 	}
@@ -30,9 +30,9 @@ func TestHistoryCommand_SumsEntriesPerDayAndAsksForTheRequestedRange(t *testing.
 	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
 	stub.stubHistory(
 		// 10:00 and 14:00 Tokyo time on 2024-03-04.
-		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "review", 7),
-		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 1800, "review", 7),
-		utcEntry(3, time.Date(2024, 3, 4, 6, 0, 0, 0, time.UTC), 900, "standup", 7),
+		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "review"),
+		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 1800, "review"),
+		utcEntry(3, time.Date(2024, 3, 4, 6, 0, 0, 0, time.UTC), 900, "standup"),
 	)
 
 	out, _, err := executeCommand(t, "history", "--start", "2024-03-04", "--end", "2024-03-04")
@@ -71,7 +71,7 @@ func TestHistoryCommand_GroupsByLocalDateAcrossTimezoneBoundary(t *testing.T) {
 	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
 	// 22:30 UTC on the 4th is 07:30 on the 5th in Tokyo, so the entry belongs
 	// to the 5th as far as the user is concerned.
-	stub.stubHistory(utcEntry(1, time.Date(2024, 3, 4, 22, 30, 0, 0, time.UTC), 3600, "review", 7))
+	stub.stubHistory(utcEntry(1, time.Date(2024, 3, 4, 22, 30, 0, 0, time.UTC), 3600, "review"))
 
 	out, _, err := executeCommand(t, "history", "--start", "2024-03-05", "--end", "2024-03-05", "--verbose")
 	if err != nil {
@@ -129,8 +129,8 @@ func TestHistoryCommand_VerboseListsIndividualEntries(t *testing.T) {
 
 	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
 	stub.stubHistory(
-		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "review", 7),
-		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 1800, "review", 7),
+		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "review"),
+		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 1800, "review"),
 	)
 
 	verbose, _, err := executeCommand(t, "history", "--start", "2024-03-04", "--end", "2024-03-04", "--verbose")

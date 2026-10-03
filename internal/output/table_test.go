@@ -62,7 +62,7 @@ func TestRenderTable_WithFooter(t *testing.T) {
 	}
 }
 
-func TestRenderTable_EmptyRows(t *testing.T) {
+func TestRenderTable_EmptyRows(_ *testing.T) {
 	// Should not panic with no rows.
 	render("Empty", []any{"COL"}, [][]any{}, nil)
 }
