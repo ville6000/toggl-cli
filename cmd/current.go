@@ -5,8 +5,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/ville6000/toggl-cli/internal/data"
-
 	"github.com/spf13/cobra"
 
 	"github.com/ville6000/toggl-cli/internal/api"
@@ -19,18 +17,20 @@ var currentCmd = &cobra.Command{
 	Short: "Get the current timer entry",
 	Long:  "Get the current timer entry from Toggl.",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+
 		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
 
 		client := api.NewClientFromConfig(token)
-		currentEntry, err := client.CurrentTimeEntry()
+		currentEntry, err := client.CurrentTimeEntry(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get current timer entry: %w", err)
 		}
 
-		projectsMap, err := client.ProjectNames(workspaceID)
+		projectsMap, err := client.ProjectNames(ctx, workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get projects: %w", err)
 		}
@@ -39,7 +39,7 @@ var currentCmd = &cobra.Command{
 	},
 }
 
-func outputCurrentEntry(out io.Writer, entry *data.TimeEntryItem, projectsMap map[int]string) error {
+func outputCurrentEntry(out io.Writer, entry *api.TimeEntryItem, projectsMap map[int]string) error {
 	if entry == nil || entry.ID == 0 {
 		fmt.Fprintln(out, "No current timer entry.")
 		return nil

@@ -1,6 +1,4 @@
-// Package data holds the request and response types for the Toggl and 7pace
-// APIs.
-package data
+package api
 
 import "time"
 
@@ -50,12 +48,6 @@ type Workspace struct {
 type Project struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
-}
-
-// ProjectCache is the on-disk format of a cached project list.
-type ProjectCache struct {
-	Timestamp time.Time `json:"timestamp"`
-	Data      []Project `json:"data"`
 }
 
 // SevenPaceWorkLog is the request/response body for the 7pace Timetracker

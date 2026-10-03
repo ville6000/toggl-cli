@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 // newDateFlagCmd builds a command carrying the same date flags as history /
@@ -194,23 +194,23 @@ func TestEntryDuration(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		entry data.TimeEntryItem
+		entry api.TimeEntryItem
 		want  int
 	}{
 		{
 			name:  "stopped entry keeps its duration",
-			entry: data.TimeEntryItem{Duration: 3600, Start: now.Add(-2 * time.Hour)},
+			entry: api.TimeEntryItem{Duration: 3600, Start: now.Add(-2 * time.Hour)},
 			want:  3600,
 		},
 		{
 			name: "running entry counts the elapsed time",
 			// Toggl encodes a running entry as the negated start timestamp.
-			entry: data.TimeEntryItem{Duration: int(-now.Add(-90 * time.Minute).Unix()), Start: now.Add(-90 * time.Minute)},
+			entry: api.TimeEntryItem{Duration: int(-now.Add(-90 * time.Minute).Unix()), Start: now.Add(-90 * time.Minute)},
 			want:  5400,
 		},
 		{
 			name:  "running entry starting in the future is not negative",
-			entry: data.TimeEntryItem{Duration: -1, Start: now.Add(time.Hour)},
+			entry: api.TimeEntryItem{Duration: -1, Start: now.Add(time.Hour)},
 			want:  0,
 		},
 	}
@@ -229,7 +229,7 @@ func TestEntryDuration(t *testing.T) {
 func TestGroupEntriesByDate_UsesTheConfiguredTimezone(t *testing.T) {
 	// +09:00, so 22:30 UTC belongs to the next local day.
 	location := time.FixedZone("TEST", 9*60*60)
-	entries := []data.TimeEntryItem{
+	entries := []api.TimeEntryItem{
 		{ID: 1, Start: time.Date(2024, 3, 4, 22, 30, 0, 0, time.UTC)},
 		{ID: 2, Start: time.Date(2024, 3, 5, 1, 0, 0, 0, time.UTC)},
 		{ID: 3, Start: time.Date(2024, 3, 4, 10, 0, 0, 0, time.UTC)},
@@ -250,7 +250,7 @@ func TestGroupEntriesByDate_UsesTheConfiguredTimezone(t *testing.T) {
 func TestSumEntriesByDescriptionAndProject(t *testing.T) {
 	now := time.Date(2024, 3, 4, 12, 0, 0, 0, time.UTC)
 	projects := map[int]string{7: "Alpha"}
-	entries := []data.TimeEntryItem{
+	entries := []api.TimeEntryItem{
 		{Description: "review", ProjectID: 7, Duration: 3600, Start: now.Add(-4 * time.Hour)},
 		{Description: "review", ProjectID: 7, Duration: 1800, Start: now.Add(-2 * time.Hour)},
 		{Description: "standup", ProjectID: 7, Duration: 900, Start: now.Add(-time.Hour)},
@@ -275,7 +275,7 @@ func TestSumEntriesByDescriptionAndProject(t *testing.T) {
 func TestSumEntriesByDescriptionAndProject_RunningEntryDoesNotCorruptTheTotal(t *testing.T) {
 	now := time.Date(2024, 3, 4, 12, 0, 0, 0, time.UTC)
 	start := now.Add(-30 * time.Minute)
-	entries := []data.TimeEntryItem{
+	entries := []api.TimeEntryItem{
 		{Description: "review", ProjectID: 7, Duration: 3600, Start: now.Add(-4 * time.Hour)},
 		{Description: "review", ProjectID: 7, Duration: int(-start.Unix()), Start: start},
 	}
@@ -291,7 +291,7 @@ func TestSumEntriesByDescriptionAndProject_RunningEntryDoesNotCorruptTheTotal(t 
 // ---------- getSortedTimeEntryDates ----------
 
 func TestGetSortedTimeEntryDates_NewestFirst(t *testing.T) {
-	grouped := map[string][]data.TimeEntryItem{
+	grouped := map[string][]api.TimeEntryItem{
 		"2024-03-04": nil,
 		"2024-03-06": nil,
 		"2024-03-05": nil,

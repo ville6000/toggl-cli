@@ -1,10 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
-
-	"github.com/ville6000/toggl-cli/internal/data"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
@@ -17,13 +16,15 @@ var continueCmd = &cobra.Command{
 	Short: "Continue latest timer entry",
 	Long:  "",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+
 		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
 
 		client := api.NewClientFromConfig(token)
-		timeEntries, err := client.TimeEntries(nil, nil)
+		timeEntries, err := client.TimeEntries(ctx, nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve latest time entries: %w", err)
 		}
@@ -37,7 +38,7 @@ var continueCmd = &cobra.Command{
 			return fmt.Errorf("failed to get index flag: %w", err)
 		}
 
-		timeEntryDescription, err := createTimeEntryFrom(index, timeEntries, client, workspaceID)
+		timeEntryDescription, err := createTimeEntryFrom(ctx, index, timeEntries, client, workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to create time entry: %w", err)
 		}
@@ -55,13 +56,13 @@ func init() {
 
 // ContinueService is the subset of api.Client used by the continue command.
 type ContinueService interface {
-	CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error)
+	CreateTimeEntry(ctx context.Context, workspaceID int, entry api.TimeEntry) (*api.TimeEntry, error)
 }
 
 // createTimeEntryFrom restarts the entry at index. The new entry is created in
 // the workspace of the entry being continued — its project id only exists
 // there — falling back to the configured workspace when the entry has none.
-func createTimeEntryFrom(index int, timeEntries []data.TimeEntryItem, client ContinueService, workspaceID int) (string, error) {
+func createTimeEntryFrom(ctx context.Context, index int, timeEntries []api.TimeEntryItem, client ContinueService, workspaceID int) (string, error) {
 	if index < 0 || index >= len(timeEntries) {
 		return "", errors.New("index out of range")
 	}
@@ -72,7 +73,7 @@ func createTimeEntryFrom(index int, timeEntries []data.TimeEntryItem, client Con
 	}
 
 	timeEntry := api.NewTimeEntry(e.Description, workspaceID, e.ProjectID, e.Billable)
-	_, err := client.CreateTimeEntry(workspaceID, timeEntry)
+	_, err := client.CreateTimeEntry(ctx, workspaceID, timeEntry)
 	if err != nil {
 		return "", err
 	}

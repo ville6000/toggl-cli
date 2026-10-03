@@ -1,12 +1,11 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 func TestStatusError_Message(t *testing.T) {
@@ -33,7 +32,7 @@ func TestDoRequest_ErrorIncludesResponseBody(t *testing.T) {
 		http.Error(w, "workspace not found", http.StatusNotFound)
 	}))
 
-	_, err := client.Workspaces()
+	_, err := client.Workspaces(t.Context())
 
 	var statusErr *statusError
 	if !errors.As(err, &statusErr) || statusErr.StatusCode != http.StatusNotFound {
@@ -50,7 +49,7 @@ func TestSevenPaceDoRequest_UnauthorizedAddsCredentialHint(t *testing.T) {
 		w.WriteHeader(http.StatusUnauthorized)
 	}))
 
-	_, err := client.CreateWorkLog(data.SevenPaceWorkLog{Length: 3600})
+	_, err := client.CreateWorkLog(t.Context(), SevenPaceWorkLog{Length: 3600})
 	if err == nil {
 		t.Fatal("expected error for HTTP 401")
 	}
@@ -59,5 +58,16 @@ func TestSevenPaceDoRequest_UnauthorizedAddsCredentialHint(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error should contain %q, got %q", want, err)
 		}
+	}
+}
+
+func TestRequests_StopWhenContextIsCancelled(t *testing.T) {
+	client := newTestClient(t, jsonHandler(t, []Workspace{}))
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	if _, err := client.Workspaces(ctx); !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled, got %v", err)
 	}
 }

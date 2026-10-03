@@ -1,6 +1,4 @@
-// Package cache stores each workspace's Toggl project list on disk so
-// commands don't refetch it on every run.
-package cache
+package api
 
 import (
 	"crypto/sha256"
@@ -11,18 +9,23 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/ville6000/toggl-cli/internal/data"
 )
 
-// Service caches each workspace's project list as a JSON file in CacheDir.
-type Service struct {
+// ProjectCache caches each workspace's project list as a JSON file in
+// CacheDir, so commands don't refetch it on every run.
+type ProjectCache struct {
 	CacheDir string
 }
 
-// NewService returns a Service storing its files under the user's cache
-// directory, creating it if needed.
-func NewService() (*Service, error) {
+// cachedProjects is the on-disk format of a cached project list.
+type cachedProjects struct {
+	Timestamp time.Time `json:"timestamp"`
+	Data      []Project `json:"data"`
+}
+
+// NewProjectCache returns a ProjectCache storing its files under the user's
+// cache directory, creating it if needed.
+func NewProjectCache() (*ProjectCache, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return nil, err
@@ -33,11 +36,11 @@ func NewService() (*Service, error) {
 		return nil, err
 	}
 
-	return &Service{CacheDir: cacheDir}, nil
+	return &ProjectCache{CacheDir: cacheDir}, nil
 }
 
 // Path returns the cache file for workspaceID.
-func (c *Service) Path(workspaceID int) (string, error) {
+func (c *ProjectCache) Path(workspaceID int) (string, error) {
 	sum := sha256.Sum256(fmt.Appendf(nil, "%d", workspaceID))
 	hashStr := hex.EncodeToString(sum[:])
 
@@ -48,13 +51,13 @@ func (c *Service) Path(workspaceID int) (string, error) {
 
 // SaveProjects writes the projects for workspaceID to the cache, stamped with
 // the current time.
-func (c *Service) SaveProjects(workspaceID int, projects []data.Project) error {
+func (c *ProjectCache) SaveProjects(workspaceID int, projects []Project) error {
 	cacheFile, err := c.Path(workspaceID)
 	if err != nil {
 		return err
 	}
 
-	cached := data.ProjectCache{
+	cached := cachedProjects{
 		Timestamp: time.Now(),
 		Data:      projects,
 	}
@@ -69,7 +72,7 @@ func (c *Service) SaveProjects(workspaceID int, projects []data.Project) error {
 
 // Projects returns the cached projects for workspaceID, or an error when there
 // is no cache file or it is 24 hours old or more.
-func (c *Service) Projects(workspaceID int) ([]data.Project, error) {
+func (c *ProjectCache) Projects(workspaceID int) ([]Project, error) {
 	cacheFile, err := c.Path(workspaceID)
 	if err != nil {
 		return nil, err
@@ -80,7 +83,7 @@ func (c *Service) Projects(workspaceID int) ([]data.Project, error) {
 		return nil, err
 	}
 
-	var cached data.ProjectCache
+	var cached cachedProjects
 	if err := json.Unmarshal(fileContent, &cached); err != nil {
 		return nil, err
 	}

@@ -6,8 +6,6 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-
-	"github.com/ville6000/toggl-cli/internal/cache"
 )
 
 func TestNewClient_ReturnsNonNil(t *testing.T) {
@@ -88,16 +86,16 @@ func TestNewClient_DefaultsToTheTogglAPI(t *testing.T) {
 func TestNewClient_WithHTTPClientAndCache(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	httpClient := &http.Client{Timeout: time.Second}
-	cacheService := &cache.Service{CacheDir: t.TempDir()}
+	projectCache := &ProjectCache{CacheDir: t.TempDir()}
 
-	client := NewClient("tok", WithHTTPClient(httpClient), WithCache(cacheService))
+	client := NewClient("tok", WithHTTPClient(httpClient), WithCache(projectCache))
 	if client == nil {
 		t.Fatal("NewClient returned nil")
 	}
 	if client.HTTPClient != httpClient {
 		t.Error("WithHTTPClient did not replace the HTTP client")
 	}
-	if client.Cache != cacheService {
+	if client.Cache != projectCache {
 		t.Error("WithCache did not replace the cache")
 	}
 }

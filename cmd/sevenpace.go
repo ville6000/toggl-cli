@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 // sevenpaceCmd is the parent command for posting worklogs to an on-prem 7pace
@@ -61,9 +61,9 @@ func roundUpToMinute(seconds int) int {
 // into a single entry. Durations are summed and rounded up to the nearest
 // minute, and the earliest Start is kept. First-seen order is preserved. Entries
 // with a non-positive Duration are skipped.
-func aggregateEntries(entries []data.TimeEntryItem) []data.TimeEntryItem {
+func aggregateEntries(entries []api.TimeEntryItem) []api.TimeEntryItem {
 	order := make([]string, 0, len(entries))
-	groups := make(map[string]*data.TimeEntryItem, len(entries))
+	groups := make(map[string]*api.TimeEntryItem, len(entries))
 
 	for _, entry := range entries {
 		if entry.Duration <= 0 {
@@ -83,7 +83,7 @@ func aggregateEntries(entries []data.TimeEntryItem) []data.TimeEntryItem {
 		order = append(order, entry.Description)
 	}
 
-	result := make([]data.TimeEntryItem, 0, len(order))
+	result := make([]api.TimeEntryItem, 0, len(order))
 	for _, description := range order {
 		g := groups[description]
 		g.Duration = roundUpToMinute(g.Duration)
@@ -95,10 +95,10 @@ func aggregateEntries(entries []data.TimeEntryItem) []data.TimeEntryItem {
 
 // toWorkLog maps a Toggl time entry to a 7pace worklog. The bool return
 // reports whether a work item id was found in the description.
-func toWorkLog(entry data.TimeEntryItem, activityTypeID string, location *time.Location) (data.SevenPaceWorkLog, bool) {
+func toWorkLog(entry api.TimeEntryItem, activityTypeID string, location *time.Location) (api.SevenPaceWorkLog, bool) {
 	id, ok := parseWorkItemID(entry.Description)
 
-	workLog := data.SevenPaceWorkLog{
+	workLog := api.SevenPaceWorkLog{
 		Timestamp: entry.Start.In(location).Format(time.RFC3339),
 		Length:    entry.Duration,
 		Comment:   entry.Description,
@@ -109,7 +109,7 @@ func toWorkLog(entry data.TimeEntryItem, activityTypeID string, location *time.L
 	}
 
 	if activityTypeID != "" {
-		workLog.ActivityType = &data.SevenPaceActivityRef{ID: activityTypeID}
+		workLog.ActivityType = &api.SevenPaceActivityRef{ID: activityTypeID}
 	}
 
 	return workLog, ok

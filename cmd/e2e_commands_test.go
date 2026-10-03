@@ -12,15 +12,15 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 func TestCurrentCommand_RendersTheRunningEntry(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
 
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
-	stub.respond(http.MethodGet, "/me/time_entries/current", http.StatusOK, data.TimeEntryItem{
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	stub.respond(http.MethodGet, "/me/time_entries/current", http.StatusOK, api.TimeEntryItem{
 		ID:          55,
 		Description: "writing tests",
 		ProjectID:   7,
@@ -63,15 +63,15 @@ func TestStopCommand_StopsTheRunningEntry(t *testing.T) {
 	setupCLITest(t, stub)
 
 	stopPath := fmt.Sprintf("/workspaces/%d/time_entries/55/stop", testWorkspaceID)
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
-	stub.respond(http.MethodGet, "/me/time_entries/current", http.StatusOK, data.TimeEntryItem{
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	stub.respond(http.MethodGet, "/me/time_entries/current", http.StatusOK, api.TimeEntryItem{
 		ID:          55,
 		Description: "writing tests",
 		ProjectID:   7,
 		WorkspaceID: testWorkspaceID,
 		Start:       time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC),
 	})
-	stub.respond(http.MethodPatch, stopPath, http.StatusOK, data.TimeEntryItem{
+	stub.respond(http.MethodPatch, stopPath, http.StatusOK, api.TimeEntryItem{
 		ID:          55,
 		Description: "writing tests",
 		Duration:    3600,
@@ -114,8 +114,8 @@ func TestStartCommand_CreatesAnEntryForTheNamedProject(t *testing.T) {
 	setupCLITest(t, stub)
 
 	createPath := fmt.Sprintf("/workspaces/%d/time_entries", testWorkspaceID)
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
-	stub.respond(http.MethodPost, createPath, http.StatusOK, data.TimeEntry{
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	stub.respond(http.MethodPost, createPath, http.StatusOK, api.TimeEntry{
 		ID:          88,
 		Description: "new work",
 		ProjectID:   7,
@@ -127,7 +127,7 @@ func TestStartCommand_CreatesAnEntryForTheNamedProject(t *testing.T) {
 		t.Fatalf("start: %v", err)
 	}
 
-	var created data.TimeEntry
+	var created api.TimeEntry
 	stub.onlyRequestFor(http.MethodPost, createPath).decodeBody(t, &created)
 
 	if created.Description != "new work" {
@@ -155,7 +155,7 @@ func TestStartCommand_UnknownProject(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
 
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 
 	_, _, err := executeCommand(t, "start", "new work", "--project", "Ghost")
 	if err == nil {
@@ -176,17 +176,17 @@ func TestContinueCommand_UsesTheWorkspaceOfTheSelectedEntry(t *testing.T) {
 	createPath := fmt.Sprintf("/workspaces/%d/time_entries", otherWorkspace)
 
 	stub.stubHistory(
-		data.TimeEntryItem{ID: 1, Description: "most recent", ProjectID: 9, WorkspaceID: otherWorkspace, Duration: 600, Start: time.Now().UTC()},
-		data.TimeEntryItem{ID: 2, Description: "older", ProjectID: 7, WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()},
+		api.TimeEntryItem{ID: 1, Description: "most recent", ProjectID: 9, WorkspaceID: otherWorkspace, Duration: 600, Start: time.Now().UTC()},
+		api.TimeEntryItem{ID: 2, Description: "older", ProjectID: 7, WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()},
 	)
-	stub.respond(http.MethodPost, createPath, http.StatusOK, data.TimeEntry{ID: 3})
+	stub.respond(http.MethodPost, createPath, http.StatusOK, api.TimeEntry{ID: 3})
 
 	out, _, err := executeCommand(t, "continue")
 	if err != nil {
 		t.Fatalf("continue: %v", err)
 	}
 
-	var created data.TimeEntry
+	var created api.TimeEntry
 	stub.onlyRequestFor(http.MethodPost, createPath).decodeBody(t, &created)
 
 	if created.WorkspaceID != otherWorkspace {
@@ -209,17 +209,17 @@ func TestContinueCommand_SelectsEntryByIndex(t *testing.T) {
 
 	createPath := fmt.Sprintf("/workspaces/%d/time_entries", testWorkspaceID)
 	stub.stubHistory(
-		data.TimeEntryItem{ID: 1, Description: "most recent", ProjectID: 7, WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()},
-		data.TimeEntryItem{ID: 2, Description: "older", ProjectID: 8, WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()},
+		api.TimeEntryItem{ID: 1, Description: "most recent", ProjectID: 7, WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()},
+		api.TimeEntryItem{ID: 2, Description: "older", ProjectID: 8, WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()},
 	)
-	stub.respond(http.MethodPost, createPath, http.StatusOK, data.TimeEntry{ID: 3})
+	stub.respond(http.MethodPost, createPath, http.StatusOK, api.TimeEntry{ID: 3})
 
 	out, _, err := executeCommand(t, "continue", "--index", "1")
 	if err != nil {
 		t.Fatalf("continue --index 1: %v", err)
 	}
 
-	var created data.TimeEntry
+	var created api.TimeEntry
 	stub.onlyRequestFor(http.MethodPost, createPath).decodeBody(t, &created)
 
 	if created.Description != "older" {
@@ -234,7 +234,7 @@ func TestContinueCommand_IndexOutOfRange(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
 
-	stub.stubHistory(data.TimeEntryItem{ID: 1, Description: "only", WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()})
+	stub.stubHistory(api.TimeEntryItem{ID: 1, Description: "only", WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()})
 
 	_, _, err := executeCommand(t, "continue", "--index", "5")
 	if err == nil {
@@ -254,9 +254,9 @@ func TestEditCommand_RecomputesDurationAroundANewStartTime(t *testing.T) {
 	entryStart := time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC)
 	updatePath := fmt.Sprintf("/workspaces/%d/time_entries/12", testWorkspaceID)
 
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 	stub.stubHistory(utcEntry(12, entryStart, 3600, "review"))
-	stub.respond(http.MethodPut, updatePath, http.StatusOK, data.TimeEntryItem{
+	stub.respond(http.MethodPut, updatePath, http.StatusOK, api.TimeEntryItem{
 		ID: 12, Description: "review", Duration: 39600, ProjectID: 7, WorkspaceID: testWorkspaceID,
 		Start: time.Date(2024, 5, 31, 23, 0, 0, 0, time.UTC),
 	})
@@ -266,7 +266,7 @@ func TestEditCommand_RecomputesDurationAroundANewStartTime(t *testing.T) {
 		t.Fatalf("edit: %v", err)
 	}
 
-	var updated data.TimeEntry
+	var updated api.TimeEntry
 	stub.onlyRequestFor(http.MethodPut, updatePath).decodeBody(t, &updated)
 
 	if want := "2024-06-01T08:00:00+09:00"; updated.Start != want {
@@ -293,11 +293,11 @@ func TestEditCommand_UpdatesDescriptionAndProject(t *testing.T) {
 
 	updatePath := fmt.Sprintf("/workspaces/%d/time_entries/12", testWorkspaceID)
 	stub.stubProjects(
-		data.Project{ID: 7, Name: "Alpha"},
-		data.Project{ID: 8, Name: "Beta"},
+		api.Project{ID: 7, Name: "Alpha"},
+		api.Project{ID: 8, Name: "Beta"},
 	)
 	stub.stubHistory(utcEntry(12, time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC), 3600, "review"))
-	stub.respond(http.MethodPut, updatePath, http.StatusOK, data.TimeEntryItem{
+	stub.respond(http.MethodPut, updatePath, http.StatusOK, api.TimeEntryItem{
 		ID: 12, Description: "pairing", Duration: 3600, ProjectID: 8, WorkspaceID: testWorkspaceID,
 		Start: time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC),
 	})
@@ -307,7 +307,7 @@ func TestEditCommand_UpdatesDescriptionAndProject(t *testing.T) {
 		t.Fatalf("edit: %v", err)
 	}
 
-	var updated data.TimeEntry
+	var updated api.TimeEntry
 	stub.onlyRequestFor(http.MethodPut, updatePath).decodeBody(t, &updated)
 
 	if updated.Description != "pairing" {
@@ -341,7 +341,7 @@ func TestWorkspacesCommand_ListsWorkspaces(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
 
-	stub.respond(http.MethodGet, "/workspaces", http.StatusOK, []data.Workspace{
+	stub.respond(http.MethodGet, "/workspaces", http.StatusOK, []api.Workspace{
 		{ID: 1, Name: "Personal"},
 		{ID: 2, Name: "Work"},
 	})
@@ -363,8 +363,8 @@ func TestProjectsListCommand_ListsProjects(t *testing.T) {
 	setupCLITest(t, stub)
 
 	stub.stubProjects(
-		data.Project{ID: 7, Name: "Alpha"},
-		data.Project{ID: 8, Name: "Beta"},
+		api.Project{ID: 7, Name: "Alpha"},
+		api.Project{ID: 8, Name: "Beta"},
 	)
 
 	out, _, err := executeCommand(t, "projects", "list")
@@ -494,7 +494,7 @@ func TestRootCommand_ReadsTheConfigFileNamedByTheConfigFlag(t *testing.T) {
 		t.Fatalf("write config file: %v", err)
 	}
 
-	stub.respond(http.MethodGet, "/workspaces", http.StatusOK, []data.Workspace{{ID: 1, Name: "Personal"}})
+	stub.respond(http.MethodGet, "/workspaces", http.StatusOK, []api.Workspace{{ID: 1, Name: "Personal"}})
 
 	out, _, err := executeCommand(t, "workspaces", "--config", configFile)
 	if err != nil {
@@ -525,8 +525,8 @@ func TestStartCommand_DetectsProjectAndTicketFromTheWorkingDirectory(t *testing.
 	})
 
 	createPath := fmt.Sprintf("/workspaces/%d/time_entries", testWorkspaceID)
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
-	stub.respond(http.MethodPost, createPath, http.StatusOK, data.TimeEntry{
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	stub.respond(http.MethodPost, createPath, http.StatusOK, api.TimeEntry{
 		ID: 88, Description: "4711", ProjectID: 7, Start: time.Now().Format(time.RFC3339),
 	})
 
@@ -534,7 +534,7 @@ func TestStartCommand_DetectsProjectAndTicketFromTheWorkingDirectory(t *testing.
 		t.Fatalf("start: %v", err)
 	}
 
-	var created data.TimeEntry
+	var created api.TimeEntry
 	stub.onlyRequestFor(http.MethodPost, createPath).decodeBody(t, &created)
 
 	if created.ProjectID != 7 {
@@ -595,7 +595,7 @@ func TestProjectsAddPathCommand_AppendsTheWorkingDirectory(t *testing.T) {
 
 	workDir := t.TempDir()
 	t.Chdir(workDir)
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 
 	out, _, err := executeCommand(t, "projects", "add-path", "Alpha", "--config", configFile)
 	if err != nil {

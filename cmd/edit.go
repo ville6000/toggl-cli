@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,15 +11,14 @@ import (
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
-	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 // EditService is the subset of api.Client used by the edit command.
 type EditService interface {
-	TimeEntries(from, to *time.Time) ([]data.TimeEntryItem, error)
-	ProjectIDByName(workspaceID int, projectName string) (int, error)
-	UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error)
-	ProjectNames(workspaceID int) (map[int]string, error)
+	TimeEntries(ctx context.Context, from, to *time.Time) ([]api.TimeEntryItem, error)
+	ProjectIDByName(ctx context.Context, workspaceID int, projectName string) (int, error)
+	UpdateTimeEntry(ctx context.Context, workspaceID int, entryID int, entry api.TimeEntry) (*api.TimeEntryItem, error)
+	ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error)
 }
 
 var editCmd = &cobra.Command{
@@ -62,18 +62,19 @@ var editCmd = &cobra.Command{
 
 		client := api.NewClientFromConfig(token)
 
-		return runEdit(cmd.OutOrStdout(), cmd.ErrOrStderr(), client, index, description, project, start, location)
+		return runEdit(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), client, index, description, project, start, location)
 	},
 }
 
 func runEdit(
+	ctx context.Context,
 	out, errOut io.Writer,
 	client EditService,
 	index int,
 	newDescription, newProject, newStart string,
 	location *time.Location,
 ) error {
-	entries, err := client.TimeEntries(nil, nil)
+	entries, err := client.TimeEntries(ctx, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get history: %w", err)
 	}
@@ -99,13 +100,13 @@ func runEdit(
 
 	projectID := entry.ProjectID
 	if newProject != "" {
-		projectID, err = client.ProjectIDByName(wsID, newProject)
+		projectID, err = client.ProjectIDByName(ctx, wsID, newProject)
 		if err != nil {
 			return fmt.Errorf("failed to find project '%s': %w", newProject, err)
 		}
 	}
 
-	updated := data.TimeEntry{
+	updated := api.TimeEntry{
 		CreatedWith: "toggl-cli",
 		Description: description,
 		Tags:        entry.Tags,
@@ -142,12 +143,12 @@ func runEdit(
 		updated.Stop = &stopTime
 	}
 
-	updatedEntry, err := client.UpdateTimeEntry(wsID, entry.ID, updated)
+	updatedEntry, err := client.UpdateTimeEntry(ctx, wsID, entry.ID, updated)
 	if err != nil {
 		return fmt.Errorf("failed to update time entry: %w", err)
 	}
 
-	projectsMap, err := client.ProjectNames(wsID)
+	projectsMap, err := client.ProjectNames(ctx, wsID)
 	if err != nil {
 		fmt.Fprintln(errOut, "warning: failed to get projects, showing entry without project name:", err)
 		projectsMap = nil

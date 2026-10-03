@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 const sevenPaceWorkLogPath = "/workLogs"
@@ -31,8 +31,8 @@ func setupSevenPaceTest(t *testing.T, toggl *apiStub) *apiStub {
 
 // syncEntries are the entries the sync tests work from: two that share a
 // description and carry a work item id, and one without an id.
-func syncEntries() []data.TimeEntryItem {
-	return []data.TimeEntryItem{
+func syncEntries() []api.TimeEntryItem {
+	return []api.TimeEntryItem{
 		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 1500, "#1234 review"),
 		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 100, "#1234 review"),
 		utcEntry(3, time.Date(2024, 3, 4, 6, 0, 0, 0, time.UTC), 900, "no work item"),
@@ -103,14 +103,14 @@ func TestSevenPaceSync_AggregatesEntriesSharingADescription(t *testing.T) {
 	sevenPace := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
-	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, data.SevenPaceWorkLog{})
+	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, api.SevenPaceWorkLog{})
 
 	out, _, err := executeCommand(t, "7pace", "sync", "--start", "2024-03-04", "--yes")
 	if err != nil {
 		t.Fatalf("7pace sync: %v", err)
 	}
 
-	var posted data.SevenPaceWorkLog
+	var posted api.SevenPaceWorkLog
 	sevenPace.onlyRequestFor(http.MethodPost, sevenPaceWorkLogPath).decodeBody(t, &posted)
 
 	if posted.WorkItemID == nil || *posted.WorkItemID != 1234 {
@@ -181,7 +181,7 @@ func TestSevenPaceSync_PostsWhenConfirmationIsAccepted(t *testing.T) {
 	sevenPace := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
-	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, data.SevenPaceWorkLog{})
+	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, api.SevenPaceWorkLog{})
 
 	if _, _, err := executeCommandWithInput(t, "y\n", "7pace", "sync", "--start", "2024-03-04"); err != nil {
 		t.Fatalf("7pace sync: %v", err)
@@ -219,7 +219,7 @@ func TestSevenPaceSync_SkipsRunningEntries(t *testing.T) {
 	sevenPace := setupSevenPaceTest(t, toggl)
 
 	start := time.Now().Add(-30 * time.Minute)
-	toggl.stubHistory(data.TimeEntryItem{
+	toggl.stubHistory(api.TimeEntryItem{
 		ID:          1,
 		Description: "#1234 still going",
 		Duration:    int(-start.Unix()),
@@ -242,7 +242,7 @@ func TestSevenPaceSync_SkipsRunningEntries(t *testing.T) {
 
 func TestSevenPaceAdd_PostsASingleWorklog(t *testing.T) {
 	sevenPace := setupSevenPaceTest(t, nil)
-	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, data.SevenPaceWorkLog{})
+	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, api.SevenPaceWorkLog{})
 
 	out, _, err := executeCommand(t,
 		"7pace", "add",
@@ -255,7 +255,7 @@ func TestSevenPaceAdd_PostsASingleWorklog(t *testing.T) {
 		t.Fatalf("7pace add: %v", err)
 	}
 
-	var posted data.SevenPaceWorkLog
+	var posted api.SevenPaceWorkLog
 	sevenPace.onlyRequestFor(http.MethodPost, sevenPaceWorkLogPath).decodeBody(t, &posted)
 
 	if posted.WorkItemID == nil || *posted.WorkItemID != 99 {

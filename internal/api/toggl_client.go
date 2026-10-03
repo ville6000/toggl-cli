@@ -1,5 +1,5 @@
 // Package api holds the clients for the Toggl Track and 7pace Timetracker
-// REST APIs.
+// REST APIs, the types they exchange, and an on-disk cache of Toggl projects.
 package api
 
 import (
@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ville6000/toggl-cli/internal/cache"
 	"github.com/ville6000/toggl-cli/internal/config"
 )
 
@@ -20,7 +19,7 @@ type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
 	AuthToken  string
-	Cache      *cache.Service
+	Cache      *ProjectCache
 }
 
 // ClientOption customises a Client built by NewClient.
@@ -42,9 +41,9 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 }
 
 // WithCache replaces the project cache.
-func WithCache(cacheService *cache.Service) ClientOption {
+func WithCache(projectCache *ProjectCache) ClientOption {
 	return func(c *Client) {
-		c.Cache = cacheService
+		c.Cache = projectCache
 	}
 }
 
@@ -54,7 +53,7 @@ func WithCache(cacheService *cache.Service) ClientOption {
 func NewClient(authToken string, opts ...ClientOption) *Client {
 	// A cache failure is not fatal: the client still works, it just refetches
 	// projects instead of reading them from disk.
-	cacheService, _ := cache.NewService()
+	projectCache, _ := NewProjectCache()
 
 	client := &Client{
 		BaseURL: DefaultBaseURL,
@@ -62,7 +61,7 @@ func NewClient(authToken string, opts ...ClientOption) *Client {
 			Timeout: 10 * time.Second,
 		},
 		AuthToken: authToken,
-		Cache:     cacheService,
+		Cache:     projectCache,
 	}
 
 	for _, opt := range opts {

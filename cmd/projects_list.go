@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -8,7 +9,6 @@ import (
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"github.com/ville6000/toggl-cli/internal/output"
 )
 
@@ -25,7 +25,7 @@ var projectsListCmd = &cobra.Command{
 
 		client := api.NewClientFromConfig(token)
 
-		return projectListOutput(cmd.OutOrStdout(), client, workspaceID)
+		return projectListOutput(cmd.Context(), cmd.OutOrStdout(), client, workspaceID)
 	},
 }
 
@@ -36,11 +36,11 @@ func init() {
 // ProjectsListService is the subset of api.Client used by the projects list
 // command.
 type ProjectsListService interface {
-	Projects(workspaceID int) ([]data.Project, error)
+	Projects(ctx context.Context, workspaceID int) ([]api.Project, error)
 }
 
-func projectListOutput(out io.Writer, client ProjectsListService, workspaceID int) error {
-	projects, err := client.Projects(workspaceID)
+func projectListOutput(ctx context.Context, out io.Writer, client ProjectsListService, workspaceID int) error {
+	projects, err := client.Projects(ctx, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to get projects: %w", err)
 	}

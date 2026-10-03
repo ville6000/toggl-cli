@@ -10,7 +10,6 @@ import (
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"github.com/ville6000/toggl-cli/internal/output"
 )
 
@@ -20,6 +19,8 @@ var sevenpaceAddCmd = &cobra.Command{
 	Long: "Post a single worklog to 7pace Timetracker. A worklog must have either a work item id\n" +
 		"or a comment, and a duration greater than zero.",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+
 		spCfg, err := config.LoadSevenPace()
 		if err != nil {
 			return err
@@ -76,7 +77,7 @@ var sevenpaceAddCmd = &cobra.Command{
 			activityType = spCfg.ActivityTypeID
 		}
 
-		workLog := data.SevenPaceWorkLog{
+		workLog := api.SevenPaceWorkLog{
 			Timestamp: timestamp.Format(time.RFC3339),
 			Length:    length,
 			Comment:   comment,
@@ -85,11 +86,11 @@ var sevenpaceAddCmd = &cobra.Command{
 			workLog.WorkItemID = &workItem
 		}
 		if activityType != "" {
-			workLog.ActivityType = &data.SevenPaceActivityRef{ID: activityType}
+			workLog.ActivityType = &api.SevenPaceActivityRef{ID: activityType}
 		}
 
 		spClient := api.NewSevenPaceClient(spCfg)
-		if _, err := spClient.CreateWorkLog(workLog); err != nil {
+		if _, err := spClient.CreateWorkLog(ctx, workLog); err != nil {
 			return fmt.Errorf("failed to create worklog: %w", err)
 		}
 

@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 // utcEntry builds a stopped entry as the API returns it: a UTC timestamp and a
 // positive duration in seconds.
-func utcEntry(id int, start time.Time, duration int, description string) data.TimeEntryItem {
-	return data.TimeEntryItem{
+func utcEntry(id int, start time.Time, duration int, description string) api.TimeEntryItem {
+	return api.TimeEntryItem{
 		ID:          id,
 		Description: description,
 		Duration:    duration,
@@ -27,7 +27,7 @@ func TestHistoryCommand_SumsEntriesPerDayAndAsksForTheRequestedRange(t *testing.
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
 
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 	stub.stubHistory(
 		// 10:00 and 14:00 Tokyo time on 2024-03-04.
 		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "review"),
@@ -68,7 +68,7 @@ func TestHistoryCommand_GroupsByLocalDateAcrossTimezoneBoundary(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
 
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 	// 22:30 UTC on the 4th is 07:30 on the 5th in Tokyo, so the entry belongs
 	// to the 5th as far as the user is concerned.
 	stub.stubHistory(utcEntry(1, time.Date(2024, 3, 4, 22, 30, 0, 0, time.UTC), 3600, "review"))
@@ -97,8 +97,8 @@ func TestHistoryCommand_RunningEntryCountsAsElapsedTime(t *testing.T) {
 	setupCLITest(t, stub)
 
 	start := time.Now().Add(-30 * time.Minute)
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
-	stub.stubHistory(data.TimeEntryItem{
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	stub.stubHistory(api.TimeEntryItem{
 		ID:          1,
 		Description: "running",
 		// Toggl reports a running entry as the negated start timestamp.
@@ -127,7 +127,7 @@ func TestHistoryCommand_VerboseListsIndividualEntries(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
 
-	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 	stub.stubHistory(
 		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "review"),
 		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 1800, "review"),

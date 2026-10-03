@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 const (
@@ -143,12 +143,12 @@ func (s *apiStub) onlyRequestFor(method, path string) stubRequest {
 }
 
 // stubHistory serves the entry list returned by GET /me/time_entries.
-func (s *apiStub) stubHistory(entries ...data.TimeEntryItem) {
+func (s *apiStub) stubHistory(entries ...api.TimeEntryItem) {
 	s.respond(http.MethodGet, "/me/time_entries", http.StatusOK, entries)
 }
 
 // stubProjects serves the project list the commands use to resolve names.
-func (s *apiStub) stubProjects(projects ...data.Project) {
+func (s *apiStub) stubProjects(projects ...api.Project) {
 	s.respond(http.MethodGet, fmt.Sprintf("/workspaces/%d/projects", testWorkspaceID), http.StatusOK, projects)
 }
 
