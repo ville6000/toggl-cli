@@ -5,11 +5,11 @@ import (
 	"io"
 
 	"github.com/ville6000/toggl-cli/internal/api"
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/output"
 )
 
-func ProjectListOutput(out io.Writer, client api.ProjectService, workspaceId int) error {
-	projects, err := client.GetProjects(workspaceId)
+func ProjectListOutput(out io.Writer, client api.ProjectService, workspaceID int) error {
+	projects, err := client.GetProjects(workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to get projects: %w", err)
 	}
@@ -23,7 +23,7 @@ func ProjectListOutput(out io.Writer, client api.ProjectService, workspaceId int
 	}
 
 	headers := []interface{}{"ID", "Project Name"}
-	utils.RenderTable(out, "Project list", headers, rows, nil)
+	output.RenderTable(out, "Project list", headers, rows, nil)
 
 	return nil
 }

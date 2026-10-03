@@ -27,8 +27,8 @@ func (m *mockContinueService) NewTimeEntry(description string, workspaceID, proj
 	}
 }
 
-func (m *mockContinueService) CreateTimeEntry(workspaceId int, entry data.TimeEntry) (*data.TimeEntry, error) {
-	m.createdWsID = workspaceId
+func (m *mockContinueService) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error) {
+	m.createdWsID = workspaceID
 	m.created = entry
 	if m.createErr != nil {
 		return nil, m.createErr

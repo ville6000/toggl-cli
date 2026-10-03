@@ -5,22 +5,22 @@ import (
 	"testing"
 )
 
-func TestNewCacheService_ReturnsNonNil(t *testing.T) {
+func TestNewService_ReturnsNonNil(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	cs, err := NewCacheService()
+	cs, err := NewService()
 	if err != nil {
-		t.Fatalf("NewCacheService: %v", err)
+		t.Fatalf("NewService: %v", err)
 	}
 	if cs == nil {
-		t.Fatal("expected non-nil CacheService")
+		t.Fatal("expected non-nil Service")
 	}
 }
 
-func TestNewCacheService_CacheDirExists(t *testing.T) {
+func TestNewService_CacheDirExists(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	cs, err := NewCacheService()
+	cs, err := NewService()
 	if err != nil {
-		t.Fatalf("NewCacheService: %v", err)
+		t.Fatalf("NewService: %v", err)
 	}
 	if cs.CacheDir == "" {
 		t.Error("CacheDir should not be empty")

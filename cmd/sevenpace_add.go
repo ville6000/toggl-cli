@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/data"
-	"github.com/ville6000/toggl-cli/internal/utils"
 )
 
 var sevenpaceAddCmd = &cobra.Command{
@@ -17,12 +17,12 @@ var sevenpaceAddCmd = &cobra.Command{
 	Long: "Post a single worklog to 7pace Timetracker. A worklog must have either a work item id\n" +
 		"or a comment, and a duration greater than zero.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		spCfg, err := utils.GetSevenPaceConfig()
+		spCfg, err := config.LoadSevenPace()
 		if err != nil {
 			return err
 		}
 
-		location, err := utils.GetTimezone()
+		location, err := config.Timezone()
 		if err != nil {
 			return err
 		}

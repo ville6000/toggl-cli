@@ -10,39 +10,39 @@ import (
 	"github.com/ville6000/toggl-cli/internal/data"
 )
 
-func newTestCache(t *testing.T) *CacheService {
+func newTestCache(t *testing.T) *Service {
 	t.Helper()
-	return &CacheService{CacheDir: t.TempDir()}
+	return &Service{CacheDir: t.TempDir()}
 }
 
-// ---------- GetCachePath ----------
+// ---------- Path ----------
 
-func TestGetCachePath_Deterministic(t *testing.T) {
+func TestPath_Deterministic(t *testing.T) {
 	cs := newTestCache(t)
-	p1, err1 := cs.GetCachePath(123)
-	p2, err2 := cs.GetCachePath(123)
+	p1, err1 := cs.Path(123)
+	p2, err2 := cs.Path(123)
 	if err1 != nil || err2 != nil {
-		t.Fatalf("GetCachePath errors: %v, %v", err1, err2)
+		t.Fatalf("Path errors: %v, %v", err1, err2)
 	}
 	if p1 != p2 {
 		t.Errorf("expected same path for same workspace, got %q and %q", p1, p2)
 	}
 }
 
-func TestGetCachePath_DifferentWorkspaces(t *testing.T) {
+func TestPath_DifferentWorkspaces(t *testing.T) {
 	cs := newTestCache(t)
-	p1, _ := cs.GetCachePath(1)
-	p2, _ := cs.GetCachePath(2)
+	p1, _ := cs.Path(1)
+	p2, _ := cs.Path(2)
 	if p1 == p2 {
 		t.Error("different workspaces must produce different cache paths")
 	}
 }
 
-func TestGetCachePath_ContainsCacheDir(t *testing.T) {
+func TestPath_ContainsCacheDir(t *testing.T) {
 	cs := newTestCache(t)
-	path, err := cs.GetCachePath(10)
+	path, err := cs.Path(10)
 	if err != nil {
-		t.Fatalf("GetCachePath: %v", err)
+		t.Fatalf("Path: %v", err)
 	}
 	if len(path) == 0 {
 		t.Error("expected non-empty path")
@@ -155,9 +155,9 @@ func TestGetProjects_CacheExpired(t *testing.T) {
 	cs := newTestCache(t)
 	projects := []data.Project{{ID: 1, Name: "Stale"}}
 
-	cacheFile, err := cs.GetCachePath(42)
+	cacheFile, err := cs.Path(42)
 	if err != nil {
-		t.Fatalf("GetCachePath: %v", err)
+		t.Fatalf("Path: %v", err)
 	}
 
 	expired := data.ProjectCache{
@@ -181,9 +181,9 @@ func TestGetProjects_CacheJustUnderTTL(t *testing.T) {
 	cs := newTestCache(t)
 	projects := []data.Project{{ID: 1, Name: "Fresh"}}
 
-	cacheFile, err := cs.GetCachePath(7)
+	cacheFile, err := cs.Path(7)
 	if err != nil {
-		t.Fatalf("GetCachePath: %v", err)
+		t.Fatalf("Path: %v", err)
 	}
 
 	// Just under 24 hours — should still be valid.
@@ -212,9 +212,9 @@ func TestGetProjects_CacheExactlyAtTTL(t *testing.T) {
 	cs := newTestCache(t)
 	projects := []data.Project{{ID: 1, Name: "Boundary"}}
 
-	cacheFile, err := cs.GetCachePath(8)
+	cacheFile, err := cs.Path(8)
 	if err != nil {
-		t.Fatalf("GetCachePath: %v", err)
+		t.Fatalf("Path: %v", err)
 	}
 
 	// Exactly 24 hours ago — should be considered expired (>= 24h).
@@ -241,9 +241,9 @@ func TestGetProjects_CacheExactlyAtTTL(t *testing.T) {
 func TestGetProjects_CorruptedCacheFile(t *testing.T) {
 	cs := newTestCache(t)
 
-	cacheFile, err := cs.GetCachePath(55)
+	cacheFile, err := cs.Path(55)
 	if err != nil {
-		t.Fatalf("GetCachePath: %v", err)
+		t.Fatalf("Path: %v", err)
 	}
 	if err := os.WriteFile(cacheFile, []byte("not valid json {{{{"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)

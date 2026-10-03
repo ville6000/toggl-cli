@@ -17,7 +17,7 @@ type mockClient struct {
 	Err      error
 }
 
-func (m *mockClient) GetProjects(workspaceId int) ([]data.Project, error) {
+func (m *mockClient) GetProjects(workspaceID int) ([]data.Project, error) {
 	return m.Projects, m.Err
 }
 

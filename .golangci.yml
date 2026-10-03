@@ -12,7 +12,11 @@ linters:
     - misspell
     - nilerr
     - unconvert
+    - revive
   settings:
+    revive:
+      rules:
+        - name: var-naming
     errcheck:
       # errcheck ignores terminal writes to os.Stdout/os.Stderr out of the box.
       # Commands write through an injected io.Writer so tests can capture the

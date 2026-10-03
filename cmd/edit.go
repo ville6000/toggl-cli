@@ -7,16 +7,16 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/data"
-	"github.com/ville6000/toggl-cli/internal/utils"
 )
 
 // EditService is the subset of api.Client used by the edit command.
 type EditService interface {
 	GetHistory(from, to *time.Time) ([]data.TimeEntryItem, error)
-	GetProjectIdByName(workspaceId int, projectName string) (int, error)
-	UpdateTimeEntry(workspaceId int, entryId int, entry data.TimeEntry) (*data.TimeEntryItem, error)
-	GetProjectsLookupMap(workspaceId int) (map[int]string, error)
+	GetProjectIDByName(workspaceID int, projectName string) (int, error)
+	UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error)
+	GetProjectsLookupMap(workspaceID int) (map[int]string, error)
 }
 
 var editCmd = &cobra.Command{
@@ -24,7 +24,7 @@ var editCmd = &cobra.Command{
 	Short: "Edit a recent or running time entry",
 	Long:  "Edit the description, project or start time of a recent or currently running time entry.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, _, err := utils.GetConfig()
+		token, _, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
@@ -53,12 +53,12 @@ var editCmd = &cobra.Command{
 			return fmt.Errorf("at least one of --description, --project or --start must be provided")
 		}
 
-		location, err := utils.GetTimezone()
+		location, err := config.Timezone()
 		if err != nil {
 			return err
 		}
 
-		client := api.NewAPIClientFromConfig(token)
+		client := api.NewClientFromConfig(token)
 
 		return runEdit(cmd.OutOrStdout(), cmd.ErrOrStderr(), client, index, description, project, start, location)
 	},
@@ -95,9 +95,9 @@ func runEdit(
 		description = newDescription
 	}
 
-	projectId := entry.ProjectID
+	projectID := entry.ProjectID
 	if newProject != "" {
-		projectId, err = client.GetProjectIdByName(wsID, newProject)
+		projectID, err = client.GetProjectIDByName(wsID, newProject)
 		if err != nil {
 			return fmt.Errorf("failed to find project '%s': %w", newProject, err)
 		}
@@ -111,7 +111,7 @@ func runEdit(
 		WorkspaceID: wsID,
 		Duration:    entry.Duration,
 		Start:       entry.Start.Format(time.RFC3339),
-		ProjectID:   projectId,
+		ProjectID:   projectID,
 	}
 
 	if newStart != "" {

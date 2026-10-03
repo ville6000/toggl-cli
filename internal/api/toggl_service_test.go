@@ -22,7 +22,7 @@ func newTestClient(t *testing.T, handler http.Handler) (*Client, *httptest.Serve
 		BaseURL:    server.URL,
 		HTTPClient: server.Client(),
 		AuthToken:  "test-token",
-		Cache:      &cache.CacheService{CacheDir: t.TempDir()},
+		Cache:      &cache.Service{CacheDir: t.TempDir()},
 	}
 	return client, server
 }
@@ -410,54 +410,54 @@ func TestGetProjects_URLContainsWorkspaceID(t *testing.T) {
 	}
 }
 
-// ---------- GetProjectIdByName ----------
+// ---------- GetProjectIDByName ----------
 
-func TestGetProjectIdByName_Found(t *testing.T) {
+func TestGetProjectIDByName_Found(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
 
-	id, err := client.GetProjectIdByName(10, "MyProject")
+	id, err := client.GetProjectIDByName(10, "MyProject")
 	if err != nil {
-		t.Fatalf("GetProjectIdByName: %v", err)
+		t.Fatalf("GetProjectIDByName: %v", err)
 	}
 	if id != 5 {
 		t.Errorf("got id %d, want 5", id)
 	}
 }
 
-func TestGetProjectIdByName_CaseInsensitive(t *testing.T) {
+func TestGetProjectIDByName_CaseInsensitive(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
 
-	id, err := client.GetProjectIdByName(10, "myproject")
+	id, err := client.GetProjectIDByName(10, "myproject")
 	if err != nil {
-		t.Fatalf("GetProjectIdByName: %v", err)
+		t.Fatalf("GetProjectIDByName: %v", err)
 	}
 	if id != 5 {
 		t.Errorf("case-insensitive match: got id %d, want 5", id)
 	}
 }
 
-func TestGetProjectIdByName_NotFound(t *testing.T) {
+func TestGetProjectIDByName_NotFound(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
 
-	if _, err := client.GetProjectIdByName(10, "nonexistent"); err == nil {
+	if _, err := client.GetProjectIDByName(10, "nonexistent"); err == nil {
 		t.Error("expected error for missing project")
 	}
 }
 
-func TestGetProjectIdByName_EmptyProjects(t *testing.T) {
+func TestGetProjectIDByName_EmptyProjects(t *testing.T) {
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, []data.Project{}))
 
-	if _, err := client.GetProjectIdByName(10, "any"); err == nil {
+	if _, err := client.GetProjectIDByName(10, "any"); err == nil {
 		t.Error("expected error with empty project list")
 	}
 }
 
-func TestGetProjectIdByName_APIError(t *testing.T) {
+func TestGetProjectIDByName_APIError(t *testing.T) {
 	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.GetProjectIdByName(10, "any"); err == nil {
+	if _, err := client.GetProjectIDByName(10, "any"); err == nil {
 		t.Error("expected error when API fails")
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Azure/go-ntlmssp"
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/config"
 )
 
 // SevenPaceClient talks to an on-prem 7pace Timetracker REST API using NTLM
@@ -23,7 +23,7 @@ type SevenPaceClient struct {
 // NewSevenPaceClient builds a client from the given 7pace configuration. The
 // HTTP transport is wrapped with an NTLM negotiator so that Basic-auth
 // credentials set on each request are used to perform the NTLM handshake.
-func NewSevenPaceClient(cfg utils.SevenPaceConfig) *SevenPaceClient {
+func NewSevenPaceClient(cfg config.SevenPace) *SevenPaceClient {
 	// Force HTTP/1.1: NTLM authenticates a TCP connection, which does not work
 	// over HTTP/2's multiplexed connections. Setting TLSNextProto to a non-nil
 	// empty map disables the automatic HTTP/2 upgrade.

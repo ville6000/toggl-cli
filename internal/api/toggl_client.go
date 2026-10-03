@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ville6000/toggl-cli/internal/cache"
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/config"
 )
 
 // DefaultBaseURL is the public Toggl API endpoint used unless overridden.
@@ -16,10 +16,10 @@ type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client
 	AuthToken  string
-	Cache      *cache.CacheService
+	Cache      *cache.Service
 }
 
-// ClientOption customises a Client built by NewAPIClient.
+// ClientOption customises a Client built by NewClient.
 type ClientOption func(*Client)
 
 // WithBaseURL points the client at a different Toggl API host, which is how
@@ -38,19 +38,19 @@ func WithHTTPClient(httpClient *http.Client) ClientOption {
 }
 
 // WithCache replaces the project cache.
-func WithCache(cacheService *cache.CacheService) ClientOption {
+func WithCache(cacheService *cache.Service) ClientOption {
 	return func(c *Client) {
 		c.Cache = cacheService
 	}
 }
 
-// NewAPIClient builds a Toggl API client. The project cache is best-effort: if
+// NewClient builds a Toggl API client. The project cache is best-effort: if
 // the cache directory is unavailable the client still works, it just refetches
 // projects on every call.
-func NewAPIClient(authToken string, opts ...ClientOption) *Client {
+func NewClient(authToken string, opts ...ClientOption) *Client {
 	// A cache failure is not fatal: the client still works, it just refetches
 	// projects instead of reading them from disk.
-	cacheService, _ := cache.NewCacheService()
+	cacheService, _ := cache.NewService()
 
 	client := &Client{
 		BaseURL: DefaultBaseURL,
@@ -68,13 +68,13 @@ func NewAPIClient(authToken string, opts ...ClientOption) *Client {
 	return client
 }
 
-// NewAPIClientFromConfig builds the client used by commands, honouring the
+// NewClientFromConfig builds the client used by commands, honouring the
 // optional toggl.base_url config override.
-func NewAPIClientFromConfig(authToken string) *Client {
+func NewClientFromConfig(authToken string) *Client {
 	var opts []ClientOption
-	if baseURL := utils.GetTogglBaseURL(); baseURL != "" {
+	if baseURL := config.TogglBaseURL(); baseURL != "" {
 		opts = append(opts, WithBaseURL(baseURL))
 	}
 
-	return NewAPIClient(authToken, opts...)
+	return NewClient(authToken, opts...)
 }

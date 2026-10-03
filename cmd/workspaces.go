@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/config"
 
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
@@ -14,12 +14,12 @@ var workspacesCmd = &cobra.Command{
 	Short: "List workspaces",
 	Long:  "List all workspaces associated with the Toggl account.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, err := utils.GetToken()
+		token, err := config.Token()
 		if err != nil {
 			return fmt.Errorf("failed to get API token: %w", err)
 		}
 
-		client := api.NewAPIClientFromConfig(token)
+		client := api.NewClientFromConfig(token)
 		workspaces, err := client.GetWorkspaces()
 		if err != nil {
 			return fmt.Errorf("failed to get workspaces: %w", err)

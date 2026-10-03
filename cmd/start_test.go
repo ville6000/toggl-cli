@@ -16,19 +16,19 @@ import (
 
 // mockStartService implements StartService for testing.
 type mockStartService struct {
-	projectIdByName map[string]int
-	projectIdErr    error
+	projectIDByName map[string]int
+	projectIDErr    error
 	createEntry     *data.TimeEntry
 	createErr       error
 	projectsMap     map[int]string
 	projectsMapErr  error
 }
 
-func (m *mockStartService) GetProjectIdByName(_ int, name string) (int, error) {
-	if m.projectIdErr != nil {
-		return 0, m.projectIdErr
+func (m *mockStartService) GetProjectIDByName(_ int, name string) (int, error) {
+	if m.projectIDErr != nil {
+		return 0, m.projectIDErr
 	}
-	return m.projectIdByName[name], nil
+	return m.projectIDByName[name], nil
 }
 
 func (m *mockStartService) CreateTimeEntry(_ int, _ data.TimeEntry) (*data.TimeEntry, error) {
@@ -230,14 +230,14 @@ func TestFindProjectNameFromConfig_ProjectWithNoPaths(t *testing.T) {
 	}
 }
 
-// ---------- findProjectIdForEntry ----------
+// ---------- findProjectIDForEntry ----------
 
-func TestFindProjectIdForEntry_WithExplicitName(t *testing.T) {
+func TestFindProjectIDForEntry_WithExplicitName(t *testing.T) {
 	mock := &mockStartService{
-		projectIdByName: map[string]int{"MyProject": 99},
+		projectIDByName: map[string]int{"MyProject": 99},
 	}
 
-	id, name, err := findProjectIdForEntry("MyProject", mock, 1)
+	id, name, err := findProjectIDForEntry("MyProject", mock, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -249,21 +249,21 @@ func TestFindProjectIdForEntry_WithExplicitName(t *testing.T) {
 	}
 }
 
-func TestFindProjectIdForEntry_ProjectNotFound(t *testing.T) {
+func TestFindProjectIDForEntry_ProjectNotFound(t *testing.T) {
 	mock := &mockStartService{
-		projectIdErr: errors.New("not found"),
+		projectIDErr: errors.New("not found"),
 	}
 
-	if _, _, err := findProjectIdForEntry("Missing", mock, 1); err == nil {
+	if _, _, err := findProjectIDForEntry("Missing", mock, 1); err == nil {
 		t.Error("expected error for missing project")
 	}
 }
 
-func TestFindProjectIdForEntry_EmptyNameNoConfig(t *testing.T) {
+func TestFindProjectIDForEntry_EmptyNameNoConfig(t *testing.T) {
 	resetViperForStartTests()
 	mock := &mockStartService{}
 
-	_, _, err := findProjectIdForEntry("", mock, 1)
+	_, _, err := findProjectIDForEntry("", mock, 1)
 	if err == nil {
 		t.Error("expected error when no name and no config match")
 	}

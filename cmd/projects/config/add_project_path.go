@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/ville6000/toggl-cli/internal/api"
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/config"
 )
 
 var AddProjectPathCmd = &cobra.Command{
@@ -16,7 +16,7 @@ var AddProjectPathCmd = &cobra.Command{
 	Long:  "",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, workspaceId, err := utils.GetConfig()
+		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
@@ -27,17 +27,17 @@ var AddProjectPathCmd = &cobra.Command{
 			return fmt.Errorf("failed to get current path: %w", err)
 		}
 
-		client := api.NewAPIClientFromConfig(token)
+		client := api.NewClientFromConfig(token)
 
-		var projectId int
+		var projectID int
 		if projectName != "" {
-			projectId, err = client.GetProjectIdByName(workspaceId, projectName)
+			projectID, err = client.GetProjectIDByName(workspaceID, projectName)
 			if err != nil {
 				return fmt.Errorf("failed to get project ID: %w", err)
 			}
 		}
 
-		viper.Set(fmt.Sprintf("projects.%s.id", projectName), projectId)
+		viper.Set(fmt.Sprintf("projects.%s.id", projectName), projectID)
 
 		key := fmt.Sprintf("projects.%s.paths", projectName)
 		existingPaths := viper.GetStringSlice(key)
