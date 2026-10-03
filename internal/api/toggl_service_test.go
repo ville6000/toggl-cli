@@ -45,38 +45,12 @@ func errorHandler(status int) http.HandlerFunc {
 	}
 }
 
-// ---------- FormatDuration ----------
-
-func TestFormatDuration(t *testing.T) {
-	tests := []struct {
-		seconds  float64
-		expected string
-	}{
-		{0, "00:00:00"},
-		{1, "00:00:01"},
-		{59, "00:00:59"},
-		{60, "00:01:00"},
-		{90, "00:01:30"},
-		{3600, "01:00:00"},
-		{3661, "01:01:01"},
-		{7384, "02:03:04"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			if got := FormatDuration(tt.seconds); got != tt.expected {
-				t.Errorf("FormatDuration(%v) = %q, want %q", tt.seconds, got, tt.expected)
-			}
-		})
-	}
-}
-
 // ---------- NewTimeEntry ----------
 
 func TestNewTimeEntry(t *testing.T) {
-	c := &Client{}
 	// Truncate to seconds because NewTimeEntry formats Start with RFC3339 (second precision).
 	before := time.Now().Truncate(time.Second)
-	e := c.NewTimeEntry("my desc", 10, 20, true)
+	e := NewTimeEntry("my desc", 10, 20, true)
 	after := time.Now().Add(time.Second).Truncate(time.Second)
 
 	if e.Description != "my desc" {
@@ -114,8 +88,7 @@ func TestNewTimeEntry(t *testing.T) {
 }
 
 func TestNewTimeEntry_NotBillable(t *testing.T) {
-	c := &Client{}
-	e := c.NewTimeEntry("desc", 1, 2, false)
+	e := NewTimeEntry("desc", 1, 2, false)
 	if e.Billable {
 		t.Error("expected Billable=false")
 	}

@@ -65,8 +65,8 @@ var historyCmd = &cobra.Command{
 		out := cmd.OutOrStdout()
 		now := time.Now()
 		sortedKeys := getSortedTimeEntryDates(groupedEntries)
-		headers := []interface{}{"Started At", "Duration", "Description", "Project"}
-		summaryHeaders := []interface{}{"Description", "Project", "Duration"}
+		headers := []any{"Started At", "Duration", "Description", "Project"}
+		summaryHeaders := []any{"Description", "Project", "Duration"}
 		for _, key := range sortedKeys {
 			fmt.Fprintf(out, "# %s\n", key)
 			fmt.Fprintln(out)
@@ -92,12 +92,12 @@ var historyCmd = &cobra.Command{
 	},
 }
 
-func outputSummaryEntries(out io.Writer, key string, headers []interface{}, entries map[string]HistoryEntry) {
+func outputSummaryEntries(out io.Writer, key string, headers []any, entries map[string]HistoryEntry) {
 	totalDuration := 0
-	var rows [][]interface{}
+	var rows [][]any
 	for _, entry := range entries {
-		formattedDuration := api.FormatDuration(float64(entry.Duration))
-		rows = append(rows, []interface{}{
+		formattedDuration := output.FormatDuration(entry.Duration)
+		rows = append(rows, []any{
 			entry.Description,
 			entry.Project,
 			formattedDuration,
@@ -106,7 +106,7 @@ func outputSummaryEntries(out io.Writer, key string, headers []interface{}, entr
 		totalDuration += entry.Duration
 	}
 
-	footer := table.Row{"", "Total", api.FormatDuration(float64(totalDuration))}
+	footer := table.Row{"", "Total", output.FormatDuration(totalDuration)}
 	title := fmt.Sprintf("Summary for: %s", key)
 
 	output.RenderTable(out, title, headers, rows, footer)
@@ -159,7 +159,7 @@ func entryDuration(entry data.TimeEntryItem, now time.Time) int {
 func outputDateEntries(
 	out io.Writer,
 	key string,
-	headers []interface{},
+	headers []any,
 	groupedEntries map[string][]data.TimeEntryItem,
 	projectsLookup map[int]string,
 	location *time.Location,
@@ -173,13 +173,13 @@ func outputDateEntries(
 	title := fmt.Sprintf("Entries for: %s", parsedDate.Format("02.01.2006"))
 
 	entries := groupedEntries[key]
-	var rows [][]interface{}
+	var rows [][]any
 	for _, entry := range entries {
-		formattedDuration := api.FormatDuration(float64(entryDuration(entry, now)))
+		formattedDuration := output.FormatDuration(entryDuration(entry, now))
 		projectName := projectsLookup[entry.ProjectID]
 		localStart := entry.Start.In(location)
 
-		rows = append(rows, []interface{}{
+		rows = append(rows, []any{
 			localStart.Format("15:04"),
 			formattedDuration,
 			entry.Description,

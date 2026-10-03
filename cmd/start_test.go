@@ -348,7 +348,7 @@ func TestGetTicketNumberFromPath_PatternMatchingEmptyString(t *testing.T) {
 func TestTicketPattern_DefaultWhenUnconfigured(t *testing.T) {
 	resetViperForStartTests()
 
-	if got := ticketPattern("myproject"); got != defaultTicketRe {
+	if got := ticketPattern(io.Discard, "myproject"); got != defaultTicketRe {
 		t.Errorf("expected the default pattern, got %v", got)
 	}
 }
@@ -357,7 +357,7 @@ func TestTicketPattern_GlobalOverride(t *testing.T) {
 	resetViperForStartTests()
 	viper.Set("start.ticket_pattern", `([A-Z]+-[0-9]+)`)
 
-	if got := getTicketNumberFromPath("ABC-123-fix", ticketPattern("")); got != "ABC-123" {
+	if got := getTicketNumberFromPath("ABC-123-fix", ticketPattern(io.Discard, "")); got != "ABC-123" {
 		t.Errorf("got %q, want %q", got, "ABC-123")
 	}
 }
@@ -367,11 +367,11 @@ func TestTicketPattern_ProjectOverridesGlobal(t *testing.T) {
 	viper.Set("start.ticket_pattern", `([A-Z]+-[0-9]+)`)
 	viper.Set("projects.myproject.ticket_pattern", `task-([0-9]+)`)
 
-	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern("myproject")); got != "987" {
+	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern(io.Discard, "myproject")); got != "987" {
 		t.Errorf("got %q, want %q", got, "987")
 	}
 	// A project without its own pattern still gets the global one.
-	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern("other")); got != "ABC-123" {
+	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern(io.Discard, "other")); got != "ABC-123" {
 		t.Errorf("got %q, want %q", got, "ABC-123")
 	}
 }
@@ -380,8 +380,12 @@ func TestTicketPattern_InvalidFallsBackToDefault(t *testing.T) {
 	resetViperForStartTests()
 	viper.Set("start.ticket_pattern", `([0-9]+`)
 
-	if got := ticketPattern(""); got != defaultTicketRe {
+	var errOut bytes.Buffer
+	if got := ticketPattern(&errOut, ""); got != defaultTicketRe {
 		t.Errorf("expected fallback to the default pattern, got %v", got)
+	}
+	if !strings.Contains(errOut.String(), "warning: invalid start.ticket_pattern") {
+		t.Errorf("expected a warning about the invalid pattern, got %q", errOut.String())
 	}
 }
 
@@ -454,7 +458,7 @@ func TestDetectDescriptionFromCurrentPath(t *testing.T) {
 			}
 			t.Chdir(tt.dir)
 
-			if got, _ := detectDescriptionFromCurrentPath(""); got != tt.expected {
+			if got, _ := detectDescriptionFromCurrentPath(io.Discard, ""); got != tt.expected {
 				t.Errorf("detectDescriptionFromCurrentPath() in %q = %q, want %q", tt.dir, got, tt.expected)
 			}
 		})

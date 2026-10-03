@@ -54,7 +54,6 @@ func init() {
 
 // ContinueService is the subset of api.Client used by the continue command.
 type ContinueService interface {
-	NewTimeEntry(description string, workspaceID, projectID int, billable bool) data.TimeEntry
 	CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error)
 }
 
@@ -71,7 +70,7 @@ func createTimeEntryFrom(index int, timeEntries []data.TimeEntryItem, client Con
 		workspaceID = e.WorkspaceID
 	}
 
-	timeEntry := client.NewTimeEntry(e.Description, workspaceID, e.ProjectID, e.Billable)
+	timeEntry := api.NewTimeEntry(e.Description, workspaceID, e.ProjectID, e.Billable)
 	_, err := client.CreateTimeEntry(workspaceID, timeEntry)
 	if err != nil {
 		return "", err

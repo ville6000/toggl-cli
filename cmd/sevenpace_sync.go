@@ -76,16 +76,16 @@ var sevenpaceSyncCmd = &cobra.Command{
 		entries := aggregateEntries(timeEntries)
 
 		var planned []plannedWorkLog
-		var skipped [][]interface{}
+		var skipped [][]any
 		plannedSeconds := 0
 		skippedSeconds := 0
 		for _, entry := range entries {
 			workLog, ok := toWorkLog(entry, spCfg.ActivityTypeID, location)
 			started := entry.Start.In(location).Format("2006-01-02 15:04")
-			duration := api.FormatDuration(float64(entry.Duration))
+			duration := output.FormatDuration(entry.Duration)
 
 			if !ok {
-				skipped = append(skipped, []interface{}{"—", started, duration, entry.Description})
+				skipped = append(skipped, []any{"—", started, duration, entry.Description})
 				skippedSeconds += entry.Duration
 				continue
 			}
@@ -105,11 +105,11 @@ var sevenpaceSyncCmd = &cobra.Command{
 		}
 
 		out := cmd.OutOrStdout()
-		headers := []interface{}{"Work Item", "Started At", "Duration", "Comment"}
+		headers := []any{"Work Item", "Started At", "Duration", "Comment"}
 		if len(planned) > 0 {
-			rows := make([][]interface{}, 0, len(planned))
+			rows := make([][]any, 0, len(planned))
 			for _, p := range planned {
-				rows = append(rows, []interface{}{p.workItem, p.started, p.duration, p.comment})
+				rows = append(rows, []any{p.workItem, p.started, p.duration, p.comment})
 			}
 			output.RenderTable(out, "Worklogs to post", headers, rows, totalFooter(plannedSeconds))
 			fmt.Fprintln(out)
@@ -121,7 +121,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 
 		if dryRun {
 			fmt.Fprintf(out, "Dry run: %d worklog(s) (%s) would be posted, %d skipped.\n",
-				len(planned), api.FormatDuration(float64(plannedSeconds)), len(skipped))
+				len(planned), output.FormatDuration(plannedSeconds), len(skipped))
 			return nil
 		}
 
@@ -130,7 +130,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 			return nil
 		}
 
-		prompt := fmt.Sprintf("Post %d worklog(s) (%s) to 7pace?", len(planned), api.FormatDuration(float64(plannedSeconds)))
+		prompt := fmt.Sprintf("Post %d worklog(s) (%s) to 7pace?", len(planned), output.FormatDuration(plannedSeconds))
 		if !assumeYes && !confirm(out, cmd.InOrStdin(), prompt) {
 			fmt.Fprintln(out, "Aborted.")
 			return nil
@@ -139,10 +139,10 @@ var sevenpaceSyncCmd = &cobra.Command{
 		spClient := api.NewSevenPaceClient(spCfg)
 		posted := 0
 		postedSeconds := 0
-		var failures [][]interface{}
+		var failures [][]any
 		for _, p := range planned {
 			if _, postErr := spClient.CreateWorkLog(p.payload); postErr != nil {
-				failures = append(failures, []interface{}{p.workItem, p.started, p.duration, postErr.Error()})
+				failures = append(failures, []any{p.workItem, p.started, p.duration, postErr.Error()})
 				continue
 			}
 			posted++
@@ -150,9 +150,9 @@ var sevenpaceSyncCmd = &cobra.Command{
 		}
 
 		fmt.Fprintf(out, "Posted %d worklog(s) (%s), %d skipped, %d failed.\n",
-			posted, api.FormatDuration(float64(postedSeconds)), len(skipped), len(failures))
+			posted, output.FormatDuration(postedSeconds), len(skipped), len(failures))
 		if len(failures) > 0 {
-			output.RenderTable(out, "Failed", []interface{}{"Work Item", "Started At", "Duration", "Error"}, failures, nil)
+			output.RenderTable(out, "Failed", []any{"Work Item", "Started At", "Duration", "Error"}, failures, nil)
 			return fmt.Errorf("%d worklog(s) failed to post", len(failures))
 		}
 
@@ -163,7 +163,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 // totalFooter builds the footer row summing the Duration column of the sync
 // tables, so the time about to be logged to 7pace is visible at a glance.
 func totalFooter(seconds int) table.Row {
-	return table.Row{"", "Total", api.FormatDuration(float64(seconds)), ""}
+	return table.Row{"", "Total", output.FormatDuration(seconds), ""}
 }
 
 func confirm(out io.Writer, in io.Reader, prompt string) bool {
