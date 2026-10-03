@@ -40,3 +40,23 @@ changelog:
 
 release:
   mode: keep-existing
+
+# Publishes Casks/toggl-cli.rb to ville6000/homebrew-tap, so
+# `brew install ville6000/tap/toggl-cli` works. HOMEBREW_TAP_TOKEN is a
+# fine-grained PAT with contents write access to that repo.
+homebrew_casks:
+  - repository:
+      owner: ville6000
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/ville6000/toggl-cli
+    description: Command line client for Toggl Track
+    license: MIT
+    # The binaries aren't signed, so remove the quarantine attribute that
+    # would make Gatekeeper block the first run.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/toggl-cli"]
+          end
