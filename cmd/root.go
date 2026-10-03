@@ -9,47 +9,76 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
-
-// rootCmd represents the base command when called without any subcommands.
-var rootCmd = &cobra.Command{
-	Use:   "toggl-cli",
-	Short: "Toggl CLI is a command line interface for Toggl",
-	Long:  "",
-}
-
 // Execute runs the command line with ctx, which every command passes on to its
 // API requests. Cobra has already printed the returned error.
 func Execute(ctx context.Context) error {
-	return rootCmd.ExecuteContext(ctx)
+	return NewRootCmd().ExecuteContext(ctx)
 }
 
-func init() {
-	cobra.OnInitialize(initConfig)
+// NewRootCmd builds the toggl-cli command tree. Each call has its own
+// configuration and flags, so a tree can be built and run independently of
+// any other.
+func NewRootCmd() *cobra.Command {
+	return newRootCmd(viper.New())
+}
 
-	rootCmd.PersistentFlags().StringVar(
+// newRootCmd builds the command tree around v, which holds the configuration
+// every command reads and writes. Tests pass their own v to preset values.
+func newRootCmd(v *viper.Viper) *cobra.Command {
+	var cfgFile string
+
+	cmd := &cobra.Command{
+		Use:   "toggl-cli",
+		Short: "Toggl CLI is a command line interface for Toggl",
+		Long:  "",
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			return loadConfig(cmd, v, cfgFile)
+		},
+	}
+
+	cmd.PersistentFlags().StringVar(
 		&cfgFile,
 		"config",
 		"",
 		"config file (default is $XDG_CONFIG_HOME/toggl-cli/config.yaml or $HOME/.toggl-cli.yaml)",
 	)
+
+	cmd.AddCommand(
+		newConfigCmd(v),
+		newContinueCmd(v),
+		newCurrentCmd(v),
+		newEditCmd(v),
+		newHistoryCmd(v),
+		newProjectsCmd(v),
+		newSevenPaceCmd(v),
+		newStartCmd(v),
+		newStopCmd(v),
+		newWorkspacesCmd(v),
+		newWwwCmd(),
+	)
+
+	return cmd
 }
 
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
+// loadConfig reads the config file into v: cfgFile when given, otherwise the
+// default location. A missing file is not an error; commands report the
+// settings they need.
+func loadConfig(cmd *cobra.Command, v *viper.Viper, cfgFile string) error {
 	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
+		v.SetConfigFile(cfgFile)
 	} else {
 		configPath, err := ConfigPath()
-		cobra.CheckErr(err)
-		viper.SetConfigFile(configPath)
+		if err != nil {
+			return err
+		}
+		v.SetConfigFile(configPath)
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
+	v.AutomaticEnv()
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(rootCmd.ErrOrStderr(), "Using config file:", viper.ConfigFileUsed())
+	if err := v.ReadInConfig(); err == nil {
+		fmt.Fprintln(cmd.ErrOrStderr(), "Using config file:", v.ConfigFileUsed())
 	}
+
+	return nil
 }

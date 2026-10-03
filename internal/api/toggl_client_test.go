@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"testing"
 	"time"
-
-	"github.com/spf13/viper"
 )
 
 func TestNewClient_ReturnsNonNil(t *testing.T) {
@@ -97,34 +95,5 @@ func TestNewClient_WithHTTPClientAndCache(t *testing.T) {
 	}
 	if client.Cache != projectCache {
 		t.Error("WithCache did not replace the cache")
-	}
-}
-
-func TestNewClientFromConfig_UsesTheConfiguredBaseURL(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-	viper.Set("toggl.base_url", "http://stub.invalid")
-
-	client := NewClientFromConfig("tok")
-	if client == nil {
-		t.Fatal("NewClientFromConfig returned nil")
-	}
-	if want := "http://stub.invalid"; client.BaseURL != want {
-		t.Errorf("BaseURL: got %q, want %q", client.BaseURL, want)
-	}
-}
-
-func TestNewClientFromConfig_DefaultsWithoutOverride(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-
-	client := NewClientFromConfig("tok")
-	if client == nil {
-		t.Fatal("NewClientFromConfig returned nil")
-	}
-	if client.BaseURL != DefaultBaseURL {
-		t.Errorf("BaseURL: got %q, want %q", client.BaseURL, DefaultBaseURL)
 	}
 }

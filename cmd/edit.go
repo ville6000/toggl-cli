@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
@@ -21,49 +22,58 @@ type EditService interface {
 	ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error)
 }
 
-var editCmd = &cobra.Command{
-	Use:   "edit",
-	Short: "Edit a recent or running time entry",
-	Long:  "Edit the description, project or start time of a recent or currently running time entry.",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		token, _, err := config.TokenAndWorkspace()
-		if err != nil {
-			return fmt.Errorf("failed to get configuration: %w", err)
-		}
+func newEditCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "edit",
+		Short: "Edit a recent or running time entry",
+		Long:  "Edit the description, project or start time of a recent or currently running time entry.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			token, _, err := config.TokenAndWorkspace(v)
+			if err != nil {
+				return fmt.Errorf("failed to get configuration: %w", err)
+			}
 
-		index, err := cmd.Flags().GetInt("index")
-		if err != nil {
-			return fmt.Errorf("failed to get index flag: %w", err)
-		}
+			index, err := cmd.Flags().GetInt("index")
+			if err != nil {
+				return fmt.Errorf("failed to get index flag: %w", err)
+			}
 
-		description, err := cmd.Flags().GetString("description")
-		if err != nil {
-			return fmt.Errorf("failed to get description flag: %w", err)
-		}
+			description, err := cmd.Flags().GetString("description")
+			if err != nil {
+				return fmt.Errorf("failed to get description flag: %w", err)
+			}
 
-		project, err := cmd.Flags().GetString("project")
-		if err != nil {
-			return fmt.Errorf("failed to get project flag: %w", err)
-		}
+			project, err := cmd.Flags().GetString("project")
+			if err != nil {
+				return fmt.Errorf("failed to get project flag: %w", err)
+			}
 
-		start, err := cmd.Flags().GetString("start")
-		if err != nil {
-			return fmt.Errorf("failed to get start flag: %w", err)
-		}
+			start, err := cmd.Flags().GetString("start")
+			if err != nil {
+				return fmt.Errorf("failed to get start flag: %w", err)
+			}
 
-		if description == "" && project == "" && start == "" {
-			return errors.New("at least one of --description, --project or --start must be provided")
-		}
+			if description == "" && project == "" && start == "" {
+				return errors.New("at least one of --description, --project or --start must be provided")
+			}
 
-		location, err := config.Timezone()
-		if err != nil {
-			return err
-		}
+			location, err := config.Timezone(v)
+			if err != nil {
+				return err
+			}
 
-		client := api.NewClientFromConfig(token)
+			client := newTogglClient(v, token)
 
-		return runEdit(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), client, index, description, project, start, location)
-	},
+			return runEdit(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), client, index, description, project, start, location)
+		},
+	}
+
+	cmd.Flags().IntP("index", "i", 0, "Index of the time entry to edit (0 = most recent)")
+	cmd.Flags().StringP("description", "d", "", "New description for the time entry")
+	cmd.Flags().StringP("project", "p", "", "New project for the time entry")
+	cmd.Flags().StringP("start", "s", "", "New start time in your timezone: \"YYYY-MM-DD HH:MM\", HH:MM (keeps entry's date) or YYYY-MM-DD")
+
+	return cmd
 }
 
 func runEdit(
@@ -177,13 +187,4 @@ func parseStartTime(value string, location *time.Location, entryDate time.Time) 
 	}
 
 	return time.Time{}, fmt.Errorf("invalid --start %q: use \"YYYY-MM-DD HH:MM\", HH:MM or YYYY-MM-DD", value)
-}
-
-func init() {
-	rootCmd.AddCommand(editCmd)
-
-	editCmd.Flags().IntP("index", "i", 0, "Index of the time entry to edit (0 = most recent)")
-	editCmd.Flags().StringP("description", "d", "", "New description for the time entry")
-	editCmd.Flags().StringP("project", "p", "", "New project for the time entry")
-	editCmd.Flags().StringP("start", "s", "", "New start time in your timezone: \"YYYY-MM-DD HH:MM\", HH:MM (keeps entry's date) or YYYY-MM-DD")
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 )
@@ -17,10 +18,19 @@ import (
 // in the config file. The `sync` command performs no de-duplication, so
 // re-running the same date range will create duplicate worklogs — use
 // `--dry-run` first to preview.
-var sevenpaceCmd = &cobra.Command{
-	Use:   "7pace",
-	Short: "Post worklogs to 7pace Timetracker",
-	Long:  "Post worklogs to an on-prem 7pace Timetracker instance from your Toggl time entries.",
+func newSevenPaceCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "7pace",
+		Short: "Post worklogs to 7pace Timetracker",
+		Long:  "Post worklogs to an on-prem 7pace Timetracker instance from your Toggl time entries.",
+	}
+
+	cmd.AddCommand(
+		newSevenPaceAddCmd(v),
+		newSevenPaceSyncCmd(v),
+	)
+
+	return cmd
 }
 
 var (
@@ -113,8 +123,4 @@ func toWorkLog(entry api.TimeEntryItem, activityTypeID string, location *time.Lo
 	}
 
 	return workLog, ok
-}
-
-func init() {
-	rootCmd.AddCommand(sevenpaceCmd)
 }

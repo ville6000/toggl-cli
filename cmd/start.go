@@ -40,30 +40,36 @@ type StartService interface {
 	ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error)
 }
 
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start a new time entry",
-	Long:  "",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		token, workspaceID, err := config.TokenAndWorkspace()
-		if err != nil {
-			return fmt.Errorf("failed to get configuration: %w", err)
-		}
+func newStartCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "start",
+		Short: "Start a new time entry",
+		Long:  "",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, workspaceID, err := config.TokenAndWorkspace(v)
+			if err != nil {
+				return fmt.Errorf("failed to get configuration: %w", err)
+			}
 
-		projectName, err := cmd.Flags().GetString("project")
-		if err != nil {
-			return fmt.Errorf("failed to get project flag: %w", err)
-		}
+			projectName, err := cmd.Flags().GetString("project")
+			if err != nil {
+				return fmt.Errorf("failed to get project flag: %w", err)
+			}
 
-		client := api.NewClientFromConfig(token)
-		projectID, resolvedProject, err := findProjectIDForEntry(cmd.Context(), projectName, client, workspaceID)
-		if err != nil {
-			return fmt.Errorf("failed to find project ID: %w", err)
-		}
+			client := newTogglClient(v, token)
+			projectID, resolvedProject, err := findProjectIDForEntry(cmd.Context(), v, projectName, client, workspaceID)
+			if err != nil {
+				return fmt.Errorf("failed to find project ID: %w", err)
+			}
 
-		description := getDescription(cmd.ErrOrStderr(), args, resolvedProject)
-		return runStart(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), client, description, workspaceID, projectID)
-	},
+			description := getDescription(v, cmd.ErrOrStderr(), args, resolvedProject)
+			return runStart(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), client, description, workspaceID, projectID)
+		},
+	}
+
+	cmd.Flags().StringP("project", "p", "", "Project for the time entry")
+
+	return cmd
 }
 
 func runStart(ctx context.Context, out, errOut io.Writer, client StartService, description string, workspaceID, projectID int) error {
@@ -97,23 +103,17 @@ func runStart(ctx context.Context, out, errOut io.Writer, client StartService, d
 	}, projectsMap)
 }
 
-func init() {
-	rootCmd.AddCommand(startCmd)
-
-	startCmd.Flags().StringP("project", "p", "", "Project for the time entry")
-}
-
 // findProjectIDForEntry resolves the project for the entry, returning both its
 // id and the name it was resolved to (the config key when detected from the
 // current path), so the caller can look up project-specific settings.
-func findProjectIDForEntry(ctx context.Context, projectName string, client StartService, workspaceID int) (int, string, error) {
+func findProjectIDForEntry(ctx context.Context, v *viper.Viper, projectName string, client StartService, workspaceID int) (int, string, error) {
 	if projectName == "" {
 		currentPath, err := os.Getwd()
 		if err != nil {
 			return 0, "", fmt.Errorf("failed to get current working directory: %w", err)
 		}
 
-		projectName, err = findProjectNameFromConfig(currentPath)
+		projectName, err = findProjectNameFromConfig(v, currentPath)
 		if err != nil {
 			return 0, "", fmt.Errorf("failed to find project name from config: %w", err)
 		}
@@ -131,9 +131,9 @@ func findProjectIDForEntry(ctx context.Context, projectName string, client Start
 	return projectID, projectName, nil
 }
 
-func findProjectNameFromConfig(currentPath string) (string, error) {
+func findProjectNameFromConfig(v *viper.Viper, currentPath string) (string, error) {
 	var projects map[string]ProjectConfig
-	err := viper.UnmarshalKey("projects", &projects)
+	err := v.UnmarshalKey("projects", &projects)
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarshal projects from config: %w", err)
 	}
@@ -156,12 +156,12 @@ func findProjectNameFromConfig(currentPath string) (string, error) {
 // getDescription returns the description given on the command line, falling
 // back to a ticket number detected from the current directory's name. When
 // nothing can be detected the user is told why the entry has no description.
-func getDescription(errOut io.Writer, args []string, projectName string) string {
+func getDescription(v *viper.Viper, errOut io.Writer, args []string, projectName string) string {
 	if len(args) > 0 && args[0] != "" {
 		return args[0]
 	}
 
-	description, dir := detectDescriptionFromCurrentPath(errOut, projectName)
+	description, dir := detectDescriptionFromCurrentPath(v, errOut, projectName)
 	if description == "" {
 		fmt.Fprintf(errOut, "warning: could not detect a ticket number from directory name %q "+
 			"(no match, or more than one candidate), starting entry without description; "+
@@ -173,22 +173,22 @@ func getDescription(errOut io.Writer, args []string, projectName string) string 
 
 // detectDescriptionFromCurrentPath returns the ticket number detected from the
 // current directory's name, along with that name.
-func detectDescriptionFromCurrentPath(errOut io.Writer, projectName string) (description, dir string) {
+func detectDescriptionFromCurrentPath(v *viper.Viper, errOut io.Writer, projectName string) (description, dir string) {
 	currentPath, err := os.Getwd()
 	if err != nil {
 		return "", ""
 	}
 
 	dir = filepath.Base(currentPath)
-	return getTicketNumberFromPath(dir, ticketPattern(errOut, projectName)), dir
+	return getTicketNumberFromPath(dir, ticketPattern(v, errOut, projectName)), dir
 }
 
 // ticketPattern returns the expression used to pull a ticket number out of a
 // directory name. A project's own `ticket_pattern` wins over the global
 // `start.ticket_pattern`, which wins over defaultTicketPattern. A pattern that
 // does not compile is reported and the default is used instead.
-func ticketPattern(errOut io.Writer, projectName string) *regexp.Regexp {
-	pattern, key := configuredTicketPattern(projectName)
+func ticketPattern(v *viper.Viper, errOut io.Writer, projectName string) *regexp.Regexp {
+	pattern, key := configuredTicketPattern(v, projectName)
 	if pattern == "" {
 		return defaultTicketRe
 	}
@@ -204,15 +204,15 @@ func ticketPattern(errOut io.Writer, projectName string) *regexp.Regexp {
 
 // configuredTicketPattern returns the configured pattern and the config key it
 // came from, or an empty pattern when nothing is configured.
-func configuredTicketPattern(projectName string) (pattern, key string) {
+func configuredTicketPattern(v *viper.Viper, projectName string) (pattern, key string) {
 	if projectName != "" {
 		projectKey := "projects." + projectName + ".ticket_pattern"
-		if p := viper.GetString(projectKey); p != "" {
+		if p := v.GetString(projectKey); p != "" {
 			return p, projectKey
 		}
 	}
 
-	return viper.GetString("start.ticket_pattern"), "start.ticket_pattern"
+	return v.GetString("start.ticket_pattern"), "start.ticket_pattern"
 }
 
 // getTicketNumberFromPath extracts a ticket number from a directory name.

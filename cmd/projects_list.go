@@ -6,31 +6,32 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/output"
 )
 
-var projectsListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"ls"},
-	Short:   "List projects",
-	Long:    "List all projects associated with the default workspace",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		token, workspaceID, err := config.TokenAndWorkspace()
-		if err != nil {
-			return fmt.Errorf("failed to get configuration: %w", err)
-		}
+func newProjectsListCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "list",
+		Aliases: []string{"ls"},
+		Short:   "List projects",
+		Long:    "List all projects associated with the default workspace",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			token, workspaceID, err := config.TokenAndWorkspace(v)
+			if err != nil {
+				return fmt.Errorf("failed to get configuration: %w", err)
+			}
 
-		client := api.NewClientFromConfig(token)
+			client := newTogglClient(v, token)
 
-		return projectListOutput(cmd.Context(), cmd.OutOrStdout(), client, workspaceID)
-	},
-}
+			return projectListOutput(cmd.Context(), cmd.OutOrStdout(), client, workspaceID)
+		},
+	}
 
-func init() {
-	projectsCmd.AddCommand(projectsListCmd)
+	return cmd
 }
 
 // ProjectsListService is the subset of api.Client used by the projects list

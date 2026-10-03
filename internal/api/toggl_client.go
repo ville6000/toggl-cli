@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/ville6000/toggl-cli/internal/config"
 )
 
 // DefaultBaseURL is the public Toggl API endpoint used unless overridden.
@@ -69,15 +67,4 @@ func NewClient(authToken string, opts ...ClientOption) *Client {
 	}
 
 	return client
-}
-
-// NewClientFromConfig builds the client used by commands, honouring the
-// optional toggl.base_url config override.
-func NewClientFromConfig(authToken string) *Client {
-	var opts []ClientOption
-	if baseURL := config.TogglBaseURL(); baseURL != "" {
-		opts = append(opts, WithBaseURL(baseURL))
-	}
-
-	return NewClient(authToken, opts...)
 }

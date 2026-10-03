@@ -39,7 +39,7 @@ func TestGetDateParams_EndIsInclusive(t *testing.T) {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, end, err := getDateParams(cmd, false)
+	start, end, err := getDateParams(cmd, time.Local, false)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestGetDateParams_StartOnlyRunsThroughToday(t *testing.T) {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	_, end, err := getDateParams(cmd, false)
+	_, end, err := getDateParams(cmd, time.Local, false)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestGetDateParams_StartOnlyIsSingleDayWhenEndDefaultsToStart(t *testing.T) 
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, end, err := getDateParams(cmd, true)
+	start, end, err := getDateParams(cmd, time.Local, true)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestGetDateParams_NoFlagsIsToday(t *testing.T) {
 			t.Fatalf("parse flags: %v", err)
 		}
 
-		start, end, err := getDateParams(cmd, withToday)
+		start, end, err := getDateParams(cmd, time.Local, withToday)
 		if err != nil {
 			t.Fatalf("getDateParams: %v", err)
 		}
@@ -117,7 +117,7 @@ func TestGetDateParams_WeekIncludesSunday(t *testing.T) {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, end, err := getDateParams(cmd, false)
+	start, end, err := getDateParams(cmd, time.Local, false)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestGetDateParams_MonthCoversWholeMonth(t *testing.T) {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, end, err := getDateParams(cmd, false)
+	start, end, err := getDateParams(cmd, time.Local, false)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestGetDateParams_RangeStartsAtMidnight(t *testing.T) {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, _, err := getDateParams(cmd, true)
+	start, _, err := getDateParams(cmd, time.Local, true)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -171,7 +171,7 @@ func TestGetDateParams_EndBeforeStartErrors(t *testing.T) {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	if _, _, err := getDateParams(cmd, false); err == nil {
+	if _, _, err := getDateParams(cmd, time.Local, false); err == nil {
 		t.Error("expected an error when --end precedes --start")
 	}
 }
@@ -182,7 +182,7 @@ func TestGetDateParams_InvalidDateErrors(t *testing.T) {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	if _, _, err := getDateParams(cmd, false); err == nil {
+	if _, _, err := getDateParams(cmd, time.Local, false); err == nil {
 		t.Error("expected an error for a malformed --start")
 	}
 }

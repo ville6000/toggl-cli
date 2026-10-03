@@ -25,7 +25,7 @@ func utcEntry(id int, start time.Time, duration int, description string) api.Tim
 
 func TestHistoryCommand_SumsEntriesPerDayAndAsksForTheRequestedRange(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 	stub.stubHistory(
@@ -35,7 +35,7 @@ func TestHistoryCommand_SumsEntriesPerDayAndAsksForTheRequestedRange(t *testing.
 		utcEntry(3, time.Date(2024, 3, 4, 6, 0, 0, 0, time.UTC), 900, "standup"),
 	)
 
-	out, _, err := executeCommand(t, "history", "--start", "2024-03-04", "--end", "2024-03-04")
+	out, _, err := executeCommand(t, v, "history", "--start", "2024-03-04", "--end", "2024-03-04")
 	if err != nil {
 		t.Fatalf("history: %v", err)
 	}
@@ -66,14 +66,14 @@ func TestHistoryCommand_SumsEntriesPerDayAndAsksForTheRequestedRange(t *testing.
 
 func TestHistoryCommand_GroupsByLocalDateAcrossTimezoneBoundary(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 	// 22:30 UTC on the 4th is 07:30 on the 5th in Tokyo, so the entry belongs
 	// to the 5th as far as the user is concerned.
 	stub.stubHistory(utcEntry(1, time.Date(2024, 3, 4, 22, 30, 0, 0, time.UTC), 3600, "review"))
 
-	out, _, err := executeCommand(t, "history", "--start", "2024-03-05", "--end", "2024-03-05", "--verbose")
+	out, _, err := executeCommand(t, v, "history", "--start", "2024-03-05", "--end", "2024-03-05", "--verbose")
 	if err != nil {
 		t.Fatalf("history: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestHistoryCommand_GroupsByLocalDateAcrossTimezoneBoundary(t *testing.T) {
 
 func TestHistoryCommand_RunningEntryCountsAsElapsedTime(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	start := time.Now().Add(-30 * time.Minute)
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
@@ -108,7 +108,7 @@ func TestHistoryCommand_RunningEntryCountsAsElapsedTime(t *testing.T) {
 		Start:       start.UTC(),
 	})
 
-	out, _, err := executeCommand(t, "history")
+	out, _, err := executeCommand(t, v, "history")
 	if err != nil {
 		t.Fatalf("history: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestHistoryCommand_RunningEntryCountsAsElapsedTime(t *testing.T) {
 
 func TestHistoryCommand_VerboseListsIndividualEntries(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 	stub.stubHistory(
@@ -133,7 +133,7 @@ func TestHistoryCommand_VerboseListsIndividualEntries(t *testing.T) {
 		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 1800, "review"),
 	)
 
-	verbose, _, err := executeCommand(t, "history", "--start", "2024-03-04", "--end", "2024-03-04", "--verbose")
+	verbose, _, err := executeCommand(t, v, "history", "--start", "2024-03-04", "--end", "2024-03-04", "--verbose")
 	if err != nil {
 		t.Fatalf("history --verbose: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestHistoryCommand_VerboseListsIndividualEntries(t *testing.T) {
 		}
 	}
 
-	plain, _, err := executeCommand(t, "history", "--start", "2024-03-04", "--end", "2024-03-04")
+	plain, _, err := executeCommand(t, v, "history", "--start", "2024-03-04", "--end", "2024-03-04")
 	if err != nil {
 		t.Fatalf("history: %v", err)
 	}
@@ -157,12 +157,12 @@ func TestHistoryCommand_VerboseListsIndividualEntries(t *testing.T) {
 
 func TestHistoryCommand_NoEntriesIsAnError(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects()
 	stub.stubHistory()
 
-	_, _, err := executeCommand(t, "history", "--start", "2024-03-04")
+	_, _, err := executeCommand(t, v, "history", "--start", "2024-03-04")
 	if err == nil {
 		t.Fatal("expected an error when the range holds no entries")
 	}
@@ -173,12 +173,12 @@ func TestHistoryCommand_NoEntriesIsAnError(t *testing.T) {
 
 func TestHistoryCommand_ReportsAPIFailure(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects()
 	stub.respond(http.MethodGet, "/me/time_entries", http.StatusInternalServerError, nil)
 
-	_, _, err := executeCommand(t, "history")
+	_, _, err := executeCommand(t, v, "history")
 	if err == nil {
 		t.Fatal("expected an error when the API fails")
 	}
@@ -189,11 +189,11 @@ func TestHistoryCommand_ReportsAPIFailure(t *testing.T) {
 
 func TestHistoryCommand_RejectsEndBeforeStart(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects()
 
-	_, _, err := executeCommand(t, "history", "--start", "2024-03-04", "--end", "2024-03-01")
+	_, _, err := executeCommand(t, v, "history", "--start", "2024-03-04", "--end", "2024-03-01")
 	if err == nil {
 		t.Fatal("expected an error when --end precedes --start")
 	}

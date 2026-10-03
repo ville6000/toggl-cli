@@ -14,56 +14,60 @@ import (
 	"github.com/spf13/viper"
 )
 
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Manage configuration settings",
-	Long:  "Manage configuration settings for the Toggl CLI.",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		out := cmd.OutOrStdout()
-		reader := bufio.NewReader(cmd.InOrStdin())
+func newConfigCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Manage configuration settings",
+		Long:  "Manage configuration settings for the Toggl CLI.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			out := cmd.OutOrStdout()
+			reader := bufio.NewReader(cmd.InOrStdin())
 
-		fmt.Fprint(out, "Please enter your Toggl API token: ")
-		token, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("error reading input: %w", err)
-		}
-		token = strings.TrimSpace(token)
-
-		fmt.Fprint(out, "Please enter your default workspace ID: ")
-		wsLine, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("error reading input: %w", err)
-		}
-		var workspaceID int
-		if _, err = fmt.Sscanf(strings.TrimSpace(wsLine), "%d", &workspaceID); err != nil {
-			return fmt.Errorf("invalid workspace ID: %w", err)
-		}
-
-		fmt.Fprintf(out, "Please enter your timezone (leave empty for system default %q): ", time.Now().Location().String())
-		tz, err := reader.ReadString('\n')
-		if err != nil {
-			return fmt.Errorf("error reading input: %w", err)
-		}
-		tz = strings.TrimSpace(tz)
-
-		if tz != "" {
-			if _, err := time.LoadLocation(tz); err != nil {
-				return fmt.Errorf("invalid timezone %q: %w", tz, err)
+			fmt.Fprint(out, "Please enter your Toggl API token: ")
+			token, err := reader.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("error reading input: %w", err)
 			}
-		}
+			token = strings.TrimSpace(token)
 
-		sp, err := readSevenPaceInput(out, reader)
-		if err != nil {
-			return err
-		}
+			fmt.Fprint(out, "Please enter your default workspace ID: ")
+			wsLine, err := reader.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("error reading input: %w", err)
+			}
+			var workspaceID int
+			if _, err = fmt.Sscanf(strings.TrimSpace(wsLine), "%d", &workspaceID); err != nil {
+				return fmt.Errorf("invalid workspace ID: %w", err)
+			}
 
-		if err = writeConfig(token, workspaceID, tz, sp); err != nil {
-			return fmt.Errorf("error saving configuration: %w", err)
-		}
+			fmt.Fprintf(out, "Please enter your timezone (leave empty for system default %q): ", time.Now().Location().String())
+			tz, err := reader.ReadString('\n')
+			if err != nil {
+				return fmt.Errorf("error reading input: %w", err)
+			}
+			tz = strings.TrimSpace(tz)
 
-		fmt.Fprintln(out, "Configuration saved successfully!")
-		return nil
-	},
+			if tz != "" {
+				if _, err := time.LoadLocation(tz); err != nil {
+					return fmt.Errorf("invalid timezone %q: %w", tz, err)
+				}
+			}
+
+			sp, err := readSevenPaceInput(out, reader)
+			if err != nil {
+				return err
+			}
+
+			if err = writeConfig(v, token, workspaceID, tz, sp); err != nil {
+				return fmt.Errorf("error saving configuration: %w", err)
+			}
+
+			fmt.Fprintln(out, "Configuration saved successfully!")
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 // sevenPaceInput holds the optional on-prem 7pace Timetracker settings gathered
@@ -118,7 +122,7 @@ func readSevenPaceInput(out io.Writer, reader *bufio.Reader) (sevenPaceInput, er
 	return sp, nil
 }
 
-func writeConfig(token string, workspaceID int, timezone string, sp sevenPaceInput) error {
+func writeConfig(v *viper.Viper, token string, workspaceID int, timezone string, sp sevenPaceInput) error {
 	configPath, err := ConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
@@ -131,28 +135,28 @@ func writeConfig(token string, workspaceID int, timezone string, sp sevenPaceInp
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	viper.SetConfigFile(configPath)
+	v.SetConfigFile(configPath)
 
-	viper.Set("toggl.token", token)
-	viper.Set("toggl.workspace_id", workspaceID)
-	viper.Set("toggl.timezone", timezone)
+	v.Set("toggl.token", token)
+	v.Set("toggl.workspace_id", workspaceID)
+	v.Set("toggl.timezone", timezone)
 
 	if sp.baseURL != "" {
-		viper.Set("sevenpace.base_url", sp.baseURL)
-		viper.Set("sevenpace.domain", sp.domain)
-		viper.Set("sevenpace.username", sp.username)
-		viper.Set("sevenpace.password", sp.password)
-		viper.Set("sevenpace.activity_type_id", sp.activityTypeID)
+		v.Set("sevenpace.base_url", sp.baseURL)
+		v.Set("sevenpace.domain", sp.domain)
+		v.Set("sevenpace.username", sp.username)
+		v.Set("sevenpace.password", sp.password)
+		v.Set("sevenpace.activity_type_id", sp.activityTypeID)
 	}
 
-	writeErr := viper.WriteConfig()
+	writeErr := v.WriteConfig()
 
 	if writeErr != nil {
 		if _, ok := errors.AsType[viper.ConfigFileNotFoundError](writeErr); !ok {
 			return writeErr
 		}
 
-		if err := viper.SafeWriteConfig(); err != nil {
+		if err := v.SafeWriteConfig(); err != nil {
 			return fmt.Errorf("failed to create config file: %w", err)
 		}
 	}
@@ -202,8 +206,4 @@ func configCandidates() ([]string, error) {
 	)
 
 	return candidates, nil
-}
-
-func init() {
-	rootCmd.AddCommand(configCmd)
 }

@@ -17,7 +17,7 @@ import (
 
 func TestCurrentCommand_RendersTheRunningEntry(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 	stub.respond(http.MethodGet, "/me/time_entries/current", http.StatusOK, api.TimeEntryItem{
@@ -28,7 +28,7 @@ func TestCurrentCommand_RendersTheRunningEntry(t *testing.T) {
 		Start:       time.Now().Add(-15 * time.Minute).UTC(),
 	})
 
-	out, _, err := executeCommand(t, "current")
+	out, _, err := executeCommand(t, v, "current")
 	if err != nil {
 		t.Fatalf("current: %v", err)
 	}
@@ -42,13 +42,13 @@ func TestCurrentCommand_RendersTheRunningEntry(t *testing.T) {
 
 func TestCurrentCommand_NoRunningEntry(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects()
 	// Toggl answers with a JSON null when nothing is running.
 	stub.respond(http.MethodGet, "/me/time_entries/current", http.StatusOK, json.RawMessage("null"))
 
-	out, _, err := executeCommand(t, "current")
+	out, _, err := executeCommand(t, v, "current")
 	if err != nil {
 		t.Fatalf("current: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestCurrentCommand_NoRunningEntry(t *testing.T) {
 
 func TestStopCommand_StopsTheRunningEntry(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stopPath := fmt.Sprintf("/workspaces/%d/time_entries/55/stop", testWorkspaceID)
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
@@ -80,7 +80,7 @@ func TestStopCommand_StopsTheRunningEntry(t *testing.T) {
 		Start:       time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC),
 	})
 
-	out, _, err := executeCommand(t, "stop")
+	out, _, err := executeCommand(t, v, "stop")
 	if err != nil {
 		t.Fatalf("stop: %v", err)
 	}
@@ -95,11 +95,11 @@ func TestStopCommand_StopsTheRunningEntry(t *testing.T) {
 
 func TestStopCommand_NothingRunning(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.respond(http.MethodGet, "/me/time_entries/current", http.StatusOK, json.RawMessage("null"))
 
-	out, _, err := executeCommand(t, "stop")
+	out, _, err := executeCommand(t, v, "stop")
 	if err != nil {
 		t.Fatalf("stop: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestStopCommand_NothingRunning(t *testing.T) {
 
 func TestStartCommand_CreatesAnEntryForTheNamedProject(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	createPath := fmt.Sprintf("/workspaces/%d/time_entries", testWorkspaceID)
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
@@ -122,7 +122,7 @@ func TestStartCommand_CreatesAnEntryForTheNamedProject(t *testing.T) {
 		Start:       time.Now().Format(time.RFC3339),
 	})
 
-	out, _, err := executeCommand(t, "start", "new work", "--project", "Alpha")
+	out, _, err := executeCommand(t, v, "start", "new work", "--project", "Alpha")
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -153,11 +153,11 @@ func TestStartCommand_CreatesAnEntryForTheNamedProject(t *testing.T) {
 
 func TestStartCommand_UnknownProject(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 
-	_, _, err := executeCommand(t, "start", "new work", "--project", "Ghost")
+	_, _, err := executeCommand(t, v, "start", "new work", "--project", "Ghost")
 	if err == nil {
 		t.Fatal("expected an error for an unknown project")
 	}
@@ -168,7 +168,7 @@ func TestStartCommand_UnknownProject(t *testing.T) {
 
 func TestContinueCommand_UsesTheWorkspaceOfTheSelectedEntry(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	// The entry to continue lives in another workspace than the configured
 	// default; its project id only exists there.
@@ -181,7 +181,7 @@ func TestContinueCommand_UsesTheWorkspaceOfTheSelectedEntry(t *testing.T) {
 	)
 	stub.respond(http.MethodPost, createPath, http.StatusOK, api.TimeEntry{ID: 3})
 
-	out, _, err := executeCommand(t, "continue")
+	out, _, err := executeCommand(t, v, "continue")
 	if err != nil {
 		t.Fatalf("continue: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestContinueCommand_UsesTheWorkspaceOfTheSelectedEntry(t *testing.T) {
 
 func TestContinueCommand_SelectsEntryByIndex(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	createPath := fmt.Sprintf("/workspaces/%d/time_entries", testWorkspaceID)
 	stub.stubHistory(
@@ -214,7 +214,7 @@ func TestContinueCommand_SelectsEntryByIndex(t *testing.T) {
 	)
 	stub.respond(http.MethodPost, createPath, http.StatusOK, api.TimeEntry{ID: 3})
 
-	out, _, err := executeCommand(t, "continue", "--index", "1")
+	out, _, err := executeCommand(t, v, "continue", "--index", "1")
 	if err != nil {
 		t.Fatalf("continue --index 1: %v", err)
 	}
@@ -232,11 +232,11 @@ func TestContinueCommand_SelectsEntryByIndex(t *testing.T) {
 
 func TestContinueCommand_IndexOutOfRange(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubHistory(api.TimeEntryItem{ID: 1, Description: "only", WorkspaceID: testWorkspaceID, Duration: 600, Start: time.Now().UTC()})
 
-	_, _, err := executeCommand(t, "continue", "--index", "5")
+	_, _, err := executeCommand(t, v, "continue", "--index", "5")
 	if err == nil {
 		t.Fatal("expected an error for an out of range index")
 	}
@@ -247,7 +247,7 @@ func TestContinueCommand_IndexOutOfRange(t *testing.T) {
 
 func TestEditCommand_RecomputesDurationAroundANewStartTime(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	// 09:00 UTC is 18:00 in Tokyo, so "08:00" names an earlier time on the
 	// same local day and the entry grows backwards.
@@ -261,7 +261,7 @@ func TestEditCommand_RecomputesDurationAroundANewStartTime(t *testing.T) {
 		Start: time.Date(2024, 5, 31, 23, 0, 0, 0, time.UTC),
 	})
 
-	out, _, err := executeCommand(t, "edit", "--index", "0", "--start", "08:00")
+	out, _, err := executeCommand(t, v, "edit", "--index", "0", "--start", "08:00")
 	if err != nil {
 		t.Fatalf("edit: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestEditCommand_RecomputesDurationAroundANewStartTime(t *testing.T) {
 
 func TestEditCommand_UpdatesDescriptionAndProject(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	updatePath := fmt.Sprintf("/workspaces/%d/time_entries/12", testWorkspaceID)
 	stub.stubProjects(
@@ -302,7 +302,7 @@ func TestEditCommand_UpdatesDescriptionAndProject(t *testing.T) {
 		Start: time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC),
 	})
 
-	out, _, err := executeCommand(t, "edit", "--description", "pairing", "--project", "Beta")
+	out, _, err := executeCommand(t, v, "edit", "--description", "pairing", "--project", "Beta")
 	if err != nil {
 		t.Fatalf("edit: %v", err)
 	}
@@ -323,9 +323,9 @@ func TestEditCommand_UpdatesDescriptionAndProject(t *testing.T) {
 
 func TestEditCommand_RequiresSomethingToChange(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
-	_, _, err := executeCommand(t, "edit", "--index", "0")
+	_, _, err := executeCommand(t, v, "edit", "--index", "0")
 	if err == nil {
 		t.Fatal("expected an error when no field is given")
 	}
@@ -339,14 +339,14 @@ func TestEditCommand_RequiresSomethingToChange(t *testing.T) {
 
 func TestWorkspacesCommand_ListsWorkspaces(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.respond(http.MethodGet, "/workspaces", http.StatusOK, []api.Workspace{
 		{ID: 1, Name: "Personal"},
 		{ID: 2, Name: "Work"},
 	})
 
-	out, _, err := executeCommand(t, "workspaces")
+	out, _, err := executeCommand(t, v, "workspaces")
 	if err != nil {
 		t.Fatalf("workspaces: %v", err)
 	}
@@ -360,14 +360,14 @@ func TestWorkspacesCommand_ListsWorkspaces(t *testing.T) {
 
 func TestProjectsListCommand_ListsProjects(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	stub.stubProjects(
 		api.Project{ID: 7, Name: "Alpha"},
 		api.Project{ID: 8, Name: "Beta"},
 	)
 
-	out, _, err := executeCommand(t, "projects", "list")
+	out, _, err := executeCommand(t, v, "projects", "list")
 	if err != nil {
 		t.Fatalf("projects list: %v", err)
 	}
@@ -398,10 +398,10 @@ func TestCommands_ReportMissingConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// No stub and no config: nothing may reach the network.
 			stub := newAPIStub(t)
-			setupCLITest(t, stub)
-			resetConfig(t)
+			v := setupCLITest(t, stub)
+			resetConfig(t, v)
 
-			_, _, err := executeCommand(t, tt.args...)
+			_, _, err := executeCommand(t, v, tt.args...)
 			if err == nil {
 				t.Fatal("expected an error without configuration")
 			}
@@ -418,14 +418,14 @@ func TestCommands_ReportMissingConfiguration(t *testing.T) {
 // resetConfig clears the Toggl credentials while keeping the stub base URL, so
 // a command that ignores the missing config fails loudly instead of reaching
 // the real API.
-func resetConfig(t *testing.T) {
+func resetConfig(t *testing.T, v *viper.Viper) {
 	t.Helper()
-	viper.Set("toggl.token", "")
-	viper.Set("toggl.workspace_id", 0)
+	v.Set("toggl.token", "")
+	v.Set("toggl.workspace_id", 0)
 }
 
 func TestConfigCommand_WritesTheConfigFile(t *testing.T) {
-	setupCLITest(t, nil)
+	v := setupCLITest(t, nil)
 
 	input := strings.Join([]string{
 		"my-token",
@@ -435,7 +435,7 @@ func TestConfigCommand_WritesTheConfigFile(t *testing.T) {
 		"",
 	}, "\n")
 
-	out, _, err := executeCommandWithInput(t, input, "config")
+	out, _, err := executeCommandWithInput(t, v, input, "config")
 	if err != nil {
 		t.Fatalf("config: %v", err)
 	}
@@ -467,9 +467,9 @@ func TestConfigCommand_WritesTheConfigFile(t *testing.T) {
 }
 
 func TestConfigCommand_RejectsAnInvalidTimezone(t *testing.T) {
-	setupCLITest(t, nil)
+	v := setupCLITest(t, nil)
 
-	_, _, err := executeCommandWithInput(t, "my-token\n4242\nNot/AZone\n\n", "config")
+	_, _, err := executeCommandWithInput(t, v, "my-token\n4242\nNot/AZone\n\n", "config")
 	if err == nil {
 		t.Fatal("expected an error for an invalid timezone")
 	}
@@ -481,9 +481,9 @@ func TestConfigCommand_RejectsAnInvalidTimezone(t *testing.T) {
 func TestRootCommand_ReadsTheConfigFileNamedByTheConfigFlag(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
-	// Values set directly on viper outrank a config file, so drop them: this
-	// test is about the file actually being read.
-	viper.Reset()
+	// Preset values outrank a config file, so start from an empty
+	// configuration: this test is about the file actually being read.
+	v := viper.New()
 
 	configFile := filepath.Join(t.TempDir(), "config.yaml")
 	contents := fmt.Sprintf(
@@ -496,7 +496,7 @@ func TestRootCommand_ReadsTheConfigFileNamedByTheConfigFlag(t *testing.T) {
 
 	stub.respond(http.MethodGet, "/workspaces", http.StatusOK, []api.Workspace{{ID: 1, Name: "Personal"}})
 
-	out, _, err := executeCommand(t, "workspaces", "--config", configFile)
+	out, _, err := executeCommand(t, v, "workspaces", "--config", configFile)
 	if err != nil {
 		t.Fatalf("workspaces --config: %v", err)
 	}
@@ -511,7 +511,7 @@ func TestRootCommand_ReadsTheConfigFileNamedByTheConfigFlag(t *testing.T) {
 
 func TestStartCommand_DetectsProjectAndTicketFromTheWorkingDirectory(t *testing.T) {
 	stub := newAPIStub(t)
-	setupCLITest(t, stub)
+	v := setupCLITest(t, stub)
 
 	// A checkout under a configured project path, in a directory named after
 	// the ticket being worked on.
@@ -520,7 +520,7 @@ func TestStartCommand_DetectsProjectAndTicketFromTheWorkingDirectory(t *testing.
 		t.Fatalf("mkdir: %v", err)
 	}
 	t.Chdir(workDir)
-	viper.Set("projects", map[string]any{
+	v.Set("projects", map[string]any{
 		"Alpha": map[string]any{"paths": []string{filepath.Dir(workDir)}},
 	})
 
@@ -530,7 +530,7 @@ func TestStartCommand_DetectsProjectAndTicketFromTheWorkingDirectory(t *testing.
 		ID: 88, Description: "4711", ProjectID: 7, Start: time.Now().Format(time.RFC3339),
 	})
 
-	if _, _, err := executeCommand(t, "start"); err != nil {
+	if _, _, err := executeCommand(t, v, "start"); err != nil {
 		t.Fatalf("start: %v", err)
 	}
 
@@ -546,7 +546,7 @@ func TestStartCommand_DetectsProjectAndTicketFromTheWorkingDirectory(t *testing.
 }
 
 func TestConfigCommand_StoresTheSevenPaceSettings(t *testing.T) {
-	setupCLITest(t, nil)
+	v := setupCLITest(t, nil)
 
 	input := strings.Join([]string{
 		"my-token",
@@ -560,7 +560,7 @@ func TestConfigCommand_StoresTheSevenPaceSettings(t *testing.T) {
 		"",
 	}, "\n")
 
-	if _, _, err := executeCommandWithInput(t, input, "config"); err != nil {
+	if _, _, err := executeCommandWithInput(t, v, input, "config"); err != nil {
 		t.Fatalf("config: %v", err)
 	}
 
@@ -581,8 +581,8 @@ func TestProjectsAddPathCommand_AppendsTheWorkingDirectory(t *testing.T) {
 	stub := newAPIStub(t)
 	setupCLITest(t, stub)
 	// The command writes the config back out, so it has to be driven from a
-	// real file rather than values set directly on viper.
-	viper.Reset()
+	// real file rather than preset values.
+	v := viper.New()
 
 	configFile := filepath.Join(t.TempDir(), "config.yaml")
 	contents := fmt.Sprintf(
@@ -597,7 +597,7 @@ func TestProjectsAddPathCommand_AppendsTheWorkingDirectory(t *testing.T) {
 	t.Chdir(workDir)
 	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
 
-	out, _, err := executeCommand(t, "projects", "add-path", "Alpha", "--config", configFile)
+	out, _, err := executeCommand(t, v, "projects", "add-path", "Alpha", "--config", configFile)
 	if err != nil {
 		t.Fatalf("projects add-path: %v", err)
 	}

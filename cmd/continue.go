@@ -9,49 +9,51 @@ import (
 	"github.com/ville6000/toggl-cli/internal/config"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-var continueCmd = &cobra.Command{
-	Use:   "continue",
-	Short: "Continue latest timer entry",
-	Long:  "",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
+func newContinueCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "continue",
+		Short: "Continue latest timer entry",
+		Long:  "",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 
-		token, workspaceID, err := config.TokenAndWorkspace()
-		if err != nil {
-			return fmt.Errorf("failed to get configuration: %w", err)
-		}
+			token, workspaceID, err := config.TokenAndWorkspace(v)
+			if err != nil {
+				return fmt.Errorf("failed to get configuration: %w", err)
+			}
 
-		client := api.NewClientFromConfig(token)
-		timeEntries, err := client.TimeEntries(ctx, nil, nil)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve latest time entries: %w", err)
-		}
+			client := newTogglClient(v, token)
+			timeEntries, err := client.TimeEntries(ctx, nil, nil)
+			if err != nil {
+				return fmt.Errorf("failed to retrieve latest time entries: %w", err)
+			}
 
-		if len(timeEntries) == 0 {
-			return errors.New("no time entries found")
-		}
+			if len(timeEntries) == 0 {
+				return errors.New("no time entries found")
+			}
 
-		index, err := cmd.Flags().GetInt("index")
-		if err != nil {
-			return fmt.Errorf("failed to get index flag: %w", err)
-		}
+			index, err := cmd.Flags().GetInt("index")
+			if err != nil {
+				return fmt.Errorf("failed to get index flag: %w", err)
+			}
 
-		timeEntryDescription, err := createTimeEntryFrom(ctx, index, timeEntries, client, workspaceID)
-		if err != nil {
-			return fmt.Errorf("failed to create time entry: %w", err)
-		}
+			timeEntryDescription, err := createTimeEntryFrom(ctx, index, timeEntries, client, workspaceID)
+			if err != nil {
+				return fmt.Errorf("failed to create time entry: %w", err)
+			}
 
-		fmt.Fprintln(cmd.OutOrStdout(), "Continuing timer for:", timeEntryDescription)
+			fmt.Fprintln(cmd.OutOrStdout(), "Continuing timer for:", timeEntryDescription)
 
-		return nil
-	},
-}
+			return nil
+		},
+	}
 
-func init() {
-	rootCmd.AddCommand(continueCmd)
-	continueCmd.Flags().IntP("index", "i", 0, "Index of the time entry to continue")
+	cmd.Flags().IntP("index", "i", 0, "Index of the time entry to continue")
+
+	return cmd
 }
 
 // ContinueService is the subset of api.Client used by the continue command.

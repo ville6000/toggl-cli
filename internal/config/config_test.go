@@ -8,18 +8,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-// resetViper clears all viper state between tests.
-func resetViper() {
-	viper.Reset()
-}
-
 // ---------- Token ----------
 
 func TestToken_Success(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.token", "my-secret-token")
+	v := viper.New()
+	v.Set("toggl.token", "my-secret-token")
 
-	token, err := Token()
+	token, err := Token(v)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -29,9 +24,9 @@ func TestToken_Success(t *testing.T) {
 }
 
 func TestToken_Missing(t *testing.T) {
-	resetViper()
+	v := viper.New()
 
-	_, err := Token()
+	_, err := Token(v)
 	if err == nil {
 		t.Fatal("expected error for missing token, got nil")
 	}
@@ -41,10 +36,10 @@ func TestToken_Missing(t *testing.T) {
 }
 
 func TestToken_EmptyString(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.token", "")
+	v := viper.New()
+	v.Set("toggl.token", "")
 
-	if _, err := Token(); err == nil {
+	if _, err := Token(v); err == nil {
 		t.Error("expected error for empty token string")
 	}
 }
@@ -52,11 +47,11 @@ func TestToken_EmptyString(t *testing.T) {
 // ---------- TokenAndWorkspace ----------
 
 func TestTokenAndWorkspace_BothPresent(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.token", "tok123")
-	viper.Set("toggl.workspace_id", 42)
+	v := viper.New()
+	v.Set("toggl.token", "tok123")
+	v.Set("toggl.workspace_id", 42)
 
-	token, wsID, err := TokenAndWorkspace()
+	token, wsID, err := TokenAndWorkspace(v)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -69,10 +64,10 @@ func TestTokenAndWorkspace_BothPresent(t *testing.T) {
 }
 
 func TestTokenAndWorkspace_MissingToken(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.workspace_id", 42)
+	v := viper.New()
+	v.Set("toggl.workspace_id", 42)
 
-	_, _, err := TokenAndWorkspace()
+	_, _, err := TokenAndWorkspace(v)
 	if err == nil {
 		t.Fatal("expected error for missing token")
 	}
@@ -82,10 +77,10 @@ func TestTokenAndWorkspace_MissingToken(t *testing.T) {
 }
 
 func TestTokenAndWorkspace_MissingWorkspaceID(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.token", "tok123")
+	v := viper.New()
+	v.Set("toggl.token", "tok123")
 
-	_, _, err := TokenAndWorkspace()
+	_, _, err := TokenAndWorkspace(v)
 	if err == nil {
 		t.Fatal("expected error for missing workspace_id")
 	}
@@ -95,29 +90,29 @@ func TestTokenAndWorkspace_MissingWorkspaceID(t *testing.T) {
 }
 
 func TestTokenAndWorkspace_BothMissing(t *testing.T) {
-	resetViper()
+	v := viper.New()
 
-	if _, _, err := TokenAndWorkspace(); err == nil {
+	if _, _, err := TokenAndWorkspace(v); err == nil {
 		t.Error("expected error when both token and workspace_id are missing")
 	}
 }
 
 func TestTokenAndWorkspace_EmptyToken(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.token", "")
-	viper.Set("toggl.workspace_id", 1)
+	v := viper.New()
+	v.Set("toggl.token", "")
+	v.Set("toggl.workspace_id", 1)
 
-	if _, _, err := TokenAndWorkspace(); err == nil {
+	if _, _, err := TokenAndWorkspace(v); err == nil {
 		t.Error("expected error for empty token string")
 	}
 }
 
 func TestTokenAndWorkspace_ZeroWorkspaceID(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.token", "tok")
-	viper.Set("toggl.workspace_id", 0)
+	v := viper.New()
+	v.Set("toggl.token", "tok")
+	v.Set("toggl.workspace_id", 0)
 
-	if _, _, err := TokenAndWorkspace(); err == nil {
+	if _, _, err := TokenAndWorkspace(v); err == nil {
 		t.Error("expected error for zero workspace_id")
 	}
 }
@@ -125,9 +120,9 @@ func TestTokenAndWorkspace_ZeroWorkspaceID(t *testing.T) {
 // ---------- Timezone ----------
 
 func TestTimezone_Unset(t *testing.T) {
-	resetViper()
+	v := viper.New()
 
-	loc, err := Timezone()
+	loc, err := Timezone(v)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -137,10 +132,10 @@ func TestTimezone_Unset(t *testing.T) {
 }
 
 func TestTimezone_Valid(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.timezone", "America/New_York")
+	v := viper.New()
+	v.Set("toggl.timezone", "America/New_York")
 
-	loc, err := Timezone()
+	loc, err := Timezone(v)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -154,10 +149,10 @@ func TestTimezone_Valid(t *testing.T) {
 }
 
 func TestTimezone_Invalid(t *testing.T) {
-	resetViper()
-	viper.Set("toggl.timezone", "Not/A/Timezone")
+	v := viper.New()
+	v.Set("toggl.timezone", "Not/A/Timezone")
 
-	_, err := Timezone()
+	_, err := Timezone(v)
 	if err == nil {
 		t.Fatal("expected error for invalid timezone")
 	}

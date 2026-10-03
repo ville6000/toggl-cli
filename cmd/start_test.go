@@ -176,15 +176,11 @@ func TestRunStart_OutputContainsStartTime(t *testing.T) {
 
 // ---------- findProjectNameFromConfig ----------
 
-func resetViperForStartTests() {
-	viper.Reset()
-}
-
 func TestFindProjectNameFromConfig_ExactMatch(t *testing.T) {
-	resetViperForStartTests()
-	viper.Set("projects.myproject.paths", []string{"/work/myproject"})
+	v := viper.New()
+	v.Set("projects.myproject.paths", []string{"/work/myproject"})
 
-	name, err := findProjectNameFromConfig("/work/myproject")
+	name, err := findProjectNameFromConfig(v, "/work/myproject")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -194,10 +190,10 @@ func TestFindProjectNameFromConfig_ExactMatch(t *testing.T) {
 }
 
 func TestFindProjectNameFromConfig_PrefixMatch(t *testing.T) {
-	resetViperForStartTests()
-	viper.Set("projects.myproject.paths", []string{"/work/myproject"})
+	v := viper.New()
+	v.Set("projects.myproject.paths", []string{"/work/myproject"})
 
-	name, err := findProjectNameFromConfig("/work/myproject/subdir")
+	name, err := findProjectNameFromConfig(v, "/work/myproject/subdir")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -207,27 +203,27 @@ func TestFindProjectNameFromConfig_PrefixMatch(t *testing.T) {
 }
 
 func TestFindProjectNameFromConfig_NoMatch(t *testing.T) {
-	resetViperForStartTests()
-	viper.Set("projects.myproject.paths", []string{"/work/myproject"})
+	v := viper.New()
+	v.Set("projects.myproject.paths", []string{"/work/myproject"})
 
-	if _, err := findProjectNameFromConfig("/work/other"); err == nil {
+	if _, err := findProjectNameFromConfig(v, "/work/other"); err == nil {
 		t.Error("expected error for non-matching path")
 	}
 }
 
 func TestFindProjectNameFromConfig_EmptyConfig(t *testing.T) {
-	resetViperForStartTests()
+	v := viper.New()
 
-	if _, err := findProjectNameFromConfig("/work/anything"); err == nil {
+	if _, err := findProjectNameFromConfig(v, "/work/anything"); err == nil {
 		t.Error("expected error with empty config")
 	}
 }
 
 func TestFindProjectNameFromConfig_ProjectWithNoPaths(t *testing.T) {
-	resetViperForStartTests()
-	viper.Set("projects.myproject.paths", []string{})
+	v := viper.New()
+	v.Set("projects.myproject.paths", []string{})
 
-	if _, err := findProjectNameFromConfig("/work/myproject"); err == nil {
+	if _, err := findProjectNameFromConfig(v, "/work/myproject"); err == nil {
 		t.Error("expected error when project has no paths configured")
 	}
 }
@@ -239,7 +235,7 @@ func TestFindProjectIDForEntry_WithExplicitName(t *testing.T) {
 		projectIDByName: map[string]int{"MyProject": 99},
 	}
 
-	id, name, err := findProjectIDForEntry(t.Context(), "MyProject", mock, 1)
+	id, name, err := findProjectIDForEntry(t.Context(), viper.New(), "MyProject", mock, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -256,16 +252,16 @@ func TestFindProjectIDForEntry_ProjectNotFound(t *testing.T) {
 		projectIDErr: errors.New("not found"),
 	}
 
-	if _, _, err := findProjectIDForEntry(t.Context(), "Missing", mock, 1); err == nil {
+	if _, _, err := findProjectIDForEntry(t.Context(), viper.New(), "Missing", mock, 1); err == nil {
 		t.Error("expected error for missing project")
 	}
 }
 
 func TestFindProjectIDForEntry_EmptyNameNoConfig(t *testing.T) {
-	resetViperForStartTests()
+	v := viper.New()
 	mock := &mockStartService{}
 
-	_, _, err := findProjectIDForEntry(t.Context(), "", mock, 1)
+	_, _, err := findProjectIDForEntry(t.Context(), v, "", mock, 1)
 	if err == nil {
 		t.Error("expected error when no name and no config match")
 	}
@@ -348,42 +344,42 @@ func TestGetTicketNumberFromPath_PatternMatchingEmptyString(t *testing.T) {
 // ---------- ticketPattern ----------
 
 func TestTicketPattern_DefaultWhenUnconfigured(t *testing.T) {
-	resetViperForStartTests()
+	v := viper.New()
 
-	if got := ticketPattern(io.Discard, "myproject"); got != defaultTicketRe {
+	if got := ticketPattern(v, io.Discard, "myproject"); got != defaultTicketRe {
 		t.Errorf("expected the default pattern, got %v", got)
 	}
 }
 
 func TestTicketPattern_GlobalOverride(t *testing.T) {
-	resetViperForStartTests()
-	viper.Set("start.ticket_pattern", `([A-Z]+-[0-9]+)`)
+	v := viper.New()
+	v.Set("start.ticket_pattern", `([A-Z]+-[0-9]+)`)
 
-	if got := getTicketNumberFromPath("ABC-123-fix", ticketPattern(io.Discard, "")); got != "ABC-123" {
+	if got := getTicketNumberFromPath("ABC-123-fix", ticketPattern(v, io.Discard, "")); got != "ABC-123" {
 		t.Errorf("got %q, want %q", got, "ABC-123")
 	}
 }
 
 func TestTicketPattern_ProjectOverridesGlobal(t *testing.T) {
-	resetViperForStartTests()
-	viper.Set("start.ticket_pattern", `([A-Z]+-[0-9]+)`)
-	viper.Set("projects.myproject.ticket_pattern", `task-([0-9]+)`)
+	v := viper.New()
+	v.Set("start.ticket_pattern", `([A-Z]+-[0-9]+)`)
+	v.Set("projects.myproject.ticket_pattern", `task-([0-9]+)`)
 
-	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern(io.Discard, "myproject")); got != "987" {
+	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern(v, io.Discard, "myproject")); got != "987" {
 		t.Errorf("got %q, want %q", got, "987")
 	}
 	// A project without its own pattern still gets the global one.
-	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern(io.Discard, "other")); got != "ABC-123" {
+	if got := getTicketNumberFromPath("task-987-ABC-123", ticketPattern(v, io.Discard, "other")); got != "ABC-123" {
 		t.Errorf("got %q, want %q", got, "ABC-123")
 	}
 }
 
 func TestTicketPattern_InvalidFallsBackToDefault(t *testing.T) {
-	resetViperForStartTests()
-	viper.Set("start.ticket_pattern", `([0-9]+`)
+	v := viper.New()
+	v.Set("start.ticket_pattern", `([0-9]+`)
 
 	var errOut bytes.Buffer
-	if got := ticketPattern(&errOut, ""); got != defaultTicketRe {
+	if got := ticketPattern(v, &errOut, ""); got != defaultTicketRe {
 		t.Errorf("expected fallback to the default pattern, got %v", got)
 	}
 	if !strings.Contains(errOut.String(), "warning: invalid start.ticket_pattern") {
@@ -395,7 +391,7 @@ func TestTicketPattern_InvalidFallsBackToDefault(t *testing.T) {
 
 func TestGetDescriptionWithArgs(t *testing.T) {
 	var errOut bytes.Buffer
-	result := getDescription(&errOut, []string{"test description"}, "")
+	result := getDescription(viper.New(), &errOut, []string{"test description"}, "")
 	if result != "test description" {
 		t.Errorf("getDescription() with args = %s, want %s", result, "test description")
 	}
@@ -405,7 +401,7 @@ func TestGetDescriptionWithArgs(t *testing.T) {
 }
 
 func TestGetDescriptionWarnsWhenNotDetected(t *testing.T) {
-	resetViperForStartTests()
+	v := viper.New()
 
 	tests := []struct {
 		dir      string
@@ -426,7 +422,7 @@ func TestGetDescriptionWarnsWhenNotDetected(t *testing.T) {
 			t.Chdir(tt.dir)
 
 			var errOut bytes.Buffer
-			if got := getDescription(&errOut, nil, ""); got != tt.expected {
+			if got := getDescription(v, &errOut, nil, ""); got != tt.expected {
 				t.Errorf("getDescription() in %q = %q, want %q", tt.dir, got, tt.expected)
 			}
 
@@ -442,7 +438,7 @@ func TestGetDescriptionWarnsWhenNotDetected(t *testing.T) {
 }
 
 func TestDetectDescriptionFromCurrentPath(t *testing.T) {
-	resetViperForStartTests()
+	v := viper.New()
 
 	tests := []struct {
 		dir      string
@@ -460,7 +456,7 @@ func TestDetectDescriptionFromCurrentPath(t *testing.T) {
 			}
 			t.Chdir(tt.dir)
 
-			if got, _ := detectDescriptionFromCurrentPath(io.Discard, ""); got != tt.expected {
+			if got, _ := detectDescriptionFromCurrentPath(v, io.Discard, ""); got != tt.expected {
 				t.Errorf("detectDescriptionFromCurrentPath() in %q = %q, want %q", tt.dir, got, tt.expected)
 			}
 		})

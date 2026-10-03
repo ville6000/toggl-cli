@@ -15,18 +15,18 @@ const sevenPaceWorkLogPath = "/workLogs"
 
 // setupSevenPaceTest wires both the Toggl and the 7pace stubs into the config
 // and returns the 7pace stub so tests can inspect what was posted.
-func setupSevenPaceTest(t *testing.T, toggl *apiStub) *apiStub {
+func setupSevenPaceTest(t *testing.T, toggl *apiStub) (*viper.Viper, *apiStub) {
 	t.Helper()
 
 	sevenPace := newAPIStub(t)
-	setupCLITest(t, toggl)
+	v := setupCLITest(t, toggl)
 
-	viper.Set("sevenpace.base_url", sevenPace.server.URL)
-	viper.Set("sevenpace.username", "user")
-	viper.Set("sevenpace.password", "secret")
-	viper.Set("sevenpace.activity_type_id", "activity-uuid")
+	v.Set("sevenpace.base_url", sevenPace.server.URL)
+	v.Set("sevenpace.username", "user")
+	v.Set("sevenpace.password", "secret")
+	v.Set("sevenpace.activity_type_id", "activity-uuid")
 
-	return sevenPace
+	return v, sevenPace
 }
 
 // syncEntries are the entries the sync tests work from: two that share a
@@ -41,11 +41,11 @@ func syncEntries() []api.TimeEntryItem {
 
 func TestSevenPaceSync_DryRunPostsNothing(t *testing.T) {
 	toggl := newAPIStub(t)
-	sevenPace := setupSevenPaceTest(t, toggl)
+	v, sevenPace := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
 
-	out, _, err := executeCommand(t, "7pace", "sync", "--start", "2024-03-04", "--dry-run")
+	out, _, err := executeCommand(t, v, "7pace", "sync", "--start", "2024-03-04", "--dry-run")
 	if err != nil {
 		t.Fatalf("7pace sync --dry-run: %v", err)
 	}
@@ -71,11 +71,11 @@ func TestSevenPaceSync_DryRunPostsNothing(t *testing.T) {
 // logged to 7pace is visible before confirming the post.
 func TestSevenPaceSync_TablesTotalTheDurationColumn(t *testing.T) {
 	toggl := newAPIStub(t)
-	setupSevenPaceTest(t, toggl)
+	v, _ := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
 
-	out, _, err := executeCommand(t, "7pace", "sync", "--start", "2024-03-04", "--dry-run")
+	out, _, err := executeCommand(t, v, "7pace", "sync", "--start", "2024-03-04", "--dry-run")
 	if err != nil {
 		t.Fatalf("7pace sync --dry-run: %v", err)
 	}
@@ -100,12 +100,12 @@ func TestSevenPaceSync_TablesTotalTheDurationColumn(t *testing.T) {
 
 func TestSevenPaceSync_AggregatesEntriesSharingADescription(t *testing.T) {
 	toggl := newAPIStub(t)
-	sevenPace := setupSevenPaceTest(t, toggl)
+	v, sevenPace := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
 	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, api.SevenPaceWorkLog{})
 
-	out, _, err := executeCommand(t, "7pace", "sync", "--start", "2024-03-04", "--yes")
+	out, _, err := executeCommand(t, v, "7pace", "sync", "--start", "2024-03-04", "--yes")
 	if err != nil {
 		t.Fatalf("7pace sync: %v", err)
 	}
@@ -138,11 +138,11 @@ func TestSevenPaceSync_AggregatesEntriesSharingADescription(t *testing.T) {
 
 func TestSevenPaceSync_EndDefaultsToStart(t *testing.T) {
 	toggl := newAPIStub(t)
-	setupSevenPaceTest(t, toggl)
+	v, _ := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
 
-	if _, _, err := executeCommand(t, "7pace", "sync", "--start", "2024-03-04", "--dry-run"); err != nil {
+	if _, _, err := executeCommand(t, v, "7pace", "sync", "--start", "2024-03-04", "--dry-run"); err != nil {
 		t.Fatalf("7pace sync --dry-run: %v", err)
 	}
 
@@ -156,11 +156,11 @@ func TestSevenPaceSync_EndDefaultsToStart(t *testing.T) {
 
 func TestSevenPaceSync_AbortsWhenConfirmationIsDeclined(t *testing.T) {
 	toggl := newAPIStub(t)
-	sevenPace := setupSevenPaceTest(t, toggl)
+	v, sevenPace := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
 
-	out, _, err := executeCommandWithInput(t, "n\n", "7pace", "sync", "--start", "2024-03-04")
+	out, _, err := executeCommandWithInput(t, v, "n\n", "7pace", "sync", "--start", "2024-03-04")
 	if err != nil {
 		t.Fatalf("7pace sync: %v", err)
 	}
@@ -178,12 +178,12 @@ func TestSevenPaceSync_AbortsWhenConfirmationIsDeclined(t *testing.T) {
 
 func TestSevenPaceSync_PostsWhenConfirmationIsAccepted(t *testing.T) {
 	toggl := newAPIStub(t)
-	sevenPace := setupSevenPaceTest(t, toggl)
+	v, sevenPace := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
 	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, api.SevenPaceWorkLog{})
 
-	if _, _, err := executeCommandWithInput(t, "y\n", "7pace", "sync", "--start", "2024-03-04"); err != nil {
+	if _, _, err := executeCommandWithInput(t, v, "y\n", "7pace", "sync", "--start", "2024-03-04"); err != nil {
 		t.Fatalf("7pace sync: %v", err)
 	}
 
@@ -194,12 +194,12 @@ func TestSevenPaceSync_PostsWhenConfirmationIsAccepted(t *testing.T) {
 
 func TestSevenPaceSync_ReportsFailedWorklogs(t *testing.T) {
 	toggl := newAPIStub(t)
-	sevenPace := setupSevenPaceTest(t, toggl)
+	v, sevenPace := setupSevenPaceTest(t, toggl)
 
 	toggl.stubHistory(syncEntries()...)
 	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusInternalServerError, nil)
 
-	out, _, err := executeCommand(t, "7pace", "sync", "--start", "2024-03-04", "--yes")
+	out, _, err := executeCommand(t, v, "7pace", "sync", "--start", "2024-03-04", "--yes")
 	if err == nil {
 		t.Fatal("expected an error when a worklog fails to post")
 	}
@@ -216,7 +216,7 @@ func TestSevenPaceSync_ReportsFailedWorklogs(t *testing.T) {
 
 func TestSevenPaceSync_SkipsRunningEntries(t *testing.T) {
 	toggl := newAPIStub(t)
-	sevenPace := setupSevenPaceTest(t, toggl)
+	v, sevenPace := setupSevenPaceTest(t, toggl)
 
 	start := time.Now().Add(-30 * time.Minute)
 	toggl.stubHistory(api.TimeEntryItem{
@@ -228,7 +228,7 @@ func TestSevenPaceSync_SkipsRunningEntries(t *testing.T) {
 		Start:       start.UTC(),
 	})
 
-	_, _, err := executeCommand(t, "7pace", "sync", "--dry-run")
+	_, _, err := executeCommand(t, v, "7pace", "sync", "--dry-run")
 	if err == nil {
 		t.Fatal("expected an error when every entry is still running")
 	}
@@ -241,10 +241,10 @@ func TestSevenPaceSync_SkipsRunningEntries(t *testing.T) {
 }
 
 func TestSevenPaceAdd_PostsASingleWorklog(t *testing.T) {
-	sevenPace := setupSevenPaceTest(t, nil)
+	v, sevenPace := setupSevenPaceTest(t, nil)
 	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, api.SevenPaceWorkLog{})
 
-	out, _, err := executeCommand(t,
+	out, _, err := executeCommand(t, v,
 		"7pace", "add",
 		"--work-item", "99",
 		"--comment", "manual entry",
@@ -273,9 +273,9 @@ func TestSevenPaceAdd_PostsASingleWorklog(t *testing.T) {
 }
 
 func TestSevenPaceAdd_RequiresWorkItemOrComment(t *testing.T) {
-	sevenPace := setupSevenPaceTest(t, nil)
+	v, sevenPace := setupSevenPaceTest(t, nil)
 
-	_, _, err := executeCommand(t, "7pace", "add", "--duration", "30m")
+	_, _, err := executeCommand(t, v, "7pace", "add", "--duration", "30m")
 	if err == nil {
 		t.Fatal("expected an error without --work-item or --comment")
 	}
