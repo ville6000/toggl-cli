@@ -54,12 +54,7 @@ func newConfigCmd(v *viper.Viper) *cobra.Command {
 				}
 			}
 
-			sp, err := readSevenPaceInput(out, in, reader)
-			if err != nil {
-				return err
-			}
-
-			if err = writeConfig(v, token, workspaceID, tz, sp); err != nil {
+			if err = writeConfig(v, token, workspaceID, tz); err != nil {
 				return fmt.Errorf("error saving configuration: %w", err)
 			}
 
@@ -69,59 +64,6 @@ func newConfigCmd(v *viper.Viper) *cobra.Command {
 	}
 
 	return cmd
-}
-
-// sevenPaceInput holds the optional on-prem 7pace Timetracker settings gathered
-// during interactive configuration.
-type sevenPaceInput struct {
-	baseURL        string
-	domain         string
-	username       string
-	password       string
-	activityTypeID string
-}
-
-// readSevenPaceInput prompts for the optional 7pace settings. Leaving the base
-// URL empty skips 7pace configuration entirely.
-//
-// Note: the password is stored in plaintext in the config file — this is the
-// tradeoff of using NTLM credentials from config.
-func readSevenPaceInput(out io.Writer, in io.Reader, reader *bufio.Reader) (sevenPaceInput, error) {
-	fmt.Fprint(out, "Configure 7pace Timetracker? Enter base URL (leave empty to skip): ")
-	baseURL, err := reader.ReadString('\n')
-	if err != nil {
-		return sevenPaceInput{}, fmt.Errorf("error reading input: %w", err)
-	}
-	baseURL = strings.TrimSpace(baseURL)
-	if baseURL == "" {
-		return sevenPaceInput{}, nil
-	}
-
-	prompt := func(label string) (string, error) {
-		fmt.Fprint(out, label)
-		line, readErr := reader.ReadString('\n')
-		if readErr != nil {
-			return "", fmt.Errorf("error reading input: %w", readErr)
-		}
-		return strings.TrimSpace(line), nil
-	}
-
-	sp := sevenPaceInput{baseURL: baseURL}
-	if sp.domain, err = prompt("Windows domain (leave empty if none): "); err != nil {
-		return sevenPaceInput{}, err
-	}
-	if sp.username, err = prompt("Windows username: "); err != nil {
-		return sevenPaceInput{}, err
-	}
-	fmt.Fprint(out, "Windows password (stored in plaintext): ")
-	if sp.password, err = readSecret(out, in, reader); err != nil {
-		return sevenPaceInput{}, err
-	}
-	if sp.activityTypeID, err = prompt("Activity type UUID (optional): "); err != nil {
-		return sevenPaceInput{}, err
-	}
-
-	return sp, nil
 }
 
 // Terminal access used by readSecret, replaced in tests.
@@ -151,15 +93,14 @@ func readSecret(out io.Writer, in io.Reader, reader *bufio.Reader) (string, erro
 	return strings.TrimSpace(line), nil
 }
 
-func writeConfig(v *viper.Viper, token string, workspaceID int, timezone string, sp sevenPaceInput) error {
+func writeConfig(v *viper.Viper, token string, workspaceID int, timezone string) error {
 	configPath, err := ConfigPath()
 	if err != nil {
 		return fmt.Errorf("failed to get config path: %w", err)
 	}
 
 	// The directory does not exist yet on a fresh install, and viper only
-	// creates the file. Keep it private: the file holds an API token and,
-	// when 7pace is configured, a plaintext password.
+	// creates the file. Keep it private: the file holds an API token.
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
@@ -169,14 +110,6 @@ func writeConfig(v *viper.Viper, token string, workspaceID int, timezone string,
 	v.Set("toggl.token", token)
 	v.Set("toggl.workspace_id", workspaceID)
 	v.Set("toggl.timezone", timezone)
-
-	if sp.baseURL != "" {
-		v.Set("sevenpace.base_url", sp.baseURL)
-		v.Set("sevenpace.domain", sp.domain)
-		v.Set("sevenpace.username", sp.username)
-		v.Set("sevenpace.password", sp.password)
-		v.Set("sevenpace.activity_type_id", sp.activityTypeID)
-	}
 
 	writeErr := v.WriteConfig()
 
@@ -194,8 +127,8 @@ func writeConfig(v *viper.Viper, token string, workspaceID int, timezone string,
 }
 
 // restrictConfigFile makes the config file readable by its owner only. It holds
-// an API token and, when 7pace is configured, a plaintext password, and viper
-// writes files with the process umask, which can leave them world-readable.
+// an API token, and viper writes files with the process umask, which can leave
+// them world-readable.
 func restrictConfigFile(path string) error {
 	if err := os.Chmod(path, 0o600); err != nil {
 		return fmt.Errorf("failed to restrict config file permissions: %w", err)

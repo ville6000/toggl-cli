@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"encoding/json"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -231,5 +233,117 @@ func TestHistoryCommand_RejectsEndBeforeStart(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "is before --start") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestHistoryCommand_JSONListsEntriesOldestFirstInTheConfiguredTimezone(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	tagged := utcEntry(2, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 1800, "#1234 review")
+	tagged.Tags = []string{"billable"}
+	// The API lists the newest entry first.
+	stub.stubHistory(
+		utcEntry(1, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 900, "standup"),
+		tagged,
+	)
+
+	out, _, err := executeCommand(t, v, "history", "--start", "2024-03-04", "--end", "2024-03-04", "--json")
+	if err != nil {
+		t.Fatalf("history --json: %v", err)
+	}
+
+	var got []historyJSONEntry
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output is not a JSON entry list: %v\n%s", err, out)
+	}
+
+	want := []historyJSONEntry{
+		{ID: 2, Start: "2024-03-04T10:00:00+09:00", Duration: 1800, Description: "#1234 review", Project: "Alpha", Tags: []string{"billable"}},
+		{ID: 1, Start: "2024-03-04T14:00:00+09:00", Duration: 900, Description: "standup", Project: "Alpha", Tags: []string{}},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got  %+v\nwant %+v", got, want)
+	}
+}
+
+func TestHistoryCommand_JSONMarksRunningEntries(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	start := time.Now().Add(-30 * time.Minute)
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	stub.stubHistory(api.TimeEntryItem{
+		ID:          1,
+		Description: "running",
+		Duration:    int(-start.Unix()),
+		ProjectID:   7,
+		WorkspaceID: testWorkspaceID,
+		Start:       start.UTC(),
+	})
+
+	out, _, err := executeCommand(t, v, "history", "--json")
+	if err != nil {
+		t.Fatalf("history --json: %v", err)
+	}
+
+	var got []historyJSONEntry
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output is not a JSON entry list: %v\n%s", err, out)
+	}
+	if len(got) != 1 || !got[0].Running {
+		t.Fatalf("want one running entry, got %+v", got)
+	}
+	if got[0].Duration < 29*60 || got[0].Duration > 31*60 {
+		t.Errorf("duration: got %d, want the ~1800 seconds elapsed so far", got[0].Duration)
+	}
+}
+
+// A pipeline gets valid input for an empty range instead of an error.
+func TestHistoryCommand_JSONWithNoEntriesIsAnEmptyList(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	stub.stubProjects()
+	stub.stubHistory()
+
+	out, _, err := executeCommand(t, v, "history", "--start", "2024-03-04", "--json")
+	if err != nil {
+		t.Fatalf("history --json: %v", err)
+	}
+	if strings.TrimSpace(out) != "[]" {
+		t.Errorf("output: got %q, want []", out)
+	}
+}
+
+func TestHistoryCommand_DayAsksForThatDayOnly(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+	stub.stubHistory(utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "review"))
+
+	if _, _, err := executeCommand(t, v, "history", "--day", "2024-03-04"); err != nil {
+		t.Fatalf("history --day: %v", err)
+	}
+
+	query := stub.onlyRequestFor(http.MethodGet, "/me/time_entries").Query
+	if got, want := query.Get("start_date"), "2024-03-04T00:00:00+09:00"; got != want {
+		t.Errorf("start_date: got %q, want %q", got, want)
+	}
+	if got, want := query.Get("end_date"), "2024-03-05T00:00:00+09:00"; got != want {
+		t.Errorf("end_date: got %q, want %q", got, want)
+	}
+}
+
+func TestHistoryCommand_DayCannotBeCombinedWithARange(t *testing.T) {
+	v := setupCLITest(t, newAPIStub(t))
+
+	for _, other := range [][]string{{"--start", "2024-03-01"}, {"--end", "2024-03-05"}, {"--week"}, {"--month"}} {
+		args := append([]string{"history", "--day", "2024-03-04"}, other...)
+		if _, _, err := executeCommand(t, v, args...); err == nil {
+			t.Errorf("history --day %v: expected an error", other)
+		}
 	}
 }

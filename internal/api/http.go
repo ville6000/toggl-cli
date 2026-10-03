@@ -10,12 +10,9 @@ import (
 )
 
 // statusError is returned when a response does not have the expected status.
-// It keeps the response details so a client can add its own hints, such as
-// the 7pace client does for rejected Windows credentials.
 type statusError struct {
 	Status     string
 	StatusCode int
-	Header     http.Header
 	Body       string
 }
 
@@ -63,7 +60,6 @@ func doJSON(client *http.Client, req *http.Request, result any) error {
 		return &statusError{
 			Status:     resp.Status,
 			StatusCode: resp.StatusCode,
-			Header:     resp.Header,
 			Body:       strings.TrimSpace(string(body)),
 		}
 	}

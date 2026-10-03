@@ -218,7 +218,7 @@ func configuredTicketPattern(v *viper.Viper, projectName string) (pattern, key s
 // getTicketNumberFromPath extracts a ticket number from a directory name.
 // It returns "" unless the name holds exactly one distinct candidate: a name
 // like `proj-2024-fix-123` is ambiguous, and an empty description beats a
-// confidently wrong one, since it also feeds `7pace sync` as a work item id.
+// confidently wrong one.
 func getTicketNumberFromPath(s string, re *regexp.Regexp) string {
 	var found string
 

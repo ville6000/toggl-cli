@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"time"
 
@@ -42,6 +44,11 @@ func newHistoryCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to get verbose flag: %w", err)
 			}
 
+			jsonOutput, err := cmd.Flags().GetBool("json")
+			if err != nil {
+				return fmt.Errorf("failed to get json flag: %w", err)
+			}
+
 			client := newTogglClient(v, token)
 
 			location, err := config.Timezone(v)
@@ -49,7 +56,7 @@ func newHistoryCmd(v *viper.Viper) *cobra.Command {
 				return err
 			}
 
-			startTime, endTime, err := getDateParams(cmd, location, false)
+			startTime, endTime, err := getDateParams(cmd, location)
 			if err != nil {
 				return err
 			}
@@ -69,13 +76,18 @@ func newHistoryCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to get projects: %w", err)
 			}
 
+			out := cmd.OutOrStdout()
+			now := time.Now()
+
+			if jsonOutput {
+				return writeHistoryJSON(out, timeEntries, projectsLookup, location, now)
+			}
+
 			groupedEntries := groupEntriesByDate(timeEntries, location)
 			if len(groupedEntries) == 0 {
 				return errors.New("no time entries found for the specified date range")
 			}
 
-			out := cmd.OutOrStdout()
-			now := time.Now()
 			sortedKeys := getSortedTimeEntryDates(groupedEntries)
 			headers := []any{"ID", "Started At", "Duration", "Description", "Project"}
 			summaryHeaders := []any{"Description", "Project", "Duration"}
@@ -108,9 +120,67 @@ func newHistoryCmd(v *viper.Viper) *cobra.Command {
 	cmd.Flags().BoolP("month", "m", false, "History for the current month")
 	cmd.Flags().StringP("start", "s", "", "Start date for the history, format: YYYY-MM-DD")
 	cmd.Flags().StringP("end", "e", "", "End date for the history (inclusive), format: YYYY-MM-DD")
+	cmd.Flags().StringP("day", "d", "", "History for a single day, format: YYYY-MM-DD")
 	cmd.Flags().BoolP("verbose", "v", false, "Display separate timer entries for each day")
+	cmd.MarkFlagsMutuallyExclusive("day", "week", "month", "start")
+	cmd.MarkFlagsMutuallyExclusive("day", "end")
+	cmd.Flags().Bool("json", false, "Print the entries as JSON, e.g. to pipe into another tool")
 
 	return cmd
+}
+
+// historyJSONEntry is one time entry in the `history --json` output. Other
+// tools read this format, so changes to it must stay backwards compatible.
+type historyJSONEntry struct {
+	ID int `json:"id"`
+	// Start is RFC 3339 in the configured timezone, so its date is the local
+	// day the entry belongs to.
+	Start string `json:"start"`
+	// Duration is in seconds; for a running entry, the time elapsed so far.
+	Duration    int      `json:"duration"`
+	Running     bool     `json:"running"`
+	Description string   `json:"description"`
+	Project     string   `json:"project"`
+	Tags        []string `json:"tags"`
+}
+
+// writeHistoryJSON writes entries to out as a JSON array, oldest first. An
+// empty range is an empty array rather than an error, so a pipeline sees
+// valid input.
+func writeHistoryJSON(
+	out io.Writer,
+	entries []api.TimeEntryItem,
+	projectsLookup map[int]string,
+	location *time.Location,
+	now time.Time,
+) error {
+	sorted := slices.Clone(entries)
+	slices.SortStableFunc(sorted, func(a, b api.TimeEntryItem) int {
+		return a.Start.Compare(b.Start)
+	})
+
+	result := make([]historyJSONEntry, 0, len(sorted))
+	for _, entry := range sorted {
+		tags := entry.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+
+		result = append(result, historyJSONEntry{
+			ID:          entry.ID,
+			Start:       entry.Start.In(location).Format(time.RFC3339),
+			Duration:    entryDuration(entry, now),
+			Running:     entry.Duration < 0,
+			Description: entry.Description,
+			Project:     projectsLookup[entry.ProjectID],
+			Tags:        tags,
+		})
+	}
+
+	encoder := json.NewEncoder(out)
+	encoder.SetIndent("", "  ")
+
+	return encoder.Encode(result)
 }
 
 func outputSummaryEntries(out io.Writer, key string, headers []any, entries map[string]HistoryEntry) {
@@ -244,23 +314,21 @@ func getSortedTimeEntryDates(groupedEntries map[string][]api.TimeEntryItem) []st
 // getDateParams resolves the date flags into a half-open [start, end) range of
 // instants in location: start is midnight of the first day,
 // end is midnight of the day *after* the last one, so --end is inclusive.
-//
-// When only --start is given, endDefaultsToStart selects the range that day
-// alone (used by 7pace sync, where silently including today would post
-// unwanted worklogs) instead of running through the end of today.
-func getDateParams(cmd *cobra.Command, location *time.Location, endDefaultsToStart bool) (time.Time, time.Time, error) {
+// With no flags the range is today.
+func getDateParams(cmd *cobra.Command, location *time.Location) (time.Time, time.Time, error) {
 	today := startOfDay(time.Now(), location)
 
-	// --today is optional and only defined on some commands; it is also the
-	// default range when no date flags are given.
-	if cmd.Flags().Lookup("today") != nil {
-		todayFlag, err := cmd.Flags().GetBool("today")
+	day, err := cmd.Flags().GetString("day")
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to get day flag: %w", err)
+	}
+
+	if day != "" {
+		dayTime, err := parseDate(day, location, today)
 		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("failed to get today flag: %w", err)
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid --day value %q: %w", day, err)
 		}
-		if todayFlag {
-			return today, today.AddDate(0, 0, 1), nil
-		}
+		return dayTime, dayTime.AddDate(0, 0, 1), nil
 	}
 
 	week, err := cmd.Flags().GetBool("week")
@@ -301,12 +369,7 @@ func getDateParams(cmd *cobra.Command, location *time.Location, endDefaultsToSta
 		return time.Time{}, time.Time{}, fmt.Errorf("failed to get end flag: %w", err)
 	}
 
-	endFallback := today
-	if endDefaultsToStart && start != "" {
-		endFallback = startTime
-	}
-
-	endTime, err := parseDate(end, location, endFallback)
+	endTime, err := parseDate(end, location, today)
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("invalid --end value %q: %w", end, err)
 	}
