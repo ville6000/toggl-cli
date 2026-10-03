@@ -3,10 +3,29 @@ updates:
   - package-ecosystem: gomod
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     commit-message:
       prefix: "chore"
       include: "scope"
     labels:
       - "dependencies"
+    groups:
+      go-dependencies:
+        patterns:
+          - "*"
     open-pull-requests-limit: 5
+
+  # Workflows pin actions by commit SHA; this keeps the pins current.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    labels:
+      - "dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

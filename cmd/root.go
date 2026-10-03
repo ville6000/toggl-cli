@@ -3,7 +3,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -34,8 +36,8 @@ func newRootCmd(v *viper.Viper) *cobra.Command {
 		Short:   "Toggl CLI is a command line interface for Toggl",
 		Long:    "",
 		Version: buildVersion(),
-		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			return loadConfig(cmd, v, cfgFile)
+		PersistentPreRunE: func(*cobra.Command, []string) error {
+			return loadConfig(v, cfgFile)
 		},
 	}
 
@@ -64,8 +66,8 @@ func newRootCmd(v *viper.Viper) *cobra.Command {
 
 // loadConfig reads the config file into v: cfgFile when given, otherwise the
 // default location. A missing file is not an error; commands report the
-// settings they need.
-func loadConfig(cmd *cobra.Command, v *viper.Viper, cfgFile string) error {
+// settings they need. A file that exists but can't be read or parsed is.
+func loadConfig(v *viper.Viper, cfgFile string) error {
 	if cfgFile != "" {
 		v.SetConfigFile(cfgFile)
 	} else {
@@ -78,8 +80,8 @@ func loadConfig(cmd *cobra.Command, v *viper.Viper, cfgFile string) error {
 
 	config.UseEnv(v)
 
-	if err := v.ReadInConfig(); err == nil {
-		fmt.Fprintln(cmd.ErrOrStderr(), "Using config file:", v.ConfigFileUsed())
+	if err := v.ReadInConfig(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("failed to read config file %s: %w", v.ConfigFileUsed(), err)
 	}
 
 	return nil
