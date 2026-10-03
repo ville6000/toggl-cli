@@ -37,7 +37,8 @@ start:
 By default a standalone run of digits is used, so `ticket-123` and `AB#123`
 both give `123`, while `php8` and `v2` give nothing. If the directory name
 contains more than one distinct candidate — `proj-2024-fix-123`, say — the
-description is left empty rather than guessing wrong. Set `ticket_pattern` to a
+description is left empty rather than guessing wrong, and `start` prints a
+warning saying so. Set `ticket_pattern` to a
 regular expression matching your own ticket format; its first capture group (or
 the whole match, if it has no groups) becomes the description.
 
