@@ -641,3 +641,39 @@ func TestProjectsAddPathCommand_AppendsTheWorkingDirectory(t *testing.T) {
 		t.Errorf("config file missing the added path %q:\n%s", workDir, written)
 	}
 }
+
+// A config file that was left world-readable (it holds the API token) is
+// locked down to its owner when add-path rewrites it.
+func TestProjectsAddPathCommand_RestrictsTheConfigFile(t *testing.T) {
+	stub := newAPIStub(t)
+	setupCLITest(t, stub)
+	v := viper.New()
+
+	configFile := filepath.Join(t.TempDir(), "config.yaml")
+	contents := fmt.Sprintf(
+		"toggl:\n  token: file-token\n  workspace_id: %d\n  timezone: %s\n  base_url: %s\n",
+		testWorkspaceID, testTimezone, stub.server.URL,
+	)
+	if err := os.WriteFile(configFile, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write config file: %v", err)
+	}
+	// Set the loose mode explicitly: WriteFile's mode is filtered by the umask.
+	if err := os.Chmod(configFile, 0o644); err != nil { // #nosec G302 - the insecure starting state under test
+		t.Fatalf("chmod config file: %v", err)
+	}
+
+	t.Chdir(t.TempDir())
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"})
+
+	if _, _, err := executeCommand(t, v, "projects", "add-path", "Alpha", "--config", configFile); err != nil {
+		t.Fatalf("projects add-path: %v", err)
+	}
+
+	info, err := os.Stat(configFile)
+	if err != nil {
+		t.Fatalf("stat config file: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("config file permissions: got %#o, want 0600", perm)
+	}
+}

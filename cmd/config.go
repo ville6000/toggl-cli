@@ -161,9 +161,14 @@ func writeConfig(v *viper.Viper, token string, workspaceID int, timezone string,
 		}
 	}
 
-	// Viper creates the file with the process umask, which can leave the
-	// token and 7pace password readable by other users.
-	if err := os.Chmod(configPath, 0o600); err != nil {
+	return restrictConfigFile(configPath)
+}
+
+// restrictConfigFile makes the config file readable by its owner only. It holds
+// an API token and, when 7pace is configured, a plaintext password, and viper
+// writes files with the process umask, which can leave them world-readable.
+func restrictConfigFile(path string) error {
+	if err := os.Chmod(path, 0o600); err != nil {
 		return fmt.Errorf("failed to restrict config file permissions: %w", err)
 	}
 

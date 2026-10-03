@@ -58,6 +58,10 @@ func newProjectsAddPathCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("error saving configuration: %w", err)
 			}
 
+			if err := restrictConfigFile(v.ConfigFileUsed()); err != nil {
+				return err
+			}
+
 			fmt.Fprintln(cmd.OutOrStdout(), "Configuration saved successfully!")
 			return nil
 		},
