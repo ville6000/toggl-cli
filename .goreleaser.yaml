@@ -1,0 +1,42 @@
+# Builds the release binaries when a GitHub release is published; see
+# .github/workflows/release.yml. Check locally with `goreleaser check` and
+# `goreleaser release --snapshot --clean`.
+version: 2
+
+project_name: toggl-cli
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/ville6000/toggl-cli/cmd.version={{ .Version }}
+
+archives:
+  # No version in the name, so the README can link to
+  # releases/latest/download/<name> for whichever release is newest.
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+# Release notes are written on GitHub when the release is published; only
+# attach the binaries.
+changelog:
+  disable: true
+
+release:
+  mode: keep-existing
