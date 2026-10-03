@@ -32,11 +32,11 @@ func newSevenPaceSyncCmd(v *viper.Viper) *cobra.Command {
 		Use:   "sync",
 		Short: "Sync Toggl time entries to 7pace as worklogs",
 		Long: "Fetch Toggl time entries for a date range and post them to 7pace as worklogs.\n" +
-			"Entries sharing the same description are combined into a single worklog, with their\n" +
-			"durations summed and rounded up to the nearest minute. The work item id is parsed from\n" +
-			"the description (e.g. \"#1234\" or a leading number); entries without a work item id are\n" +
-			"skipped. There is no de-duplication, so re-running the same range creates duplicate\n" +
-			"worklogs — use --dry-run first to preview.",
+			"Entries sharing the same description on the same day are combined into a single\n" +
+			"worklog, with their durations summed and rounded up to the nearest minute. The work\n" +
+			"item id is parsed from the description (e.g. \"#1234\" or a leading number); entries\n" +
+			"without a work item id are skipped. There is no de-duplication, so re-running the same\n" +
+			"range creates duplicate worklogs — use --dry-run first to preview.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
@@ -76,10 +76,10 @@ func newSevenPaceSyncCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to get history: %w", err)
 			}
 
-			// Combine entries sharing a description into a single worklog, summing
-			// their durations and rounding up to the nearest minute. Running or
-			// zero-length entries are dropped here.
-			entries := aggregateEntries(timeEntries)
+			// Combine entries sharing a description on the same local day into a
+			// single worklog, summing their durations and rounding up to the
+			// nearest minute. Running or zero-length entries are dropped here.
+			entries := aggregateEntries(timeEntries, location)
 
 			var planned []plannedWorkLog
 			var skipped [][]any

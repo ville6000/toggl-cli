@@ -94,8 +94,9 @@ toggl-cli edit -i 1 --start "2024-06-01 08:30"  # older entry, full date+time
 
 ### 7pace worklogs
 
-`toggl-cli 7pace sync` fetches your Toggl entries and posts each one to 7pace.
-The Azure DevOps work item id is parsed from the entry description (e.g.
+`toggl-cli 7pace sync` fetches your Toggl entries and posts them to 7pace.
+Entries with the same description on the same day are combined into one
+worklog, so each day keeps its own worklog. The Azure DevOps work item id is parsed from the entry description (e.g.
 `#1234 fix bug`, `AB#1234 ...`, or a leading `1234 - ...`); entries without a
 work item id are skipped and reported. It accepts the same date flags as
 `history` (`--week`, `--month`, `--start`, `--end`).

@@ -112,7 +112,7 @@ func TestAggregateEntries(t *testing.T) {
 		{Description: "running", Duration: 0, Start: early},
 	}
 
-	got := aggregateEntries(entries)
+	got := aggregateEntries(entries, time.UTC)
 
 	if len(got) != 2 {
 		t.Fatalf("aggregateEntries returned %d entries, want 2", len(got))
@@ -138,6 +138,54 @@ func TestAggregateEntries(t *testing.T) {
 	// 120 → rounded up to 120 (already minute-aligned).
 	if got[1].Duration != 120 {
 		t.Errorf("got[1].Duration = %d, want 120", got[1].Duration)
+	}
+}
+
+func TestAggregateEntries_KeepsDaysApart(t *testing.T) {
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatalf("load location: %v", err)
+	}
+
+	monday := time.Date(2025, 8, 25, 10, 0, 0, 0, tokyo)
+	wednesday := time.Date(2025, 8, 27, 10, 0, 0, 0, tokyo)
+
+	entries := []api.TimeEntryItem{
+		{Description: "#123 fix", Duration: 3600, Start: monday},
+		{Description: "#123 fix", Duration: 7200, Start: wednesday},
+	}
+
+	got := aggregateEntries(entries, tokyo)
+
+	if len(got) != 2 {
+		t.Fatalf("aggregateEntries returned %d entries, want one per day (2)", len(got))
+	}
+	if got[0].Duration != 3600 || !got[0].Start.Equal(monday) {
+		t.Errorf("got[0] = %ds at %v, want 3600s at %v", got[0].Duration, got[0].Start, monday)
+	}
+	if got[1].Duration != 7200 || !got[1].Start.Equal(wednesday) {
+		t.Errorf("got[1] = %ds at %v, want 7200s at %v", got[1].Duration, got[1].Start, wednesday)
+	}
+}
+
+// Days are local days: two entries on the same UTC date but on either side of
+// local midnight belong to different days.
+func TestAggregateEntries_UsesLocalDays(t *testing.T) {
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatalf("load location: %v", err)
+	}
+
+	entries := []api.TimeEntryItem{
+		{Description: "#123 fix", Duration: 600, Start: time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC)},  // 3/4 10:00 Tokyo
+		{Description: "#123 fix", Duration: 600, Start: time.Date(2024, 3, 4, 16, 0, 0, 0, time.UTC)}, // 3/5 01:00 Tokyo
+	}
+
+	if got := aggregateEntries(entries, tokyo); len(got) != 2 {
+		t.Errorf("in Tokyo: got %d entries, want 2", len(got))
+	}
+	if got := aggregateEntries(entries, time.UTC); len(got) != 1 {
+		t.Errorf("in UTC: got %d entries, want 1", len(got))
 	}
 }
 

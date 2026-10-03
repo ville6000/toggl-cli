@@ -68,19 +68,31 @@ func roundUpToMinute(seconds int) int {
 }
 
 // aggregateEntries combines Toggl time entries that share the same description
-// into a single entry. Durations are summed and rounded up to the nearest
-// minute, and the earliest Start is kept. First-seen order is preserved. Entries
-// with a non-positive Duration are skipped.
-func aggregateEntries(entries []api.TimeEntryItem) []api.TimeEntryItem {
-	order := make([]string, 0, len(entries))
-	groups := make(map[string]*api.TimeEntryItem, len(entries))
+// on the same day into a single entry, so a worklog never spans days. Days are
+// calendar days in location, the timezone worklogs are dated in. Durations are
+// summed and rounded up to the nearest minute, and the earliest Start is kept.
+// First-seen order is preserved. Entries with a non-positive Duration are
+// skipped.
+func aggregateEntries(entries []api.TimeEntryItem, location *time.Location) []api.TimeEntryItem {
+	type groupKey struct {
+		date        string
+		description string
+	}
+
+	order := make([]groupKey, 0, len(entries))
+	groups := make(map[groupKey]*api.TimeEntryItem, len(entries))
 
 	for _, entry := range entries {
 		if entry.Duration <= 0 {
 			continue
 		}
 
-		if g, ok := groups[entry.Description]; ok {
+		key := groupKey{
+			date:        entry.Start.In(location).Format("2006-01-02"),
+			description: entry.Description,
+		}
+
+		if g, ok := groups[key]; ok {
 			g.Duration += entry.Duration
 			if entry.Start.Before(g.Start) {
 				g.Start = entry.Start
@@ -89,13 +101,13 @@ func aggregateEntries(entries []api.TimeEntryItem) []api.TimeEntryItem {
 		}
 
 		combined := entry
-		groups[entry.Description] = &combined
-		order = append(order, entry.Description)
+		groups[key] = &combined
+		order = append(order, key)
 	}
 
 	result := make([]api.TimeEntryItem, 0, len(order))
-	for _, description := range order {
-		g := groups[description]
+	for _, key := range order {
+		g := groups[key]
 		g.Duration = roundUpToMinute(g.Duration)
 		result = append(result, *g)
 	}
