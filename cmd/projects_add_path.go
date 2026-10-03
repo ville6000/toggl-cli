@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"slices"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 )
@@ -42,11 +44,9 @@ var projectsAddPathCmd = &cobra.Command{
 		key := fmt.Sprintf("projects.%s.paths", projectName)
 		existingPaths := viper.GetStringSlice(key)
 
-		for _, p := range existingPaths {
-			if p == currentPath {
-				fmt.Fprintln(cmd.OutOrStdout(), "Path already exists for this project.")
-				return nil
-			}
+		if slices.Contains(existingPaths, currentPath) {
+			fmt.Fprintln(cmd.OutOrStdout(), "Path already exists for this project.")
+			return nil
 		}
 		existingPaths = append(existingPaths, currentPath)
 

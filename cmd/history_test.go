@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
 	"github.com/ville6000/toggl-cli/internal/data"
 )
 

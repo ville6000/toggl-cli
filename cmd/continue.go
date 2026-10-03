@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ville6000/toggl-cli/internal/data"
@@ -15,7 +16,7 @@ var continueCmd = &cobra.Command{
 	Use:   "continue",
 	Short: "Continue latest timer entry",
 	Long:  "",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
@@ -28,7 +29,7 @@ var continueCmd = &cobra.Command{
 		}
 
 		if len(timeEntries) == 0 {
-			return fmt.Errorf("no time entries found")
+			return errors.New("no time entries found")
 		}
 
 		index, err := cmd.Flags().GetInt("index")
@@ -62,7 +63,7 @@ type ContinueService interface {
 // there — falling back to the configured workspace when the entry has none.
 func createTimeEntryFrom(index int, timeEntries []data.TimeEntryItem, client ContinueService, workspaceID int) (string, error) {
 	if index < 0 || index >= len(timeEntries) {
-		return "", fmt.Errorf("index out of range")
+		return "", errors.New("index out of range")
 	}
 
 	e := timeEntries[index]

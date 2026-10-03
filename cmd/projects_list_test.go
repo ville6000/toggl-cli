@@ -15,7 +15,7 @@ type mockProjectService struct {
 	Err  error
 }
 
-func (m *mockProjectService) Projects(workspaceID int) ([]data.Project, error) {
+func (m *mockProjectService) Projects(_ int) ([]data.Project, error) {
 	return m.List, m.Err
 }
 

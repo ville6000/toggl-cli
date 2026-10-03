@@ -43,11 +43,11 @@ func (m *mockEditService) ProjectNames(_ int) (map[int]string, error) {
 }
 
 // baseEntry returns a stopped entry with a realistic WorkspaceID.
-func baseEntry(id int, desc string, projectID int) data.TimeEntryItem {
+func baseEntry(id int, desc string) data.TimeEntryItem {
 	return data.TimeEntryItem{
 		ID:          id,
 		Description: desc,
-		ProjectID:   projectID,
+		ProjectID:   5,
 		WorkspaceID: 100,
 		Duration:    3600,
 		Start:       time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC),
@@ -78,7 +78,7 @@ func TestRunEdit_NoEntries(t *testing.T) {
 
 func TestRunEdit_IndexOutOfRange(t *testing.T) {
 	mock := &mockEditService{
-		history: []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history: []data.TimeEntryItem{baseEntry(1, "task")},
 	}
 
 	if err := runEdit(io.Discard, io.Discard, mock, 5, "new desc", "", "", time.UTC); err == nil {
@@ -88,7 +88,7 @@ func TestRunEdit_IndexOutOfRange(t *testing.T) {
 
 func TestRunEdit_NegativeIndex(t *testing.T) {
 	mock := &mockEditService{
-		history: []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history: []data.TimeEntryItem{baseEntry(1, "task")},
 	}
 
 	if err := runEdit(io.Discard, io.Discard, mock, -1, "new desc", "", "", time.UTC); err == nil {
@@ -113,7 +113,7 @@ func TestRunEdit_HistoryError(t *testing.T) {
 func TestRunEdit_UpdateDescription(t *testing.T) {
 	updated := &data.TimeEntryItem{ID: 1, Description: "new desc", Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "old desc", 5)},
+		history:      []data.TimeEntryItem{baseEntry(1, "old desc")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{5: "Proj"},
 	}
@@ -138,7 +138,7 @@ func TestRunEdit_UpdateDescription(t *testing.T) {
 func TestRunEdit_KeepsDescriptionWhenNotProvided(t *testing.T) {
 	updated := &data.TimeEntryItem{ID: 1, Description: "original", Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:         []data.TimeEntryItem{baseEntry(1, "original", 5)},
+		history:         []data.TimeEntryItem{baseEntry(1, "original")},
 		updatedEntry:    updated,
 		projectIDByName: map[string]int{"NewProj": 10},
 		projectsMap:     map[int]string{10: "NewProj"},
@@ -161,7 +161,7 @@ func TestRunEdit_KeepsDescriptionWhenNotProvided(t *testing.T) {
 func TestRunEdit_UpdateProject(t *testing.T) {
 	updated := &data.TimeEntryItem{ID: 1, Description: "task", ProjectID: 10, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:         []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:         []data.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry:    updated,
 		projectIDByName: map[string]int{"NewProj": 10},
 		projectsMap:     map[int]string{10: "NewProj"},
@@ -181,7 +181,7 @@ func TestRunEdit_UpdateProject(t *testing.T) {
 
 func TestRunEdit_ProjectNotFound(t *testing.T) {
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:      []data.TimeEntryItem{baseEntry(1, "task")},
 		projectIDErr: errors.New("not found"),
 	}
 
@@ -197,7 +197,7 @@ func TestRunEdit_ProjectNotFound(t *testing.T) {
 func TestRunEdit_KeepsProjectWhenNotProvided(t *testing.T) {
 	updated := &data.TimeEntryItem{ID: 1, ProjectID: 5, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:      []data.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{5: "OrigProj"},
 	}
@@ -217,7 +217,7 @@ func TestRunEdit_KeepsProjectWhenNotProvided(t *testing.T) {
 // ---------- runEdit: workspace passthrough ----------
 
 func TestRunEdit_UsesEntryWorkspaceID(t *testing.T) {
-	entry := baseEntry(1, "task", 5) // WorkspaceID = 100
+	entry := baseEntry(1, "task") // WorkspaceID = 100
 	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
 		history:         []data.TimeEntryItem{entry},
@@ -247,7 +247,7 @@ func TestRunEdit_UsesEntryWorkspaceID(t *testing.T) {
 
 func TestRunEdit_PreservesStopTimeForStoppedEntry(t *testing.T) {
 	// Duration 3600s => stop = start + 1h = 2024-06-01T10:00:00Z
-	entry := baseEntry(1, "task", 5)
+	entry := baseEntry(1, "task")
 	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
 		history:      []data.TimeEntryItem{entry},
@@ -296,7 +296,7 @@ func TestRunEdit_NoStopTimeForRunningEntry(t *testing.T) {
 func TestRunEdit_StoppedEntryUsesStoppedOutput(t *testing.T) {
 	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:      []data.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
@@ -335,7 +335,7 @@ func TestRunEdit_RunningEntryUsesCurrentOutput(t *testing.T) {
 
 func TestRunEdit_UpdateError(t *testing.T) {
 	mock := &mockEditService{
-		history:   []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:   []data.TimeEntryItem{baseEntry(1, "task")},
 		updateErr: errors.New("server error"),
 	}
 
@@ -353,7 +353,7 @@ func TestRunEdit_UpdateError(t *testing.T) {
 func TestRunEdit_ProjectsMapErrorNonFatal(t *testing.T) {
 	updated := &data.TimeEntryItem{ID: 1, Description: "task", Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:        []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:        []data.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry:   updated,
 		projectsMapErr: errors.New("projects unavailable"),
 	}
@@ -379,9 +379,9 @@ func TestRunEdit_ProjectsMapErrorNonFatal(t *testing.T) {
 
 func TestRunEdit_SelectsByIndex(t *testing.T) {
 	entries := []data.TimeEntryItem{
-		baseEntry(1, "first", 5),
-		baseEntry(2, "second", 5),
-		baseEntry(3, "third", 5),
+		baseEntry(1, "first"),
+		baseEntry(2, "second"),
+		baseEntry(3, "third"),
 	}
 	updated := &data.TimeEntryItem{ID: 2, Description: "updated second", Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
@@ -450,7 +450,7 @@ func TestRunEdit_UpdateStartKeepsEndRecomputesDuration(t *testing.T) {
 	// base entry: 2024-06-01 09:00 UTC, duration 3600 => end 10:00.
 	updated := &data.TimeEntryItem{ID: 1, Duration: 7200, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:      []data.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
@@ -476,7 +476,7 @@ func TestRunEdit_UpdateStartKeepsEndRecomputesDuration(t *testing.T) {
 func TestRunEdit_UpdateStartTimeOnlyUsesEntryDate(t *testing.T) {
 	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:      []data.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
@@ -501,7 +501,7 @@ func TestRunEdit_UpdateStartRespectsTimezoneOffset(t *testing.T) {
 
 	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:      []data.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
@@ -521,7 +521,7 @@ func TestRunEdit_UpdateStartRespectsTimezoneOffset(t *testing.T) {
 
 func TestRunEdit_StartAtOrAfterEndFails(t *testing.T) {
 	mock := &mockEditService{
-		history:     []data.TimeEntryItem{baseEntry(1, "task", 5)}, // end 10:00
+		history:     []data.TimeEntryItem{baseEntry(1, "task")}, // end 10:00
 		projectsMap: map[int]string{},
 	}
 
@@ -536,7 +536,7 @@ func TestRunEdit_StartAtOrAfterEndFails(t *testing.T) {
 
 func TestRunEdit_InvalidStartFormatFails(t *testing.T) {
 	mock := &mockEditService{
-		history:     []data.TimeEntryItem{baseEntry(1, "task", 5)},
+		history:     []data.TimeEntryItem{baseEntry(1, "task")},
 		projectsMap: map[int]string{},
 	}
 

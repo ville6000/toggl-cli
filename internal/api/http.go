@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -28,7 +29,7 @@ func (e *statusError) Error() string {
 
 // newJSONRequest builds a request to url, encoding body as JSON when it is
 // not nil. Authentication is left to the caller.
-func newJSONRequest(method, url string, body any) (*http.Request, error) {
+func newJSONRequest(ctx context.Context, method, url string, body any) (*http.Request, error) {
 	var buf io.Reader
 	if body != nil {
 		jsonData, err := json.Marshal(body)
@@ -38,7 +39,7 @@ func newJSONRequest(method, url string, body any) (*http.Request, error) {
 		buf = bytes.NewBuffer(jsonData)
 	}
 
-	req, err := http.NewRequest(method, url, buf)
+	req, err := http.NewRequestWithContext(ctx, method, url, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -49,15 +50,15 @@ func newJSONRequest(method, url string, body any) (*http.Request, error) {
 }
 
 // doJSON sends req and decodes the JSON response into result, when result is
-// not nil. A status other than expectedStatus yields a *statusError.
-func doJSON(client *http.Client, req *http.Request, expectedStatus int, result any) error {
+// not nil. A status other than 200 OK yields a *statusError.
+func doJSON(client *http.Client, req *http.Request, result any) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != expectedStatus {
+	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return &statusError{
 			Status:     resp.Status,

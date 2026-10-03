@@ -1,3 +1,5 @@
+// Package data holds the request and response types for the Toggl and 7pace
+// APIs.
 package data
 
 import "time"

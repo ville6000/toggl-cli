@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+
 	"github.com/ville6000/toggl-cli/internal/data"
 )
 
@@ -254,7 +255,7 @@ func TestEditCommand_RecomputesDurationAroundANewStartTime(t *testing.T) {
 	updatePath := fmt.Sprintf("/workspaces/%d/time_entries/12", testWorkspaceID)
 
 	stub.stubProjects(data.Project{ID: 7, Name: "Alpha"})
-	stub.stubHistory(utcEntry(12, entryStart, 3600, "review", 7))
+	stub.stubHistory(utcEntry(12, entryStart, 3600, "review"))
 	stub.respond(http.MethodPut, updatePath, http.StatusOK, data.TimeEntryItem{
 		ID: 12, Description: "review", Duration: 39600, ProjectID: 7, WorkspaceID: testWorkspaceID,
 		Start: time.Date(2024, 5, 31, 23, 0, 0, 0, time.UTC),
@@ -295,7 +296,7 @@ func TestEditCommand_UpdatesDescriptionAndProject(t *testing.T) {
 		data.Project{ID: 7, Name: "Alpha"},
 		data.Project{ID: 8, Name: "Beta"},
 	)
-	stub.stubHistory(utcEntry(12, time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC), 3600, "review", 7))
+	stub.stubHistory(utcEntry(12, time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC), 3600, "review"))
 	stub.respond(http.MethodPut, updatePath, http.StatusOK, data.TimeEntryItem{
 		ID: 12, Description: "pairing", Duration: 3600, ProjectID: 8, WorkspaceID: testWorkspaceID,
 		Start: time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC),

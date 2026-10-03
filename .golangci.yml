@@ -13,11 +13,17 @@ linters:
     - nilerr
     - unconvert
     - revive
+    - gosec
+    - errorlint
+    - bodyclose
+    - noctx
+    - unparam
+    - perfsprint
+    - modernize
   settings:
     revive:
-      rules:
-        - name: var-naming
-        - name: exported
+      # revive's default rule set, which includes var-naming and exported.
+      enable-default-rules: true
     errcheck:
       # errcheck ignores terminal writes to os.Stdout/os.Stderr out of the box.
       # Commands write through an injected io.Writer so tests can capture the
@@ -26,7 +32,18 @@ linters:
         - fmt.Fprint(io.Writer)
         - fmt.Fprintf(io.Writer)
         - fmt.Fprintln(io.Writer)
+  exclusions:
+    rules:
+      # Tests write fixtures to temp dirs and read paths they build themselves.
+      - path: _test\.go
+        linters:
+          - gosec
 
 formatters:
   enable:
     - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ville6000/toggl-cli

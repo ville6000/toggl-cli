@@ -1,3 +1,4 @@
+// Package output formats command output for the terminal.
 package output
 
 import (

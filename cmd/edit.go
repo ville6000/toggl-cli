@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"time"
 
 	"github.com/spf13/cobra"
+
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/data"
@@ -23,7 +25,7 @@ var editCmd = &cobra.Command{
 	Use:   "edit",
 	Short: "Edit a recent or running time entry",
 	Long:  "Edit the description, project or start time of a recent or currently running time entry.",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		token, _, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
@@ -50,7 +52,7 @@ var editCmd = &cobra.Command{
 		}
 
 		if description == "" && project == "" && start == "" {
-			return fmt.Errorf("at least one of --description, --project or --start must be provided")
+			return errors.New("at least one of --description, --project or --start must be provided")
 		}
 
 		location, err := config.Timezone()
@@ -77,7 +79,7 @@ func runEdit(
 	}
 
 	if len(entries) == 0 {
-		return fmt.Errorf("no time entries found")
+		return errors.New("no time entries found")
 	}
 
 	if index < 0 || index >= len(entries) {

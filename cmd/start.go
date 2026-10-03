@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -119,7 +120,7 @@ func findProjectIDForEntry(projectName string, client StartService, workspaceID 
 	}
 
 	if projectName == "" {
-		return 0, "", fmt.Errorf("no project name provided and no matching project found in config for current path")
+		return 0, "", errors.New("no project name provided and no matching project found in config for current path")
 	}
 
 	projectID, err := client.ProjectIDByName(workspaceID, projectName)

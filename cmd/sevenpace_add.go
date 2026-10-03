@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
+
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/data"
@@ -17,7 +19,7 @@ var sevenpaceAddCmd = &cobra.Command{
 	Short: "Post a single worklog to 7pace",
 	Long: "Post a single worklog to 7pace Timetracker. A worklog must have either a work item id\n" +
 		"or a comment, and a duration greater than zero.",
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		spCfg, err := config.LoadSevenPace()
 		if err != nil {
 			return err
@@ -58,11 +60,11 @@ var sevenpaceAddCmd = &cobra.Command{
 			return err
 		}
 		if length <= 0 {
-			return fmt.Errorf("--duration must be greater than zero")
+			return errors.New("--duration must be greater than zero")
 		}
 
 		if workItem == 0 && comment == "" {
-			return fmt.Errorf("a worklog must have either --work-item or --comment")
+			return errors.New("a worklog must have either --work-item or --comment")
 		}
 
 		timestamp, err := parseWorkLogDate(dateStr, location)
@@ -100,7 +102,7 @@ var sevenpaceAddCmd = &cobra.Command{
 // number of seconds and returns the duration in seconds.
 func parseDurationSeconds(value string) (int, error) {
 	if value == "" {
-		return 0, fmt.Errorf("--duration is required")
+		return 0, errors.New("--duration is required")
 	}
 
 	if d, err := time.ParseDuration(value); err == nil {

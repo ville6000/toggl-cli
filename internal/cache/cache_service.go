@@ -1,9 +1,12 @@
+// Package cache stores each workspace's Toggl project list on disk so
+// commands don't refetch it on every run.
 package cache
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,7 +29,7 @@ func NewService() (*Service, error) {
 	}
 
 	cacheDir := filepath.Join(dir, "toggl-cli")
-	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+	if err := os.MkdirAll(cacheDir, 0o750); err != nil {
 		return nil, err
 	}
 
@@ -35,11 +38,8 @@ func NewService() (*Service, error) {
 
 // Path returns the cache file for workspaceID.
 func (c *Service) Path(workspaceID int) (string, error) {
-	hasher := md5.New()
-	if _, err := fmt.Fprintf(hasher, "%d", workspaceID); err != nil {
-		return "", err
-	}
-	hashStr := hex.EncodeToString(hasher.Sum(nil))
+	sum := sha256.Sum256(fmt.Appendf(nil, "%d", workspaceID))
+	hashStr := hex.EncodeToString(sum[:])
 
 	cacheFile := filepath.Join(c.CacheDir, fmt.Sprintf("projects_%s.json", hashStr))
 
@@ -64,7 +64,7 @@ func (c *Service) SaveProjects(workspaceID int, projects []data.Project) error {
 		return err
 	}
 
-	return os.WriteFile(cacheFile, content, 0o644)
+	return os.WriteFile(cacheFile, content, 0o600)
 }
 
 // Projects returns the cached projects for workspaceID, or an error when there
@@ -75,7 +75,7 @@ func (c *Service) Projects(workspaceID int) ([]data.Project, error) {
 		return nil, err
 	}
 
-	fileContent, err := os.ReadFile(cacheFile)
+	fileContent, err := os.ReadFile(cacheFile) // #nosec G304 -- path is built by Path inside CacheDir
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (c *Service) Projects(workspaceID int) ([]data.Project, error) {
 	}
 
 	if time.Since(cached.Timestamp) >= 24*time.Hour {
-		return nil, fmt.Errorf("cache is outdated")
+		return nil, errors.New("cache is outdated")
 	}
 
 	return cached.Data, nil

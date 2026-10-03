@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+
 	"github.com/ville6000/toggl-cli/internal/data"
 )
 
@@ -32,9 +33,9 @@ func setupSevenPaceTest(t *testing.T, toggl *apiStub) *apiStub {
 // description and carry a work item id, and one without an id.
 func syncEntries() []data.TimeEntryItem {
 	return []data.TimeEntryItem{
-		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 1500, "#1234 review", 7),
-		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 100, "#1234 review", 7),
-		utcEntry(3, time.Date(2024, 3, 4, 6, 0, 0, 0, time.UTC), 900, "no work item", 7),
+		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 1500, "#1234 review"),
+		utcEntry(2, time.Date(2024, 3, 4, 5, 0, 0, 0, time.UTC), 100, "#1234 review"),
+		utcEntry(3, time.Date(2024, 3, 4, 6, 0, 0, 0, time.UTC), 900, "no work item"),
 	}
 }
 

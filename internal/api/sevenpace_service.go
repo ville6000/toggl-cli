@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,7 +17,7 @@ func (c *SevenPaceClient) CreateWorkLog(workLog data.SevenPaceWorkLog) (*data.Se
 	}
 
 	var created data.SevenPaceWorkLog
-	if reqErr := c.doRequest(req, http.StatusOK, &created); reqErr != nil {
+	if reqErr := c.doRequest(req, &created); reqErr != nil {
 		return nil, reqErr
 	}
 
@@ -24,7 +25,8 @@ func (c *SevenPaceClient) CreateWorkLog(workLog data.SevenPaceWorkLog) (*data.Se
 }
 
 func (c *SevenPaceClient) newRequest(method, endpoint string, body any) (*http.Request, error) {
-	req, err := newJSONRequest(method, c.BaseURL+endpoint, body)
+	// context.TODO until the API methods take a context from their callers.
+	req, err := newJSONRequest(context.TODO(), method, c.BaseURL+endpoint, body)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +38,8 @@ func (c *SevenPaceClient) newRequest(method, endpoint string, body any) (*http.R
 
 // doRequest sends req, adding a hint about the configured credentials when
 // the server rejects them.
-func (c *SevenPaceClient) doRequest(req *http.Request, expectedStatus int, result any) error {
-	err := doJSON(c.HTTPClient, req, expectedStatus, result)
+func (c *SevenPaceClient) doRequest(req *http.Request, result any) error {
+	err := doJSON(c.HTTPClient, req, result)
 
 	var statusErr *statusError
 	if errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusUnauthorized {

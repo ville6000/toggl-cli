@@ -14,7 +14,7 @@ import (
 )
 
 // newTestClient creates a Client whose BaseURL points at the given test server.
-func newTestClient(t *testing.T, handler http.Handler) (*Client, *httptest.Server) {
+func newTestClient(t *testing.T, handler http.Handler) *Client {
 	t.Helper()
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
@@ -24,13 +24,13 @@ func newTestClient(t *testing.T, handler http.Handler) (*Client, *httptest.Serve
 		AuthToken:  "test-token",
 		Cache:      &cache.Service{CacheDir: t.TempDir()},
 	}
-	return client, server
+	return client
 }
 
-func jsonHandler(t *testing.T, status int, body any) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+// jsonHandler responds 200 OK with body encoded as JSON.
+func jsonHandler(t *testing.T, body any) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(status)
 		if body != nil {
 			if err := json.NewEncoder(w).Encode(body); err != nil {
 				t.Errorf("jsonHandler encode: %v", err)
@@ -40,7 +40,7 @@ func jsonHandler(t *testing.T, status int, body any) http.HandlerFunc {
 }
 
 func errorHandler(status int) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(status)
 	}
 }
@@ -104,7 +104,7 @@ func TestAuthHeaderEncoding(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 	client.AuthToken = "mytoken"
 
 	if _, err := client.Workspaces(); err != nil {
@@ -125,7 +125,7 @@ func TestContentTypeHeader(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	if _, err := client.Workspaces(); err != nil {
 		t.Fatalf("Workspaces: %v", err)
@@ -140,7 +140,7 @@ func TestContentTypeHeader(t *testing.T) {
 
 func TestWorkspaces_Success(t *testing.T) {
 	workspaces := []data.Workspace{{ID: 1, Name: "Main"}, {ID: 2, Name: "Side"}}
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, workspaces))
+	client := newTestClient(t, jsonHandler(t, workspaces))
 
 	got, err := client.Workspaces()
 	if err != nil {
@@ -152,7 +152,7 @@ func TestWorkspaces_Success(t *testing.T) {
 }
 
 func TestWorkspaces_HTTPError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
+	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
 	if _, err := client.Workspaces(); err == nil {
 		t.Error("expected error for HTTP 401")
 	}
@@ -162,7 +162,7 @@ func TestWorkspaces_HTTPError(t *testing.T) {
 
 func TestCurrentTimeEntry_Success(t *testing.T) {
 	entry := data.TimeEntryItem{ID: 99, Description: "current work"}
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, entry))
+	client := newTestClient(t, jsonHandler(t, entry))
 
 	got, err := client.CurrentTimeEntry()
 	if err != nil {
@@ -174,7 +174,7 @@ func TestCurrentTimeEntry_Success(t *testing.T) {
 }
 
 func TestCurrentTimeEntry_HTTPError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusNotFound))
+	client := newTestClient(t, errorHandler(http.StatusNotFound))
 	if _, err := client.CurrentTimeEntry(); err == nil {
 		t.Error("expected error for HTTP 404")
 	}
@@ -192,7 +192,7 @@ func TestCreateTimeEntry_Success(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	got, err := client.CreateTimeEntry(5, input)
 	if err != nil {
@@ -204,7 +204,7 @@ func TestCreateTimeEntry_Success(t *testing.T) {
 }
 
 func TestCreateTimeEntry_HTTPError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusInternalServerError))
+	client := newTestClient(t, errorHandler(http.StatusInternalServerError))
 	if _, err := client.CreateTimeEntry(1, data.TimeEntry{}); err == nil {
 		t.Error("expected error for HTTP 500")
 	}
@@ -218,7 +218,7 @@ func TestCreateTimeEntry_URLContainsWorkspaceID(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	_, _ = client.CreateTimeEntry(42, data.TimeEntry{})
 	if !strings.Contains(capturedPath, "42") {
@@ -238,7 +238,7 @@ func TestStopTimeEntry_Success(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	got, err := client.StopTimeEntry(1, 77)
 	if err != nil {
@@ -250,7 +250,7 @@ func TestStopTimeEntry_Success(t *testing.T) {
 }
 
 func TestStopTimeEntry_HTTPError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusNotFound))
+	client := newTestClient(t, errorHandler(http.StatusNotFound))
 	if _, err := client.StopTimeEntry(1, 99); err == nil {
 		t.Error("expected error for HTTP 404")
 	}
@@ -264,7 +264,7 @@ func TestStopTimeEntry_URLContainsIDs(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	_, _ = client.StopTimeEntry(10, 20)
 	if !strings.Contains(capturedPath, "10") || !strings.Contains(capturedPath, "20") {
@@ -287,7 +287,7 @@ func TestUpdateTimeEntry_Success(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	got, err := client.UpdateTimeEntry(1, 5, data.TimeEntry{Description: "updated"})
 	if err != nil {
@@ -306,7 +306,7 @@ func TestUpdateTimeEntry_URLContainsIDs(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	_, _ = client.UpdateTimeEntry(10, 20, data.TimeEntry{})
 	const wantPath = "/workspaces/10/time_entries/20"
@@ -316,7 +316,7 @@ func TestUpdateTimeEntry_URLContainsIDs(t *testing.T) {
 }
 
 func TestUpdateTimeEntry_HTTPError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusNotFound))
+	client := newTestClient(t, errorHandler(http.StatusNotFound))
 	if _, err := client.UpdateTimeEntry(1, 99, data.TimeEntry{}); err == nil {
 		t.Error("expected error for HTTP 404")
 	}
@@ -326,7 +326,7 @@ func TestUpdateTimeEntry_HTTPError(t *testing.T) {
 
 func TestProjects_FetchesFromAPI(t *testing.T) {
 	projects := []data.Project{{ID: 1, Name: "Alpha"}, {ID: 2, Name: "Beta"}}
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
+	client := newTestClient(t, jsonHandler(t, projects))
 
 	got, err := client.Projects(10)
 	if err != nil {
@@ -340,13 +340,13 @@ func TestProjects_FetchesFromAPI(t *testing.T) {
 func TestProjects_UsesCache(t *testing.T) {
 	callCount := 0
 	projects := []data.Project{{ID: 1, Name: "Cached"}}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
 		if err := json.NewEncoder(w).Encode(projects); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	if _, err := client.Projects(10); err != nil {
 		t.Fatalf("first Projects: %v", err)
@@ -361,7 +361,7 @@ func TestProjects_UsesCache(t *testing.T) {
 }
 
 func TestProjects_HTTPError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
+	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
 	if _, err := client.Projects(10); err == nil {
 		t.Error("expected error for HTTP 401")
 	}
@@ -375,7 +375,7 @@ func TestProjects_URLContainsWorkspaceID(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	_, _ = client.Projects(99)
 	if !strings.Contains(capturedPath, "99") {
@@ -387,7 +387,7 @@ func TestProjects_URLContainsWorkspaceID(t *testing.T) {
 
 func TestProjectIDByName_Found(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
+	client := newTestClient(t, jsonHandler(t, projects))
 
 	id, err := client.ProjectIDByName(10, "MyProject")
 	if err != nil {
@@ -400,7 +400,7 @@ func TestProjectIDByName_Found(t *testing.T) {
 
 func TestProjectIDByName_CaseInsensitive(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
+	client := newTestClient(t, jsonHandler(t, projects))
 
 	id, err := client.ProjectIDByName(10, "myproject")
 	if err != nil {
@@ -413,7 +413,7 @@ func TestProjectIDByName_CaseInsensitive(t *testing.T) {
 
 func TestProjectIDByName_NotFound(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
+	client := newTestClient(t, jsonHandler(t, projects))
 
 	if _, err := client.ProjectIDByName(10, "nonexistent"); err == nil {
 		t.Error("expected error for missing project")
@@ -421,7 +421,7 @@ func TestProjectIDByName_NotFound(t *testing.T) {
 }
 
 func TestProjectIDByName_EmptyProjects(t *testing.T) {
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, []data.Project{}))
+	client := newTestClient(t, jsonHandler(t, []data.Project{}))
 
 	if _, err := client.ProjectIDByName(10, "any"); err == nil {
 		t.Error("expected error with empty project list")
@@ -429,7 +429,7 @@ func TestProjectIDByName_EmptyProjects(t *testing.T) {
 }
 
 func TestProjectIDByName_APIError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
+	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
 	if _, err := client.ProjectIDByName(10, "any"); err == nil {
 		t.Error("expected error when API fails")
 	}
@@ -447,7 +447,7 @@ func TestTimeEntries_NoParams(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	got, err := client.TimeEntries(nil, nil)
 	if err != nil {
@@ -474,7 +474,7 @@ func TestTimeEntries_WithBothDates(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	if _, err := client.TimeEntries(&from, &to); err != nil {
 		t.Fatalf("TimeEntries: %v", err)
@@ -495,7 +495,7 @@ func TestTimeEntries_OnlyFromDate(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	if _, err := client.TimeEntries(&from, nil); err != nil {
 		t.Fatalf("TimeEntries: %v", err)
@@ -516,7 +516,7 @@ func TestTimeEntries_OnlyToDate(t *testing.T) {
 			t.Errorf("encode: %v", err)
 		}
 	})
-	client, _ := newTestClient(t, handler)
+	client := newTestClient(t, handler)
 
 	if _, err := client.TimeEntries(nil, &to); err != nil {
 		t.Fatalf("TimeEntries: %v", err)
@@ -524,7 +524,7 @@ func TestTimeEntries_OnlyToDate(t *testing.T) {
 }
 
 func TestTimeEntries_HTTPError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusForbidden))
+	client := newTestClient(t, errorHandler(http.StatusForbidden))
 	if _, err := client.TimeEntries(nil, nil); err == nil {
 		t.Error("expected error for HTTP 403")
 	}
@@ -534,7 +534,7 @@ func TestTimeEntries_HTTPError(t *testing.T) {
 
 func TestProjectNames_Success(t *testing.T) {
 	projects := []data.Project{{ID: 1, Name: "Alpha"}, {ID: 2, Name: "Beta"}}
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
+	client := newTestClient(t, jsonHandler(t, projects))
 
 	lookup, err := client.ProjectNames(10)
 	if err != nil {
@@ -546,7 +546,7 @@ func TestProjectNames_Success(t *testing.T) {
 }
 
 func TestProjectNames_Empty(t *testing.T) {
-	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, []data.Project{}))
+	client := newTestClient(t, jsonHandler(t, []data.Project{}))
 
 	lookup, err := client.ProjectNames(10)
 	if err != nil {
@@ -558,7 +558,7 @@ func TestProjectNames_Empty(t *testing.T) {
 }
 
 func TestProjectNames_APIError(t *testing.T) {
-	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
+	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
 	if _, err := client.ProjectNames(10); err == nil {
 		t.Error("expected error when API fails")
 	}

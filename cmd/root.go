@@ -1,3 +1,4 @@
+// Package cmd implements the toggl-cli commands.
 package cmd
 
 import (

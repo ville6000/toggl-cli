@@ -79,7 +79,7 @@ func TestCreateWorkLog_PostsToEndpoint(t *testing.T) {
 }
 
 func TestCreateWorkLog_HTTPError(t *testing.T) {
-	client := newTestSevenPaceClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	client := newTestSevenPaceClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 
