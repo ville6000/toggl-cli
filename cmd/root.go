@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ville6000/toggl-cli/cmd/projects"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,8 +35,6 @@ func init() {
 		"",
 		"config file (default is $XDG_CONFIG_HOME/toggl-cli/config.yaml or $HOME/.toggl-cli.yaml)",
 	)
-
-	rootCmd.AddCommand(projects.Cmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
