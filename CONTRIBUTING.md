@@ -59,7 +59,7 @@ never touch your real config or account.
 - Write commit messages and PR titles as
   [Conventional Commits](https://www.conventionalcommits.org): `feat: ...`,
   `fix: ...`, `refactor: ...`, `docs: ...`, `chore: ...`.
-- Update the README when you change user-facing behaviour.
+- Update the README or `docs/` when you change user-facing behaviour.
 
 ## Releasing
 
