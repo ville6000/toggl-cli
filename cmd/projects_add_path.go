@@ -31,7 +31,7 @@ var projectsAddPathCmd = &cobra.Command{
 
 		var projectID int
 		if projectName != "" {
-			projectID, err = client.GetProjectIDByName(workspaceID, projectName)
+			projectID, err = client.ProjectIDByName(workspaceID, projectName)
 			if err != nil {
 				return fmt.Errorf("failed to get project ID: %w", err)
 			}

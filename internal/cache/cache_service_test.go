@@ -53,7 +53,7 @@ func TestPath_ContainsCacheDir(t *testing.T) {
 	}
 }
 
-// ---------- SaveProjects / GetProjects round-trip ----------
+// ---------- SaveProjects / Projects round-trip ----------
 
 func TestSaveAndGetProjects(t *testing.T) {
 	cs := newTestCache(t)
@@ -66,9 +66,9 @@ func TestSaveAndGetProjects(t *testing.T) {
 		t.Fatalf("SaveProjects: %v", err)
 	}
 
-	got, err := cs.GetProjects(10)
+	got, err := cs.Projects(10)
 	if err != nil {
-		t.Fatalf("GetProjects: %v", err)
+		t.Fatalf("Projects: %v", err)
 	}
 
 	if len(got) != len(projects) {
@@ -86,9 +86,9 @@ func TestSaveProjects_EmptySlice(t *testing.T) {
 	if err := cs.SaveProjects(1, []data.Project{}); err != nil {
 		t.Fatalf("SaveProjects: %v", err)
 	}
-	got, err := cs.GetProjects(1)
+	got, err := cs.Projects(1)
 	if err != nil {
-		t.Fatalf("GetProjects: %v", err)
+		t.Fatalf("Projects: %v", err)
 	}
 	if len(got) != 0 {
 		t.Errorf("expected empty slice, got %+v", got)
@@ -108,9 +108,9 @@ func TestSaveProjects_OverwritesPreviousCache(t *testing.T) {
 		t.Fatalf("SaveProjects (updated): %v", err)
 	}
 
-	got, err := cs.GetProjects(5)
+	got, err := cs.Projects(5)
 	if err != nil {
-		t.Fatalf("GetProjects: %v", err)
+		t.Fatalf("Projects: %v", err)
 	}
 	if len(got) != 1 || got[0].Name != "Updated" {
 		t.Errorf("expected updated cache, got %+v", got)
@@ -129,8 +129,8 @@ func TestSaveProjects_IsolatedByWorkspace(t *testing.T) {
 		t.Fatalf("SaveProjects ws 200: %v", err)
 	}
 
-	got1, _ := cs.GetProjects(100)
-	got2, _ := cs.GetProjects(200)
+	got1, _ := cs.Projects(100)
+	got2, _ := cs.Projects(200)
 
 	if len(got1) != 1 || got1[0].Name != "WS-1" {
 		t.Errorf("ws 100: expected WS-1, got %+v", got1)
@@ -140,18 +140,18 @@ func TestSaveProjects_IsolatedByWorkspace(t *testing.T) {
 	}
 }
 
-// ---------- GetProjects: cache miss ----------
+// ---------- Projects: cache miss ----------
 
-func TestGetProjects_CacheMiss(t *testing.T) {
+func TestProjects_CacheMiss(t *testing.T) {
 	cs := newTestCache(t)
-	if _, err := cs.GetProjects(999); err == nil {
+	if _, err := cs.Projects(999); err == nil {
 		t.Error("expected error for cache miss (file does not exist)")
 	}
 }
 
-// ---------- GetProjects: cache expiry ----------
+// ---------- Projects: cache expiry ----------
 
-func TestGetProjects_CacheExpired(t *testing.T) {
+func TestProjects_CacheExpired(t *testing.T) {
 	cs := newTestCache(t)
 	projects := []data.Project{{ID: 1, Name: "Stale"}}
 
@@ -172,12 +172,12 @@ func TestGetProjects_CacheExpired(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	if _, err := cs.GetProjects(42); err == nil {
+	if _, err := cs.Projects(42); err == nil {
 		t.Error("expected error for expired cache (>24h old)")
 	}
 }
 
-func TestGetProjects_CacheJustUnderTTL(t *testing.T) {
+func TestProjects_CacheJustUnderTTL(t *testing.T) {
 	cs := newTestCache(t)
 	projects := []data.Project{{ID: 1, Name: "Fresh"}}
 
@@ -199,16 +199,16 @@ func TestGetProjects_CacheJustUnderTTL(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	got, err := cs.GetProjects(7)
+	got, err := cs.Projects(7)
 	if err != nil {
-		t.Fatalf("GetProjects: %v (expected valid cache)", err)
+		t.Fatalf("Projects: %v (expected valid cache)", err)
 	}
 	if len(got) != 1 || got[0].Name != "Fresh" {
 		t.Errorf("unexpected projects: %+v", got)
 	}
 }
 
-func TestGetProjects_CacheExactlyAtTTL(t *testing.T) {
+func TestProjects_CacheExactlyAtTTL(t *testing.T) {
 	cs := newTestCache(t)
 	projects := []data.Project{{ID: 1, Name: "Boundary"}}
 
@@ -231,14 +231,14 @@ func TestGetProjects_CacheExactlyAtTTL(t *testing.T) {
 	}
 
 	// The condition is `>= 24h`, so this should be expired.
-	if _, err := cs.GetProjects(8); err == nil {
+	if _, err := cs.Projects(8); err == nil {
 		t.Error("expected error: cache at exactly 24h should be considered expired")
 	}
 }
 
 // ---------- Corrupted cache file ----------
 
-func TestGetProjects_CorruptedCacheFile(t *testing.T) {
+func TestProjects_CorruptedCacheFile(t *testing.T) {
 	cs := newTestCache(t)
 
 	cacheFile, err := cs.Path(55)
@@ -249,7 +249,7 @@ func TestGetProjects_CorruptedCacheFile(t *testing.T) {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
-	if _, err := cs.GetProjects(55); err == nil {
+	if _, err := cs.Projects(55); err == nil {
 		t.Error("expected error for corrupted cache file")
 	}
 }

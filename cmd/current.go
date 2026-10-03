@@ -24,12 +24,12 @@ var currentCmd = &cobra.Command{
 		}
 
 		client := api.NewClientFromConfig(token)
-		currentEntry, err := client.GetCurrentTimerEntry()
+		currentEntry, err := client.CurrentTimeEntry()
 		if err != nil {
 			return fmt.Errorf("failed to get current timer entry: %w", err)
 		}
 
-		projectsMap, err := client.GetProjectsLookupMap(workspaceID)
+		projectsMap, err := client.ProjectNames(workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get projects: %w", err)
 		}

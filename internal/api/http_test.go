@@ -33,7 +33,7 @@ func TestDoRequest_ErrorIncludesResponseBody(t *testing.T) {
 		http.Error(w, "workspace not found", http.StatusNotFound)
 	}))
 
-	_, err := client.GetWorkspaces()
+	_, err := client.Workspaces()
 
 	var statusErr *statusError
 	if !errors.As(err, &statusErr) || statusErr.StatusCode != http.StatusNotFound {

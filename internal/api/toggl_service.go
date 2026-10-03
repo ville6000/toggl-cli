@@ -11,7 +11,8 @@ import (
 	"github.com/ville6000/toggl-cli/internal/data"
 )
 
-func (c *Client) GetWorkspaces() ([]data.Workspace, error) {
+// Workspaces returns the workspaces the user belongs to.
+func (c *Client) Workspaces() ([]data.Workspace, error) {
 	req, err := c.newRequest(http.MethodGet, "/workspaces", nil)
 	if err != nil {
 		return nil, err
@@ -25,7 +26,9 @@ func (c *Client) GetWorkspaces() ([]data.Workspace, error) {
 	return workspaces, nil
 }
 
-func (c *Client) GetCurrentTimerEntry() (*data.TimeEntryItem, error) {
+// CurrentTimeEntry returns the running time entry. When nothing is running
+// the returned entry has a zero ID.
+func (c *Client) CurrentTimeEntry() (*data.TimeEntryItem, error) {
 	req, err := c.newRequest(http.MethodGet, "/me/time_entries/current", nil)
 	if err != nil {
 		return nil, err
@@ -39,6 +42,8 @@ func (c *Client) GetCurrentTimerEntry() (*data.TimeEntryItem, error) {
 	return &entry, nil
 }
 
+// CreateTimeEntry creates entry in the given workspace and returns it as
+// stored by Toggl.
 func (c *Client) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries", workspaceID)
 	req, err := c.newRequest(http.MethodPost, endpoint, entry)
@@ -70,6 +75,7 @@ func NewTimeEntry(description string, workspaceID, projectID int, billable bool)
 	}
 }
 
+// StopTimeEntry stops the running entry entryID and returns the stopped entry.
 func (c *Client) StopTimeEntry(workspaceID int, entryID int) (*data.TimeEntryItem, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d/stop", workspaceID, entryID)
 	req, err := c.newRequest(http.MethodPatch, endpoint, nil)
@@ -85,6 +91,8 @@ func (c *Client) StopTimeEntry(workspaceID int, entryID int) (*data.TimeEntryIte
 	return &stoppedEntry, nil
 }
 
+// UpdateTimeEntry replaces the fields of entry entryID with entry and returns
+// the updated entry.
 func (c *Client) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d", workspaceID, entryID)
 	req, err := c.newRequest(http.MethodPut, endpoint, entry)
@@ -100,9 +108,11 @@ func (c *Client) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEn
 	return &updatedEntry, nil
 }
 
-func (c *Client) GetProjects(workspaceID int) ([]data.Project, error) {
+// Projects returns the projects in the workspace, from the cache when it holds
+// a fresh copy, otherwise from the API (refreshing the cache).
+func (c *Client) Projects(workspaceID int) ([]data.Project, error) {
 	if c.Cache != nil {
-		cachedProjects, cacheErr := c.Cache.GetProjects(workspaceID)
+		cachedProjects, cacheErr := c.Cache.Projects(workspaceID)
 		if cacheErr == nil {
 			return cachedProjects, nil
 		}
@@ -128,8 +138,10 @@ func (c *Client) GetProjects(workspaceID int) ([]data.Project, error) {
 	return projects, nil
 }
 
-func (c *Client) GetProjectIDByName(workspaceID int, projectName string) (int, error) {
-	projects, err := c.GetProjects(workspaceID)
+// ProjectIDByName returns the ID of the project whose name matches
+// projectName, ignoring case.
+func (c *Client) ProjectIDByName(workspaceID int, projectName string) (int, error) {
+	projects, err := c.Projects(workspaceID)
 	if err != nil {
 		return 0, err
 	}
@@ -143,7 +155,9 @@ func (c *Client) GetProjectIDByName(workspaceID int, projectName string) (int, e
 	return 0, fmt.Errorf("project '%s' not found", projectName)
 }
 
-func (c *Client) GetHistory(from, to *time.Time) ([]data.TimeEntryItem, error) {
+// TimeEntries returns the user's time entries between from and to. Either
+// bound may be nil, leaving the range to the API's default.
+func (c *Client) TimeEntries(from, to *time.Time) ([]data.TimeEntryItem, error) {
 	endpoint := "/me/time_entries"
 	queryParams := make([]string, 0)
 	// RFC3339 instants rather than bare dates: a bare date is interpreted as
@@ -173,8 +187,9 @@ func (c *Client) GetHistory(from, to *time.Time) ([]data.TimeEntryItem, error) {
 	return timeEntries, nil
 }
 
-func (c *Client) GetProjectsLookupMap(workspaceID int) (map[int]string, error) {
-	projects, err := c.GetProjects(workspaceID)
+// ProjectNames returns the workspace's project names keyed by project ID.
+func (c *Client) ProjectNames(workspaceID int) (map[int]string, error) {
+	projects, err := c.Projects(workspaceID)
 	if err != nil {
 		return nil, err
 	}

@@ -15,6 +15,8 @@ import (
 	"github.com/ville6000/toggl-cli/internal/output"
 )
 
+// HistoryEntry is one row of the history summary: the total duration logged
+// for a description and project.
 type HistoryEntry struct {
 	Description string
 	Duration    int
@@ -37,7 +39,7 @@ var historyCmd = &cobra.Command{
 		}
 
 		client := api.NewClientFromConfig(token)
-		projectsLookup, err := client.GetProjectsLookupMap(workspaceID)
+		projectsLookup, err := client.ProjectNames(workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get projects: %w", err)
 		}
@@ -47,7 +49,7 @@ var historyCmd = &cobra.Command{
 			return err
 		}
 
-		timeEntries, err := client.GetHistory(&startTime, &endTime)
+		timeEntries, err := client.TimeEntries(&startTime, &endTime)
 		if err != nil {
 			return fmt.Errorf("failed to get history: %w", err)
 		}

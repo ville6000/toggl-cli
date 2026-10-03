@@ -20,7 +20,7 @@ var workspacesCmd = &cobra.Command{
 		}
 
 		client := api.NewClientFromConfig(token)
-		workspaces, err := client.GetWorkspaces()
+		workspaces, err := client.Workspaces()
 		if err != nil {
 			return fmt.Errorf("failed to get workspaces: %w", err)
 		}

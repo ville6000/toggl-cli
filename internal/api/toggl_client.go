@@ -12,6 +12,8 @@ import (
 // DefaultBaseURL is the public Toggl API endpoint used unless overridden.
 const DefaultBaseURL = "https://api.track.toggl.com/api/v9"
 
+// Client talks to the Toggl Track v9 API, authenticating with an API token.
+// Projects are cached on disk through Cache when it is set.
 type Client struct {
 	BaseURL    string
 	HTTPClient *http.Client

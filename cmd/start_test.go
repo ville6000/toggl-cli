@@ -24,7 +24,7 @@ type mockStartService struct {
 	projectsMapErr  error
 }
 
-func (m *mockStartService) GetProjectIDByName(_ int, name string) (int, error) {
+func (m *mockStartService) ProjectIDByName(_ int, name string) (int, error) {
 	if m.projectIDErr != nil {
 		return 0, m.projectIDErr
 	}
@@ -35,7 +35,7 @@ func (m *mockStartService) CreateTimeEntry(_ int, _ data.TimeEntry) (*data.TimeE
 	return m.createEntry, m.createErr
 }
 
-func (m *mockStartService) GetProjectsLookupMap(_ int) (map[int]string, error) {
+func (m *mockStartService) ProjectNames(_ int) (map[int]string, error) {
 	return m.projectsMap, m.projectsMapErr
 }
 

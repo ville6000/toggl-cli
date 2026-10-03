@@ -107,8 +107,8 @@ func TestAuthHeaderEncoding(t *testing.T) {
 	client, _ := newTestClient(t, handler)
 	client.AuthToken = "mytoken"
 
-	if _, err := client.GetWorkspaces(); err != nil {
-		t.Fatalf("GetWorkspaces: %v", err)
+	if _, err := client.Workspaces(); err != nil {
+		t.Fatalf("Workspaces: %v", err)
 	}
 
 	expected := "Basic " + base64.StdEncoding.EncodeToString([]byte("mytoken:api_token"))
@@ -127,8 +127,8 @@ func TestContentTypeHeader(t *testing.T) {
 	})
 	client, _ := newTestClient(t, handler)
 
-	if _, err := client.GetWorkspaces(); err != nil {
-		t.Fatalf("GetWorkspaces: %v", err)
+	if _, err := client.Workspaces(); err != nil {
+		t.Fatalf("Workspaces: %v", err)
 	}
 
 	if capturedContentType != "application/json" {
@@ -136,46 +136,46 @@ func TestContentTypeHeader(t *testing.T) {
 	}
 }
 
-// ---------- GetWorkspaces ----------
+// ---------- Workspaces ----------
 
-func TestGetWorkspaces_Success(t *testing.T) {
+func TestWorkspaces_Success(t *testing.T) {
 	workspaces := []data.Workspace{{ID: 1, Name: "Main"}, {ID: 2, Name: "Side"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, workspaces))
 
-	got, err := client.GetWorkspaces()
+	got, err := client.Workspaces()
 	if err != nil {
-		t.Fatalf("GetWorkspaces: %v", err)
+		t.Fatalf("Workspaces: %v", err)
 	}
 	if len(got) != 2 || got[0].Name != "Main" || got[1].Name != "Side" {
 		t.Errorf("unexpected workspaces: %+v", got)
 	}
 }
 
-func TestGetWorkspaces_HTTPError(t *testing.T) {
+func TestWorkspaces_HTTPError(t *testing.T) {
 	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.GetWorkspaces(); err == nil {
+	if _, err := client.Workspaces(); err == nil {
 		t.Error("expected error for HTTP 401")
 	}
 }
 
-// ---------- GetCurrentTimerEntry ----------
+// ---------- CurrentTimeEntry ----------
 
-func TestGetCurrentTimerEntry_Success(t *testing.T) {
+func TestCurrentTimeEntry_Success(t *testing.T) {
 	entry := data.TimeEntryItem{ID: 99, Description: "current work"}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, entry))
 
-	got, err := client.GetCurrentTimerEntry()
+	got, err := client.CurrentTimeEntry()
 	if err != nil {
-		t.Fatalf("GetCurrentTimerEntry: %v", err)
+		t.Fatalf("CurrentTimeEntry: %v", err)
 	}
 	if got.ID != 99 || got.Description != "current work" {
 		t.Errorf("unexpected entry: %+v", got)
 	}
 }
 
-func TestGetCurrentTimerEntry_HTTPError(t *testing.T) {
+func TestCurrentTimeEntry_HTTPError(t *testing.T) {
 	client, _ := newTestClient(t, errorHandler(http.StatusNotFound))
-	if _, err := client.GetCurrentTimerEntry(); err == nil {
+	if _, err := client.CurrentTimeEntry(); err == nil {
 		t.Error("expected error for HTTP 404")
 	}
 }
@@ -322,22 +322,22 @@ func TestUpdateTimeEntry_HTTPError(t *testing.T) {
 	}
 }
 
-// ---------- GetProjects ----------
+// ---------- Projects ----------
 
-func TestGetProjects_FetchesFromAPI(t *testing.T) {
+func TestProjects_FetchesFromAPI(t *testing.T) {
 	projects := []data.Project{{ID: 1, Name: "Alpha"}, {ID: 2, Name: "Beta"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
 
-	got, err := client.GetProjects(10)
+	got, err := client.Projects(10)
 	if err != nil {
-		t.Fatalf("GetProjects: %v", err)
+		t.Fatalf("Projects: %v", err)
 	}
 	if len(got) != 2 || got[0].Name != "Alpha" || got[1].Name != "Beta" {
 		t.Errorf("unexpected projects: %+v", got)
 	}
 }
 
-func TestGetProjects_UsesCache(t *testing.T) {
+func TestProjects_UsesCache(t *testing.T) {
 	callCount := 0
 	projects := []data.Project{{ID: 1, Name: "Cached"}}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -348,11 +348,11 @@ func TestGetProjects_UsesCache(t *testing.T) {
 	})
 	client, _ := newTestClient(t, handler)
 
-	if _, err := client.GetProjects(10); err != nil {
-		t.Fatalf("first GetProjects: %v", err)
+	if _, err := client.Projects(10); err != nil {
+		t.Fatalf("first Projects: %v", err)
 	}
-	if _, err := client.GetProjects(10); err != nil {
-		t.Fatalf("second GetProjects: %v", err)
+	if _, err := client.Projects(10); err != nil {
+		t.Fatalf("second Projects: %v", err)
 	}
 
 	if callCount != 1 {
@@ -360,14 +360,14 @@ func TestGetProjects_UsesCache(t *testing.T) {
 	}
 }
 
-func TestGetProjects_HTTPError(t *testing.T) {
+func TestProjects_HTTPError(t *testing.T) {
 	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.GetProjects(10); err == nil {
+	if _, err := client.Projects(10); err == nil {
 		t.Error("expected error for HTTP 401")
 	}
 }
 
-func TestGetProjects_URLContainsWorkspaceID(t *testing.T) {
+func TestProjects_URLContainsWorkspaceID(t *testing.T) {
 	var capturedPath string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedPath = r.URL.Path
@@ -377,67 +377,67 @@ func TestGetProjects_URLContainsWorkspaceID(t *testing.T) {
 	})
 	client, _ := newTestClient(t, handler)
 
-	_, _ = client.GetProjects(99)
+	_, _ = client.Projects(99)
 	if !strings.Contains(capturedPath, "99") {
 		t.Errorf("URL path %q does not contain workspace ID 99", capturedPath)
 	}
 }
 
-// ---------- GetProjectIDByName ----------
+// ---------- ProjectIDByName ----------
 
-func TestGetProjectIDByName_Found(t *testing.T) {
+func TestProjectIDByName_Found(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
 
-	id, err := client.GetProjectIDByName(10, "MyProject")
+	id, err := client.ProjectIDByName(10, "MyProject")
 	if err != nil {
-		t.Fatalf("GetProjectIDByName: %v", err)
+		t.Fatalf("ProjectIDByName: %v", err)
 	}
 	if id != 5 {
 		t.Errorf("got id %d, want 5", id)
 	}
 }
 
-func TestGetProjectIDByName_CaseInsensitive(t *testing.T) {
+func TestProjectIDByName_CaseInsensitive(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
 
-	id, err := client.GetProjectIDByName(10, "myproject")
+	id, err := client.ProjectIDByName(10, "myproject")
 	if err != nil {
-		t.Fatalf("GetProjectIDByName: %v", err)
+		t.Fatalf("ProjectIDByName: %v", err)
 	}
 	if id != 5 {
 		t.Errorf("case-insensitive match: got id %d, want 5", id)
 	}
 }
 
-func TestGetProjectIDByName_NotFound(t *testing.T) {
+func TestProjectIDByName_NotFound(t *testing.T) {
 	projects := []data.Project{{ID: 5, Name: "MyProject"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
 
-	if _, err := client.GetProjectIDByName(10, "nonexistent"); err == nil {
+	if _, err := client.ProjectIDByName(10, "nonexistent"); err == nil {
 		t.Error("expected error for missing project")
 	}
 }
 
-func TestGetProjectIDByName_EmptyProjects(t *testing.T) {
+func TestProjectIDByName_EmptyProjects(t *testing.T) {
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, []data.Project{}))
 
-	if _, err := client.GetProjectIDByName(10, "any"); err == nil {
+	if _, err := client.ProjectIDByName(10, "any"); err == nil {
 		t.Error("expected error with empty project list")
 	}
 }
 
-func TestGetProjectIDByName_APIError(t *testing.T) {
+func TestProjectIDByName_APIError(t *testing.T) {
 	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.GetProjectIDByName(10, "any"); err == nil {
+	if _, err := client.ProjectIDByName(10, "any"); err == nil {
 		t.Error("expected error when API fails")
 	}
 }
 
-// ---------- GetHistory ----------
+// ---------- TimeEntries ----------
 
-func TestGetHistory_NoParams(t *testing.T) {
+func TestTimeEntries_NoParams(t *testing.T) {
 	entries := []data.TimeEntryItem{{ID: 1, Description: "work"}}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery != "" {
@@ -449,16 +449,16 @@ func TestGetHistory_NoParams(t *testing.T) {
 	})
 	client, _ := newTestClient(t, handler)
 
-	got, err := client.GetHistory(nil, nil)
+	got, err := client.TimeEntries(nil, nil)
 	if err != nil {
-		t.Fatalf("GetHistory: %v", err)
+		t.Fatalf("TimeEntries: %v", err)
 	}
 	if len(got) != 1 || got[0].ID != 1 {
 		t.Errorf("unexpected entries: %+v", got)
 	}
 }
 
-func TestGetHistory_WithBothDates(t *testing.T) {
+func TestTimeEntries_WithBothDates(t *testing.T) {
 	loc := time.FixedZone("EET", 2*60*60)
 	from := time.Date(2024, 1, 1, 0, 0, 0, 0, loc)
 	to := time.Date(2024, 1, 31, 0, 0, 0, 0, loc)
@@ -476,12 +476,12 @@ func TestGetHistory_WithBothDates(t *testing.T) {
 	})
 	client, _ := newTestClient(t, handler)
 
-	if _, err := client.GetHistory(&from, &to); err != nil {
-		t.Fatalf("GetHistory: %v", err)
+	if _, err := client.TimeEntries(&from, &to); err != nil {
+		t.Fatalf("TimeEntries: %v", err)
 	}
 }
 
-func TestGetHistory_OnlyFromDate(t *testing.T) {
+func TestTimeEntries_OnlyFromDate(t *testing.T) {
 	from := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
@@ -497,12 +497,12 @@ func TestGetHistory_OnlyFromDate(t *testing.T) {
 	})
 	client, _ := newTestClient(t, handler)
 
-	if _, err := client.GetHistory(&from, nil); err != nil {
-		t.Fatalf("GetHistory: %v", err)
+	if _, err := client.TimeEntries(&from, nil); err != nil {
+		t.Fatalf("TimeEntries: %v", err)
 	}
 }
 
-func TestGetHistory_OnlyToDate(t *testing.T) {
+func TestTimeEntries_OnlyToDate(t *testing.T) {
 	to := time.Date(2024, 6, 30, 0, 0, 0, 0, time.UTC)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
@@ -518,48 +518,48 @@ func TestGetHistory_OnlyToDate(t *testing.T) {
 	})
 	client, _ := newTestClient(t, handler)
 
-	if _, err := client.GetHistory(nil, &to); err != nil {
-		t.Fatalf("GetHistory: %v", err)
+	if _, err := client.TimeEntries(nil, &to); err != nil {
+		t.Fatalf("TimeEntries: %v", err)
 	}
 }
 
-func TestGetHistory_HTTPError(t *testing.T) {
+func TestTimeEntries_HTTPError(t *testing.T) {
 	client, _ := newTestClient(t, errorHandler(http.StatusForbidden))
-	if _, err := client.GetHistory(nil, nil); err == nil {
+	if _, err := client.TimeEntries(nil, nil); err == nil {
 		t.Error("expected error for HTTP 403")
 	}
 }
 
-// ---------- GetProjectsLookupMap ----------
+// ---------- ProjectNames ----------
 
-func TestGetProjectsLookupMap_Success(t *testing.T) {
+func TestProjectNames_Success(t *testing.T) {
 	projects := []data.Project{{ID: 1, Name: "Alpha"}, {ID: 2, Name: "Beta"}}
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, projects))
 
-	lookup, err := client.GetProjectsLookupMap(10)
+	lookup, err := client.ProjectNames(10)
 	if err != nil {
-		t.Fatalf("GetProjectsLookupMap: %v", err)
+		t.Fatalf("ProjectNames: %v", err)
 	}
 	if lookup[1] != "Alpha" || lookup[2] != "Beta" {
 		t.Errorf("unexpected lookup: %+v", lookup)
 	}
 }
 
-func TestGetProjectsLookupMap_Empty(t *testing.T) {
+func TestProjectNames_Empty(t *testing.T) {
 	client, _ := newTestClient(t, jsonHandler(t, http.StatusOK, []data.Project{}))
 
-	lookup, err := client.GetProjectsLookupMap(10)
+	lookup, err := client.ProjectNames(10)
 	if err != nil {
-		t.Fatalf("GetProjectsLookupMap: %v", err)
+		t.Fatalf("ProjectNames: %v", err)
 	}
 	if len(lookup) != 0 {
 		t.Errorf("expected empty map, got %+v", lookup)
 	}
 }
 
-func TestGetProjectsLookupMap_APIError(t *testing.T) {
+func TestProjectNames_APIError(t *testing.T) {
 	client, _ := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.GetProjectsLookupMap(10); err == nil {
+	if _, err := client.ProjectNames(10); err == nil {
 		t.Error("expected error when API fails")
 	}
 }

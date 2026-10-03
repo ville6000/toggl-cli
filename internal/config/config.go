@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Token returns the configured Toggl API token.
 func Token() (string, error) {
 	token := viper.GetString("toggl.token")
 	if token == "" {
@@ -16,6 +17,8 @@ func Token() (string, error) {
 	return token, nil
 }
 
+// TokenAndWorkspace returns the configured Toggl API token and default
+// workspace ID, both of which are required.
 func TokenAndWorkspace() (string, int, error) {
 	token := viper.GetString("toggl.token")
 	if token == "" {
@@ -70,6 +73,8 @@ func LoadSevenPace() (SevenPace, error) {
 	return cfg, nil
 }
 
+// Timezone returns the configured toggl.timezone, or the local time zone when
+// none is set.
 func Timezone() (*time.Location, error) {
 	tz := viper.GetString("toggl.timezone")
 	if tz == "" {
