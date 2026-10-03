@@ -26,14 +26,17 @@ go build -o toggl-cli .
 ## Tests, formatting and linting
 
 ```sh
-make test     # go test -v ./...
+make build    # go build -o toggl-cli .
+make test     # go test -race ./...
 make format   # gofumpt -l -w .
 make lint     # golangci-lint run ./...
+make check    # format, lint and test
 ```
 
-CI runs the build, the tests and golangci-lint on every pull request, using the
-same golangci-lint version as `mise.toml`. Run `make format lint test` before
-pushing.
+CI runs the build, the tests (with the race detector), golangci-lint and
+`goreleaser check` on every pull request, using the same tool versions as
+`mise.toml`. The build and lint jobs must pass before a pull request can merge.
+Run `make check` before pushing.
 
 The command tests in `cmd/e2e_*_test.go` run the whole CLI against local stub
 server for the Toggl API, with a temporary home directory, so they

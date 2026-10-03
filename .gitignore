@@ -31,3 +31,6 @@ dist/
 
 .DS_Store
 .claude/
+
+# Local build output (make build)
+/toggl-cli
