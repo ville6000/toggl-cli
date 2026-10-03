@@ -71,7 +71,7 @@ func newHistoryCmd(v *viper.Viper) *cobra.Command {
 			out := cmd.OutOrStdout()
 			now := time.Now()
 			sortedKeys := getSortedTimeEntryDates(groupedEntries)
-			headers := []any{"Started At", "Duration", "Description", "Project"}
+			headers := []any{"ID", "Started At", "Duration", "Description", "Project"}
 			summaryHeaders := []any{"Description", "Project", "Duration"}
 			for _, key := range sortedKeys {
 				fmt.Fprintf(out, "# %s\n", key)
@@ -195,6 +195,7 @@ func outputDateEntries(
 		localStart := entry.Start.In(location)
 
 		rows = append(rows, []any{
+			entry.ID,
 			localStart.Format("15:04"),
 			formattedDuration,
 			entry.Description,

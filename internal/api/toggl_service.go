@@ -41,6 +41,21 @@ func (c *Client) CurrentTimeEntry(ctx context.Context) (*TimeEntryItem, error) {
 	return &entry, nil
 }
 
+// TimeEntry returns the user's time entry with the given ID.
+func (c *Client) TimeEntry(ctx context.Context, id int) (*TimeEntryItem, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, fmt.Sprintf("/me/time_entries/%d", id), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var entry TimeEntryItem
+	if reqErr := c.doRequest(req, &entry); reqErr != nil {
+		return nil, reqErr
+	}
+
+	return &entry, nil
+}
+
 // CreateTimeEntry creates entry in the given workspace and returns it as
 // stored by Toggl.
 func (c *Client) CreateTimeEntry(ctx context.Context, workspaceID int, entry TimeEntry) (*TimeEntry, error) {

@@ -145,6 +145,10 @@ func TestHistoryCommand_VerboseListsIndividualEntries(t *testing.T) {
 			t.Errorf("verbose output missing start time %q:\n%s", want, verbose)
 		}
 	}
+	// The IDs that edit and continue accept with --id.
+	if !strings.Contains(verbose, "| ID ") {
+		t.Errorf("verbose output missing the ID column:\n%s", verbose)
+	}
 
 	plain, _, err := executeCommand(t, v, "history", "--start", "2024-03-04", "--end", "2024-03-04")
 	if err != nil {
