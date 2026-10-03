@@ -167,7 +167,6 @@ func TestEnvVar(t *testing.T) {
 	tests := map[string]string{
 		"toggl.token":          "TOGGL_CLI_TOGGL_TOKEN",
 		"toggl.workspace_id":   "TOGGL_CLI_TOGGL_WORKSPACE_ID",
-		"sevenpace.password":   "TOGGL_CLI_SEVENPACE_PASSWORD",
 		"start.ticket_pattern": "TOGGL_CLI_START_TICKET_PATTERN",
 	}
 	for key, want := range tests {
@@ -180,9 +179,6 @@ func TestEnvVar(t *testing.T) {
 func TestUseEnv_ReadsPrefixedVariables(t *testing.T) {
 	t.Setenv("TOGGL_CLI_TOGGL_TOKEN", "env-token")
 	t.Setenv("TOGGL_CLI_TOGGL_WORKSPACE_ID", "42")
-	t.Setenv("TOGGL_CLI_SEVENPACE_BASE_URL", "https://7pace.example")
-	t.Setenv("TOGGL_CLI_SEVENPACE_USERNAME", "user")
-	t.Setenv("TOGGL_CLI_SEVENPACE_PASSWORD", "secret")
 
 	v := viper.New()
 	UseEnv(v)
@@ -193,14 +189,6 @@ func TestUseEnv_ReadsPrefixedVariables(t *testing.T) {
 	}
 	if token != "env-token" || workspaceID != 42 {
 		t.Errorf("got token %q, workspace %d; want env-token, 42", token, workspaceID)
-	}
-
-	sp, err := LoadSevenPace(v)
-	if err != nil {
-		t.Fatalf("LoadSevenPace: %v", err)
-	}
-	if sp.BaseURL != "https://7pace.example" || sp.Username != "user" || sp.Password != "secret" {
-		t.Errorf("unexpected 7pace config from env: %+v", sp)
 	}
 }
 

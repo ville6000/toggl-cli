@@ -498,7 +498,6 @@ func TestConfigCommand_WritesTheConfigFile(t *testing.T) {
 		"my-token",
 		"4242",
 		"Asia/Tokyo",
-		"", // skip the 7pace section
 		"",
 	}, "\n")
 
@@ -609,38 +608,6 @@ func TestStartCommand_DetectsProjectAndTicketFromTheWorkingDirectory(t *testing.
 	}
 	if created.Description != "4711" {
 		t.Errorf("description: got %q, want %q (the ticket in the directory name)", created.Description, "4711")
-	}
-}
-
-func TestConfigCommand_StoresTheSevenPaceSettings(t *testing.T) {
-	v := setupCLITest(t, nil)
-
-	input := strings.Join([]string{
-		"my-token",
-		"4242",
-		"", // system timezone
-		"https://7pace.example",
-		"CORP",
-		"jdoe",
-		"hunter2",
-		"activity-uuid",
-		"",
-	}, "\n")
-
-	if _, _, err := executeCommandWithInput(t, v, input, "config"); err != nil {
-		t.Fatalf("config: %v", err)
-	}
-
-	configPath := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "toggl-cli", "config.yaml")
-	written, err := os.ReadFile(configPath) // #nosec G304 - path built from the test's own temp dir
-	if err != nil {
-		t.Fatalf("read written config: %v", err)
-	}
-
-	for _, want := range []string{"https://7pace.example", "CORP", "jdoe", "hunter2", "activity-uuid"} {
-		if !strings.Contains(string(written), want) {
-			t.Errorf("config file missing %q:\n%s", want, written)
-		}
 	}
 }
 

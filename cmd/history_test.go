@@ -9,17 +9,14 @@ import (
 	"github.com/ville6000/toggl-cli/internal/api"
 )
 
-// newDateFlagCmd builds a command carrying the same date flags as history /
-// 7pace sync. withToday mirrors sync, which also has --today.
-func newDateFlagCmd(withToday bool, args ...string) (*cobra.Command, error) {
+// newDateFlagCmd builds a command carrying the same date flags as history.
+func newDateFlagCmd(args ...string) (*cobra.Command, error) {
 	cmd := &cobra.Command{Use: "test", RunE: func(*cobra.Command, []string) error { return nil }}
 	cmd.Flags().Bool("week", false, "")
 	cmd.Flags().Bool("month", false, "")
 	cmd.Flags().String("start", "", "")
 	cmd.Flags().String("end", "", "")
-	if withToday {
-		cmd.Flags().Bool("today", false, "")
-	}
+	cmd.Flags().String("day", "", "")
 
 	return cmd, cmd.Flags().Parse(args)
 }
@@ -34,12 +31,12 @@ func localDate(t *testing.T, value string) time.Time {
 }
 
 func TestGetDateParams_EndIsInclusive(t *testing.T) {
-	cmd, err := newDateFlagCmd(false, "--start", "2024-03-04", "--end", "2024-03-04")
+	cmd, err := newDateFlagCmd("--start", "2024-03-04", "--end", "2024-03-04")
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, end, err := getDateParams(cmd, time.Local, false)
+	start, end, err := getDateParams(cmd, time.Local)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -54,12 +51,12 @@ func TestGetDateParams_EndIsInclusive(t *testing.T) {
 }
 
 func TestGetDateParams_StartOnlyRunsThroughToday(t *testing.T) {
-	cmd, err := newDateFlagCmd(false, "--start", "2024-03-04")
+	cmd, err := newDateFlagCmd("--start", "2024-03-04")
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	_, end, err := getDateParams(cmd, time.Local, false)
+	_, end, err := getDateParams(cmd, time.Local)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -70,13 +67,13 @@ func TestGetDateParams_StartOnlyRunsThroughToday(t *testing.T) {
 	}
 }
 
-func TestGetDateParams_StartOnlyIsSingleDayWhenEndDefaultsToStart(t *testing.T) {
-	cmd, err := newDateFlagCmd(true, "--start", "2024-03-04")
+func TestGetDateParams_DayIsThatDayOnly(t *testing.T) {
+	cmd, err := newDateFlagCmd("--day", "2024-03-04")
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, end, err := getDateParams(cmd, time.Local, true)
+	start, end, err := getDateParams(cmd, time.Local)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -89,35 +86,44 @@ func TestGetDateParams_StartOnlyIsSingleDayWhenEndDefaultsToStart(t *testing.T) 
 	}
 }
 
-func TestGetDateParams_NoFlagsIsToday(t *testing.T) {
-	for _, withToday := range []bool{false, true} {
-		cmd, err := newDateFlagCmd(withToday)
-		if err != nil {
-			t.Fatalf("parse flags: %v", err)
-		}
-
-		start, end, err := getDateParams(cmd, time.Local, withToday)
-		if err != nil {
-			t.Fatalf("getDateParams: %v", err)
-		}
-
-		today := startOfDay(time.Now(), time.Local)
-		if !start.Equal(today) {
-			t.Errorf("withToday=%v start: got %s, want %s", withToday, start, today)
-		}
-		if want := today.AddDate(0, 0, 1); !end.Equal(want) {
-			t.Errorf("withToday=%v end: got %s, want %s", withToday, end, want)
-		}
-	}
-}
-
-func TestGetDateParams_WeekIncludesSunday(t *testing.T) {
-	cmd, err := newDateFlagCmd(false, "--week")
+func TestGetDateParams_InvalidDayErrors(t *testing.T) {
+	cmd, err := newDateFlagCmd("--day", "04.03.2024")
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, end, err := getDateParams(cmd, time.Local, false)
+	if _, _, err := getDateParams(cmd, time.Local); err == nil {
+		t.Error("expected an error for a malformed --day")
+	}
+}
+
+func TestGetDateParams_NoFlagsIsToday(t *testing.T) {
+	cmd, err := newDateFlagCmd()
+	if err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+
+	start, end, err := getDateParams(cmd, time.Local)
+	if err != nil {
+		t.Fatalf("getDateParams: %v", err)
+	}
+
+	today := startOfDay(time.Now(), time.Local)
+	if !start.Equal(today) {
+		t.Errorf("start: got %s, want %s", start, today)
+	}
+	if want := today.AddDate(0, 0, 1); !end.Equal(want) {
+		t.Errorf("end: got %s, want %s", end, want)
+	}
+}
+
+func TestGetDateParams_WeekIncludesSunday(t *testing.T) {
+	cmd, err := newDateFlagCmd("--week")
+	if err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+
+	start, end, err := getDateParams(cmd, time.Local)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -131,12 +137,12 @@ func TestGetDateParams_WeekIncludesSunday(t *testing.T) {
 }
 
 func TestGetDateParams_MonthCoversWholeMonth(t *testing.T) {
-	cmd, err := newDateFlagCmd(false, "--month")
+	cmd, err := newDateFlagCmd("--month")
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, end, err := getDateParams(cmd, time.Local, false)
+	start, end, err := getDateParams(cmd, time.Local)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -150,12 +156,12 @@ func TestGetDateParams_MonthCoversWholeMonth(t *testing.T) {
 }
 
 func TestGetDateParams_RangeStartsAtMidnight(t *testing.T) {
-	cmd, err := newDateFlagCmd(true, "--today")
+	cmd, err := newDateFlagCmd()
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	start, _, err := getDateParams(cmd, time.Local, true)
+	start, _, err := getDateParams(cmd, time.Local)
 	if err != nil {
 		t.Fatalf("getDateParams: %v", err)
 	}
@@ -166,23 +172,23 @@ func TestGetDateParams_RangeStartsAtMidnight(t *testing.T) {
 }
 
 func TestGetDateParams_EndBeforeStartErrors(t *testing.T) {
-	cmd, err := newDateFlagCmd(false, "--start", "2024-03-04", "--end", "2024-03-01")
+	cmd, err := newDateFlagCmd("--start", "2024-03-04", "--end", "2024-03-01")
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	if _, _, err := getDateParams(cmd, time.Local, false); err == nil {
+	if _, _, err := getDateParams(cmd, time.Local); err == nil {
 		t.Error("expected an error when --end precedes --start")
 	}
 }
 
 func TestGetDateParams_InvalidDateErrors(t *testing.T) {
-	cmd, err := newDateFlagCmd(false, "--start", "04.03.2024")
+	cmd, err := newDateFlagCmd("--start", "04.03.2024")
 	if err != nil {
 		t.Fatalf("parse flags: %v", err)
 	}
 
-	if _, _, err := getDateParams(cmd, time.Local, false); err == nil {
+	if _, _, err := getDateParams(cmd, time.Local); err == nil {
 		t.Error("expected an error for a malformed --start")
 	}
 }

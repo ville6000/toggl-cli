@@ -1,5 +1,5 @@
-// Package api holds the clients for the Toggl Track and 7pace Timetracker
-// REST APIs, the types they exchange, and an on-disk cache of Toggl projects.
+// Package api holds the client for the Toggl Track REST API, the types it
+// exchanges, and an on-disk cache of projects.
 package api
 
 import (

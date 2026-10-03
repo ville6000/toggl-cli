@@ -36,7 +36,7 @@ same golangci-lint version as `mise.toml`. Run `make format lint test` before
 pushing.
 
 The command tests in `cmd/e2e_*_test.go` run the whole CLI against local stub
-servers for the Toggl and 7pace APIs, with a temporary home directory, so they
+server for the Toggl API, with a temporary home directory, so they
 never touch your real config or account.
 
 ## Project layout
@@ -45,7 +45,7 @@ never touch your real config or account.
 | --- | --- |
 | `main.go` | Entry point: runs the root command and cancels on Ctrl-C |
 | `cmd/` | The cobra commands, one file per command; `NewRootCmd` builds the tree |
-| `internal/api/` | Toggl and 7pace API clients, their types and the project cache |
+| `internal/api/` | Toggl API client, its types and the project cache |
 | `internal/config/` | Reading settings from the config file and environment |
 | `internal/output/` | Table and duration formatting |
 

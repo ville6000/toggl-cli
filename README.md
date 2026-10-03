@@ -1,8 +1,7 @@
 # toggl-cli
 
 A command line client for [Toggl Track](https://toggl.com/track/): start, stop
-and edit timers, review your history, and post your time to an on-prem
-[7pace Timetracker](https://www.7pace.com/) as worklogs.
+and edit timers, and review your history.
 
 ```console
 $ toggl-cli start "code review" -p Alpha
@@ -15,7 +14,6 @@ $ toggl-cli history --week
 - [Getting started](#getting-started)
 - [Usage](#usage)
 - [Configuration](#configuration)
-- [7pace Timetracker](#7pace-timetracker)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -73,7 +71,7 @@ See `toggl-cli completion <shell> --help` for each shell's instructions.
 1. Find your API token at the bottom of your
    [Toggl profile page](https://track.toggl.com/profile).
 2. Run the interactive setup, which asks for the token, your default workspace
-   ID and timezone, and optionally your 7pace settings:
+   ID and timezone:
 
    ```sh
    toggl-cli config
@@ -101,8 +99,6 @@ See `toggl-cli completion <shell> --help` for each shell's instructions.
 | `toggl-cli workspaces` | List your workspaces |
 | `toggl-cli www` | Open Toggl in the browser |
 | `toggl-cli config` | Create or update the config file |
-| `toggl-cli 7pace sync` | Post Toggl entries to 7pace as worklogs |
-| `toggl-cli 7pace add` | Post a single worklog to 7pace |
 
 Run `toggl-cli <command> --help` for all flags, and `toggl-cli --version` for
 the installed version.
@@ -125,12 +121,38 @@ ticket number from the directory name, so starting a timer in
 ### History
 
 `toggl-cli history` shows today's time, summed by description and project.
-Choose the range with `--week`, `--month`, or `--start` / `--end`
+Choose the range with `--day`/`-d`, `--week`, `--month`, or `--start` / `--end`
 (`YYYY-MM-DD`, both inclusive). `--verbose` also lists each entry with its ID.
 
 ```sh
 toggl-cli history --week
+toggl-cli history --day 2024-06-03
 toggl-cli history --start 2024-06-01 --end 2024-06-07 --verbose
+```
+
+`--json` prints the range's individual entries as a JSON array instead, oldest
+first, for piping into other tools:
+
+```json
+[
+  {
+    "id": 4123456789,
+    "start": "2024-06-03T09:15:00+03:00",
+    "duration": 1800,
+    "running": false,
+    "description": "#1234 code review",
+    "project": "Alpha",
+    "tags": []
+  }
+]
+```
+
+`start` is in your configured timezone and `duration` is in seconds; a running
+entry has `"running": true` and the time elapsed so far. An empty range gives
+`[]`.
+
+```sh
+toggl-cli history --week --json | jq '[.[] | .duration] | add'
 ```
 
 ### Editing and continuing entries
@@ -184,14 +206,6 @@ projects:                        # written by `projects add-path`
     paths:
       - /Users/me/Code/alpha
     ticket_pattern: "task-([0-9]+)"  # optional, overrides start.ticket_pattern
-
-sevenpace:                       # optional, see "7pace Timetracker"
-  base_url: https://timetracker.example.com:8090/api/YourCollection/rest
-  domain: CORP
-  username: <windows_username>
-  password: <windows_password>
-  activity_type_id: <activity_type_uuid>  # optional
-  insecure_skip_verify: false             # true only for self-signed certificates
 ```
 
 ### Environment variables
@@ -203,7 +217,6 @@ the config file, so the CLI can run without one (in CI or a container, say):
 ```sh
 export TOGGL_CLI_TOGGL_TOKEN=<your_api_token>
 export TOGGL_CLI_TOGGL_WORKSPACE_ID=1234567
-export TOGGL_CLI_SEVENPACE_PASSWORD=<your_windows_password>
 ```
 
 Project directory links (`projects`) can only be set in the config file.
@@ -226,38 +239,6 @@ Project lists are cached for 24 hours. When a command can't find a project
 name or ID in the cache, it fetches the list again, so new and renamed projects
 show up right away. `toggl-cli projects list --refresh` always fetches a fresh
 list.
-
-## 7pace Timetracker
-
-`toggl-cli` can post your Toggl time to an on-prem 7pace Timetracker as
-worklogs. Add the `sevenpace` settings with `toggl-cli config` or by hand (see
-[Configuration](#configuration)).
-
-7pace's on-prem API uses NTLM (Windows) authentication, so your Windows
-password is stored in the config file **in plaintext**; the file is readable
-only by you. Reaching the server usually requires the corporate network or VPN.
-
-`toggl-cli 7pace sync` posts your Toggl entries for a date range: today by
-default, or `--week`, `--month`, `--start` / `--end`.
-
-- The Azure DevOps work item ID comes from the entry's description, such as
-  `#1234 fix bug`, `AB#1234 ...` or a leading `1234 - ...`. Entries without one
-  are skipped and listed.
-- Entries with the same description on the same day become one worklog, with
-  the time rounded up to the minute.
-- Re-running a range posts it again, creating **duplicate worklogs**. Preview
-  with `--dry-run` first:
-
-```sh
-toggl-cli 7pace sync --week --dry-run   # preview what would be posted
-toggl-cli 7pace sync --week             # post, after a confirmation prompt
-```
-
-`toggl-cli 7pace add` posts a single worklog:
-
-```sh
-toggl-cli 7pace add --work-item 1234 --duration 1h30m --comment "code review"
-```
 
 ## Contributing
 

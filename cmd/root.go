@@ -53,7 +53,6 @@ func newRootCmd(v *viper.Viper) *cobra.Command {
 		newEditCmd(v),
 		newHistoryCmd(v),
 		newProjectsCmd(v),
-		newSevenPaceCmd(v),
 		newStartCmd(v),
 		newStopCmd(v),
 		newWorkspacesCmd(v),

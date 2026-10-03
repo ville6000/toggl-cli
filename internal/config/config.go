@@ -72,39 +72,6 @@ func TogglBaseURL(v *viper.Viper) string {
 	return v.GetString("toggl.base_url")
 }
 
-// SevenPace holds the settings for talking to an on-prem 7pace
-// Timetracker instance using NTLM (Windows) authentication.
-type SevenPace struct {
-	BaseURL         string
-	Domain          string
-	Username        string
-	Password        string
-	ActivityTypeID  string
-	InsecureSkipTLS bool
-}
-
-// LoadSevenPace reads the 7pace configuration from v. Base URL,
-// username and password are required; domain and activity type are optional.
-func LoadSevenPace(v *viper.Viper) (SevenPace, error) {
-	cfg := SevenPace{
-		BaseURL:         v.GetString("sevenpace.base_url"),
-		Domain:          v.GetString("sevenpace.domain"),
-		Username:        v.GetString("sevenpace.username"),
-		Password:        v.GetString("sevenpace.password"),
-		ActivityTypeID:  v.GetString("sevenpace.activity_type_id"),
-		InsecureSkipTLS: v.GetBool("sevenpace.insecure_skip_verify"),
-	}
-
-	if cfg.BaseURL == "" {
-		return SevenPace{}, missing("sevenpace.base_url")
-	}
-	if cfg.Username == "" || cfg.Password == "" {
-		return SevenPace{}, missing("sevenpace.username", "sevenpace.password")
-	}
-
-	return cfg, nil
-}
-
 // Timezone returns the configured toggl.timezone, or the local time zone when
 // none is set.
 func Timezone(v *viper.Viper) (*time.Location, error) {

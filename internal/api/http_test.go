@@ -43,24 +43,6 @@ func TestDoRequest_ErrorIncludesResponseBody(t *testing.T) {
 	}
 }
 
-func TestSevenPaceDoRequest_UnauthorizedAddsCredentialHint(t *testing.T) {
-	client := newTestSevenPaceClient(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("WWW-Authenticate", "NTLM")
-		w.WriteHeader(http.StatusUnauthorized)
-	}))
-
-	_, err := client.CreateWorkLog(t.Context(), SevenPaceWorkLog{Length: 3600})
-	if err == nil {
-		t.Fatal("expected error for HTTP 401")
-	}
-
-	for _, want := range []string{"401", `"NTLM"`, "sevenpace.domain/username/password"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("error should contain %q, got %q", want, err)
-		}
-	}
-}
-
 func TestRequests_StopWhenContextIsCancelled(t *testing.T) {
 	client := newTestClient(t, jsonHandler(t, []Workspace{}))
 
