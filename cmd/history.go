@@ -43,10 +43,6 @@ func newHistoryCmd(v *viper.Viper) *cobra.Command {
 			}
 
 			client := newTogglClient(v, token)
-			projectsLookup, err := client.ProjectNames(ctx, workspaceID)
-			if err != nil {
-				return fmt.Errorf("failed to get projects: %w", err)
-			}
 
 			location, err := config.Timezone(v)
 			if err != nil {
@@ -61,6 +57,16 @@ func newHistoryCmd(v *viper.Viper) *cobra.Command {
 			timeEntries, err := client.TimeEntries(ctx, &startTime, &endTime)
 			if err != nil {
 				return fmt.Errorf("failed to get history: %w", err)
+			}
+
+			projectIDs := make([]int, len(timeEntries))
+			for i, entry := range timeEntries {
+				projectIDs[i] = entry.ProjectID
+			}
+
+			projectsLookup, err := client.ProjectNames(ctx, workspaceID, projectIDs...)
+			if err != nil {
+				return fmt.Errorf("failed to get projects: %w", err)
 			}
 
 			groupedEntries := groupEntriesByDate(timeEntries, location)

@@ -32,7 +32,7 @@ func newCurrentCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to get current timer entry: %w", err)
 			}
 
-			projectsMap, err := client.ProjectNames(ctx, workspaceID)
+			projectsMap, err := client.ProjectNames(ctx, workspaceID, currentEntry.ProjectID)
 			if err != nil {
 				return fmt.Errorf("failed to get projects: %w", err)
 			}

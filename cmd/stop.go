@@ -40,7 +40,7 @@ func newStopCmd(v *viper.Viper) *cobra.Command {
 				return fmt.Errorf("failed to stop time entry: %w", err)
 			}
 
-			projectsMap, err := client.ProjectNames(ctx, workspaceID)
+			projectsMap, err := client.ProjectNames(ctx, workspaceID, stoppedEntry.ProjectID)
 			if err != nil {
 				return fmt.Errorf("failed to get projects lookup map: %w", err)
 			}

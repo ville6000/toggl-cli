@@ -159,6 +159,34 @@ func TestHistoryCommand_VerboseListsIndividualEntries(t *testing.T) {
 	}
 }
 
+// A project created after the cache was saved still shows its name: the
+// missing ID triggers a fresh project list.
+func TestHistoryCommand_NamesProjectsMissingFromAStaleCache(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	projectCache, err := api.NewProjectCache()
+	if err != nil {
+		t.Fatalf("project cache: %v", err)
+	}
+	if err := projectCache.SaveProjects(testWorkspaceID, []api.Project{{ID: 7, Name: "Alpha"}}); err != nil {
+		t.Fatalf("seed cache: %v", err)
+	}
+
+	stub.stubProjects(api.Project{ID: 7, Name: "Alpha"}, api.Project{ID: 8, Name: "Brand New"})
+	entry := utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "kickoff")
+	entry.ProjectID = 8
+	stub.stubHistory(entry)
+
+	out, _, err := executeCommand(t, v, "history", "--start", "2024-03-04", "--end", "2024-03-04")
+	if err != nil {
+		t.Fatalf("history: %v", err)
+	}
+	if !strings.Contains(out, "Brand New") {
+		t.Errorf("output missing the new project's name:\n%s", out)
+	}
+}
+
 func TestHistoryCommand_NoEntriesIsAnError(t *testing.T) {
 	stub := newAPIStub(t)
 	v := setupCLITest(t, stub)

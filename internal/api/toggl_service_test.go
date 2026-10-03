@@ -386,6 +386,133 @@ func TestProjects_UsesCache(t *testing.T) {
 	}
 }
 
+// projectsAPI serves the workspace's projects as Toggl currently has them and
+// counts the requests, so tests can tell cache hits from API calls.
+type projectsAPI struct {
+	projects []Project
+	calls    int
+}
+
+func (a *projectsAPI) handler(t *testing.T) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		a.calls++
+		if err := json.NewEncoder(w).Encode(a.projects); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	}
+}
+
+// newClientWithStaleCache returns a client whose cache holds cached while
+// Toggl itself has current.
+func newClientWithStaleCache(t *testing.T, cached, current []Project) (*Client, *projectsAPI) {
+	t.Helper()
+
+	togglAPI := &projectsAPI{projects: current}
+	client := newTestClient(t, togglAPI.handler(t))
+	if err := client.Cache.SaveProjects(10, cached); err != nil {
+		t.Fatalf("seed cache: %v", err)
+	}
+
+	return client, togglAPI
+}
+
+func TestRefreshProjects_BypassesAndUpdatesTheCache(t *testing.T) {
+	client, togglAPI := newClientWithStaleCache(t,
+		[]Project{{ID: 1, Name: "Old"}},
+		[]Project{{ID: 1, Name: "Old"}, {ID: 2, Name: "New"}},
+	)
+
+	got, err := client.RefreshProjects(t.Context(), 10)
+	if err != nil {
+		t.Fatalf("RefreshProjects: %v", err)
+	}
+	if len(got) != 2 || togglAPI.calls != 1 {
+		t.Fatalf("got %d projects with %d API call(s), want 2 with 1", len(got), togglAPI.calls)
+	}
+
+	// The fresh list replaced the cached one.
+	cached, err := client.Projects(t.Context(), 10)
+	if err != nil {
+		t.Fatalf("Projects: %v", err)
+	}
+	if len(cached) != 2 || togglAPI.calls != 1 {
+		t.Errorf("after refresh: %d cached project(s), %d API call(s); want 2 and 1", len(cached), togglAPI.calls)
+	}
+}
+
+func TestProjectIDByName_RefetchesANameMissingFromTheCache(t *testing.T) {
+	client, togglAPI := newClientWithStaleCache(t,
+		[]Project{{ID: 1, Name: "Old"}},
+		[]Project{{ID: 1, Name: "Old"}, {ID: 2, Name: "New"}},
+	)
+
+	id, err := client.ProjectIDByName(t.Context(), 10, "new")
+	if err != nil {
+		t.Fatalf("ProjectIDByName: %v", err)
+	}
+	if id != 2 {
+		t.Errorf("got id %d, want 2", id)
+	}
+	if togglAPI.calls != 1 {
+		t.Errorf("API calls: got %d, want 1", togglAPI.calls)
+	}
+}
+
+func TestProjectIDByName_CachedNameNeedsNoAPICall(t *testing.T) {
+	client, togglAPI := newClientWithStaleCache(t, []Project{{ID: 1, Name: "Old"}}, nil)
+
+	if id, err := client.ProjectIDByName(t.Context(), 10, "Old"); err != nil || id != 1 {
+		t.Fatalf("got %d, %v; want 1", id, err)
+	}
+	if togglAPI.calls != 0 {
+		t.Errorf("API calls: got %d, want 0", togglAPI.calls)
+	}
+}
+
+func TestProjectIDByName_UnknownNameIsFetchedOnlyOnce(t *testing.T) {
+	// Nothing cached: the first fetch is already fresh, so a miss is final.
+	togglAPI := &projectsAPI{projects: []Project{{ID: 1, Name: "Old"}}}
+	client := newTestClient(t, togglAPI.handler(t))
+
+	if _, err := client.ProjectIDByName(t.Context(), 10, "Missing"); err == nil {
+		t.Error("expected an error for an unknown project")
+	}
+	if togglAPI.calls != 1 {
+		t.Errorf("API calls: got %d, want 1", togglAPI.calls)
+	}
+}
+
+func TestProjectNames_RefetchesWhenANeededIDIsMissing(t *testing.T) {
+	client, togglAPI := newClientWithStaleCache(t,
+		[]Project{{ID: 1, Name: "Old"}},
+		[]Project{{ID: 1, Name: "Old"}, {ID: 2, Name: "New"}},
+	)
+
+	names, err := client.ProjectNames(t.Context(), 10, 1, 2)
+	if err != nil {
+		t.Fatalf("ProjectNames: %v", err)
+	}
+	if names[2] != "New" {
+		t.Errorf("names[2] = %q, want %q", names[2], "New")
+	}
+	if togglAPI.calls != 1 {
+		t.Errorf("API calls: got %d, want 1", togglAPI.calls)
+	}
+}
+
+func TestProjectNames_UsesTheCacheWhenItHasEveryNeededID(t *testing.T) {
+	client, togglAPI := newClientWithStaleCache(t, []Project{{ID: 1, Name: "Old"}}, nil)
+
+	// 0 means "no project" and is never looked up.
+	names, err := client.ProjectNames(t.Context(), 10, 1, 0)
+	if err != nil {
+		t.Fatalf("ProjectNames: %v", err)
+	}
+	if names[1] != "Old" || togglAPI.calls != 0 {
+		t.Errorf("names[1] = %q with %d API call(s), want %q with 0", names[1], togglAPI.calls, "Old")
+	}
+}
+
 func TestProjects_HTTPError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
 	if _, err := client.Projects(t.Context(), 10); err == nil {

@@ -87,11 +87,18 @@ the instance also requires being on the corporate network / VPN.
 - `toggl-cli stop` - Stop the current time entry
 - `toggl-cli edit` - Edit a recent/running entry's description, project or start time
 - `toggl-cli history` - List time entries
-- `toggl-cli projects` - List projects
+- `toggl-cli projects list` - List projects (`--refresh` to skip the local cache)
 - `toggl-cli www` - Open the Toggl website
 - `toggl-cli config` - Generate config for the CLI tool
 - `toggl-cli 7pace sync` - Post Toggl entries for a date range to 7pace as worklogs
 - `toggl-cli 7pace add` - Post a single worklog to 7pace
+
+### Project cache
+
+Project lists are cached locally for 24 hours. A project created or renamed in
+Toggl since then is picked up automatically: when a command can't find a
+project name or ID in the cache, it fetches the list again.
+`toggl-cli projects list --refresh` always fetches a fresh list.
 
 ### Editing entries
 
