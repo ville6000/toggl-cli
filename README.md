@@ -1,5 +1,50 @@
 # Toggl CLI
 
+## Installation
+
+### Prebuilt binaries
+
+Each [release](https://github.com/ville6000/toggl-cli/releases) has archives
+for macOS, Linux and Windows on amd64 and arm64, plus a `checksums.txt`.
+
+macOS and Linux (pick `darwin_arm64` for Apple silicon, `darwin_amd64` for
+Intel Macs, or `linux_amd64` / `linux_arm64`):
+
+```sh
+PLATFORM=darwin_arm64
+BASE=https://github.com/ville6000/toggl-cli/releases/latest/download
+curl -fsSLO "$BASE/toggl-cli_$PLATFORM.tar.gz"
+curl -fsSLO "$BASE/checksums.txt"
+grep "toggl-cli_$PLATFORM.tar.gz" checksums.txt | shasum -a 256 -c
+tar -xzf "toggl-cli_$PLATFORM.tar.gz" toggl-cli
+sudo mv toggl-cli /usr/local/bin/
+toggl-cli --version
+```
+
+Windows: download `toggl-cli_windows_amd64.zip` (or `_arm64`) from the latest
+release, extract `toggl-cli.exe` and put it in a folder on your `PATH`.
+
+The binaries aren't signed. On macOS, a binary downloaded with a browser
+rather than `curl` is quarantined by Gatekeeper; allow it with
+`xattr -d com.apple.quarantine toggl-cli`.
+
+### With Go
+
+With Go 1.26 or newer:
+
+```sh
+go install github.com/ville6000/toggl-cli@latest
+```
+
+This installs `toggl-cli` into `$(go env GOPATH)/bin`.
+
+### Releasing
+
+Publish a GitHub release with a new `vX.Y.Z` tag as usual. The Release
+workflow then builds the binaries with [GoReleaser](https://goreleaser.com)
+and attaches them to it. Check the build locally with
+`goreleaser release --snapshot --clean` (GoReleaser is in `mise.toml`).
+
 ## Configuration
 
 `.toggl-cli` file in the home directory. The file should contain the following:

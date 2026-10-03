@@ -30,9 +30,10 @@ func newRootCmd(v *viper.Viper) *cobra.Command {
 	var cfgFile string
 
 	cmd := &cobra.Command{
-		Use:   "toggl-cli",
-		Short: "Toggl CLI is a command line interface for Toggl",
-		Long:  "",
+		Use:     "toggl-cli",
+		Short:   "Toggl CLI is a command line interface for Toggl",
+		Long:    "",
+		Version: buildVersion(),
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			return loadConfig(cmd, v, cfgFile)
 		},
