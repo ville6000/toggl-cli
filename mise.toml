@@ -1,0 +1,4 @@
+[tools]
+go = "1.26.1"
+gofumpt = "0.12.0"
+golangci-lint = "2.13.2"
