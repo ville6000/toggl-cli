@@ -19,6 +19,14 @@ $ toggl-cli history --week
 
 ## Installation
 
+### Homebrew
+
+On macOS and Linux:
+
+```sh
+brew install ville6000/tap/toggl-cli
+```
+
 ### Prebuilt binaries
 
 Each [release](https://github.com/ville6000/toggl-cli/releases) has archives for
