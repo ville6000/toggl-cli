@@ -388,14 +388,51 @@ func TestTicketPattern_InvalidFallsBackToDefault(t *testing.T) {
 // ---------- getDescription ----------
 
 func TestGetDescriptionWithArgs(t *testing.T) {
-	result := getDescription([]string{"test description"}, "")
+	var errOut bytes.Buffer
+	result := getDescription(&errOut, []string{"test description"}, "")
 	if result != "test description" {
 		t.Errorf("getDescription() with args = %s, want %s", result, "test description")
 	}
+	if errOut.Len() != 0 {
+		t.Errorf("unexpected warning: %q", errOut.String())
+	}
+}
 
-	// Empty/nil args fall back to path detection — just verify no panic.
-	t.Logf("getDescription([]) = %q", getDescription([]string{}, ""))
-	t.Logf("getDescription(nil) = %q", getDescription(nil, ""))
+func TestGetDescriptionWarnsWhenNotDetected(t *testing.T) {
+	resetViperForStartTests()
+
+	tests := []struct {
+		dir      string
+		expected string
+		warn     bool
+	}{
+		{"ticket-123", "123", false},
+		{"proj-2024-fix-123", "", true},
+		{"no-numbers", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.dir, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			if err := os.Mkdir(tt.dir, 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+			t.Chdir(tt.dir)
+
+			var errOut bytes.Buffer
+			if got := getDescription(&errOut, nil, ""); got != tt.expected {
+				t.Errorf("getDescription() in %q = %q, want %q", tt.dir, got, tt.expected)
+			}
+
+			warned := strings.Contains(errOut.String(), "could not detect a ticket number")
+			if warned != tt.warn {
+				t.Errorf("warning printed = %v, want %v (output %q)", warned, tt.warn, errOut.String())
+			}
+			if tt.warn && !strings.Contains(errOut.String(), tt.dir) {
+				t.Errorf("warning should name the directory %q, got %q", tt.dir, errOut.String())
+			}
+		})
+	}
 }
 
 func TestDetectDescriptionFromCurrentPath(t *testing.T) {
@@ -417,7 +454,7 @@ func TestDetectDescriptionFromCurrentPath(t *testing.T) {
 			}
 			t.Chdir(tt.dir)
 
-			if got := detectDescriptionFromCurrentPath(""); got != tt.expected {
+			if got, _ := detectDescriptionFromCurrentPath(""); got != tt.expected {
 				t.Errorf("detectDescriptionFromCurrentPath() in %q = %q, want %q", tt.dir, got, tt.expected)
 			}
 		})
