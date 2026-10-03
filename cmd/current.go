@@ -44,20 +44,20 @@ func outputCurrentEntry(out io.Writer, entry *data.TimeEntryItem, projectsMap ma
 		return nil
 	}
 
-	duration := time.Since(entry.Start).Seconds()
+	duration := int(time.Since(entry.Start).Seconds())
 	projectName := projectsMap[entry.ProjectID]
 
-	rows := [][]interface{}{
+	rows := [][]any{
 		{
 			entry.ID,
 			entry.Start.Format("02.01.2006 15:04"),
-			api.FormatDuration(duration),
+			output.FormatDuration(duration),
 			entry.Description,
 			projectName,
 		},
 	}
 
-	headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
+	headers := []any{"#", "Started At", "Duration", "Description", "Project"}
 	output.RenderTable(out, "Current timer entry", headers, rows, nil)
 	return nil
 }

@@ -66,15 +66,7 @@ var startCmd = &cobra.Command{
 }
 
 func runStart(out, errOut io.Writer, client StartService, description string, workspaceID, projectID int) error {
-	timeEntry := data.TimeEntry{
-		CreatedWith: "toggl-cli",
-		Description: description,
-		Tags:        []string{},
-		WorkspaceID: workspaceID,
-		Duration:    -1,
-		Start:       time.Now().Format(time.RFC3339),
-		ProjectID:   projectID,
-	}
+	timeEntry := api.NewTimeEntry(description, workspaceID, projectID, false)
 
 	createdEntry, err := client.CreateTimeEntry(workspaceID, timeEntry)
 	if err != nil {
@@ -168,7 +160,7 @@ func getDescription(errOut io.Writer, args []string, projectName string) string 
 		return args[0]
 	}
 
-	description, dir := detectDescriptionFromCurrentPath(projectName)
+	description, dir := detectDescriptionFromCurrentPath(errOut, projectName)
 	if description == "" {
 		fmt.Fprintf(errOut, "warning: could not detect a ticket number from directory name %q "+
 			"(no match, or more than one candidate), starting entry without description; "+
@@ -180,21 +172,21 @@ func getDescription(errOut io.Writer, args []string, projectName string) string 
 
 // detectDescriptionFromCurrentPath returns the ticket number detected from the
 // current directory's name, along with that name.
-func detectDescriptionFromCurrentPath(projectName string) (description, dir string) {
+func detectDescriptionFromCurrentPath(errOut io.Writer, projectName string) (description, dir string) {
 	currentPath, err := os.Getwd()
 	if err != nil {
 		return "", ""
 	}
 
 	dir = filepath.Base(currentPath)
-	return getTicketNumberFromPath(dir, ticketPattern(projectName)), dir
+	return getTicketNumberFromPath(dir, ticketPattern(errOut, projectName)), dir
 }
 
 // ticketPattern returns the expression used to pull a ticket number out of a
 // directory name. A project's own `ticket_pattern` wins over the global
 // `start.ticket_pattern`, which wins over defaultTicketPattern. A pattern that
 // does not compile is reported and the default is used instead.
-func ticketPattern(projectName string) *regexp.Regexp {
+func ticketPattern(errOut io.Writer, projectName string) *regexp.Regexp {
 	pattern, key := configuredTicketPattern(projectName)
 	if pattern == "" {
 		return defaultTicketRe
@@ -202,7 +194,7 @@ func ticketPattern(projectName string) *regexp.Regexp {
 
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: invalid %s %q, using the default instead: %v\n", key, pattern, err)
+		fmt.Fprintf(errOut, "warning: invalid %s %q, using the default instead: %v\n", key, pattern, err)
 		return defaultTicketRe
 	}
 

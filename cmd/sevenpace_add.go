@@ -9,6 +9,7 @@ import (
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/output"
 )
 
 var sevenpaceAddCmd = &cobra.Command{
@@ -90,7 +91,7 @@ var sevenpaceAddCmd = &cobra.Command{
 			return fmt.Errorf("failed to create worklog: %w", err)
 		}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "Posted worklog: %s for %s\n", api.FormatDuration(float64(length)), timestamp.Format("2006-01-02 15:04"))
+		fmt.Fprintf(cmd.OutOrStdout(), "Posted worklog: %s for %s\n", output.FormatDuration(length), timestamp.Format("2006-01-02 15:04"))
 		return nil
 	},
 }

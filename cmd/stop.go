@@ -51,14 +51,13 @@ func init() {
 }
 
 func outputStoppedTimeEntry(out io.Writer, entry *data.TimeEntryItem, projectsMap map[int]string) error {
-	headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
-	duration := float64(entry.Duration)
+	headers := []any{"#", "Started At", "Duration", "Description", "Project"}
 	projectName := projectsMap[entry.ProjectID]
-	rows := [][]interface{}{
+	rows := [][]any{
 		{
 			entry.ID,
 			entry.Start.Format("02.01.2006 15:04"),
-			api.FormatDuration(duration),
+			output.FormatDuration(entry.Duration),
 			entry.Description,
 			projectName,
 		},

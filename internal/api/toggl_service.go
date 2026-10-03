@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/base64"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,10 +10,6 @@ import (
 
 	"github.com/ville6000/toggl-cli/internal/data"
 )
-
-type ProjectService interface {
-	GetProjects(workspaceID int) ([]data.Project, error)
-}
 
 func (c *Client) GetWorkspaces() ([]data.Workspace, error) {
 	req, err := c.newRequest(http.MethodGet, "/workspaces", nil)
@@ -59,11 +54,9 @@ func (c *Client) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.T
 	return &createdEntry, nil
 }
 
-func (c *Client) NewTimeEntry(description string,
-	workspaceID int,
-	projectID int,
-	billable bool,
-) data.TimeEntry {
+// NewTimeEntry returns a running time entry, started now, ready to be passed
+// to CreateTimeEntry.
+func NewTimeEntry(description string, workspaceID, projectID int, billable bool) data.TimeEntry {
 	return data.TimeEntry{
 		CreatedWith: "toggl-cli",
 		Description: description,
@@ -126,10 +119,10 @@ func (c *Client) GetProjects(workspaceID int) ([]data.Project, error) {
 		return nil, reqErr
 	}
 
+	// The cache is best-effort: a failed write only means the next call
+	// fetches the projects again.
 	if c.Cache != nil {
-		if saveErr := c.Cache.SaveProjects(workspaceID, projects); saveErr != nil {
-			log.Printf("Failed to save projects to cache: %v", saveErr)
-		}
+		_ = c.Cache.SaveProjects(workspaceID, projects)
 	}
 
 	return projects, nil
@@ -192,14 +185,6 @@ func (c *Client) GetProjectsLookupMap(workspaceID int) (map[int]string, error) {
 	}
 
 	return lookup, nil
-}
-
-func FormatDuration(seconds float64) string {
-	d := time.Duration(seconds) * time.Second
-	hours := int(d.Hours())
-	minutes := int(d.Minutes()) % 60
-	secs := int(d.Seconds()) % 60
-	return fmt.Sprintf("%02d:%02d:%02d", hours, minutes, secs)
 }
 
 func (c *Client) newRequest(method, endpoint string, body any) (*http.Request, error) {

@@ -11,8 +11,8 @@ import (
 func RenderTable(
 	out io.Writer,
 	title string,
-	headers []interface{},
-	rows [][]interface{},
+	headers []any,
+	rows [][]any,
 	footer table.Row,
 ) {
 	t := table.NewWriter()

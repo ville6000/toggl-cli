@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/ville6000/toggl-cli/internal/data"
 )
@@ -13,18 +12,6 @@ type mockContinueService struct {
 	created     data.TimeEntry
 	createdWsID int
 	createErr   error
-}
-
-func (m *mockContinueService) NewTimeEntry(description string, workspaceID, projectID int, billable bool) data.TimeEntry {
-	return data.TimeEntry{
-		CreatedWith: "toggl-cli",
-		Description: description,
-		WorkspaceID: workspaceID,
-		ProjectID:   projectID,
-		Billable:    billable,
-		Duration:    -1,
-		Start:       time.Now().Format(time.RFC3339),
-	}
 }
 
 func (m *mockContinueService) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error) {

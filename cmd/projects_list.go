@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
+	"github.com/ville6000/toggl-cli/internal/data"
 	"github.com/ville6000/toggl-cli/internal/output"
 )
 
@@ -31,21 +32,27 @@ func init() {
 	projectsCmd.AddCommand(projectsListCmd)
 }
 
-func projectListOutput(out io.Writer, client api.ProjectService, workspaceID int) error {
+// ProjectsListService is the subset of api.Client used by the projects list
+// command.
+type ProjectsListService interface {
+	GetProjects(workspaceID int) ([]data.Project, error)
+}
+
+func projectListOutput(out io.Writer, client ProjectsListService, workspaceID int) error {
 	projects, err := client.GetProjects(workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to get projects: %w", err)
 	}
 
-	var rows [][]interface{}
+	var rows [][]any
 	for _, project := range projects {
-		rows = append(rows, []interface{}{
+		rows = append(rows, []any{
 			project.ID,
 			project.Name,
 		})
 	}
 
-	headers := []interface{}{"ID", "Project Name"}
+	headers := []any{"ID", "Project Name"}
 	output.RenderTable(out, "Project list", headers, rows, nil)
 
 	return nil
