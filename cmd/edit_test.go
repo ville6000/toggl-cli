@@ -48,7 +48,7 @@ func (m *mockEditService) UpdateTimeEntry(_ context.Context, _ int, _ int, _ api
 	return m.updatedEntry, m.updateErr
 }
 
-func (m *mockEditService) ProjectNames(_ context.Context, _ int) (map[int]string, error) {
+func (m *mockEditService) ProjectNames(_ context.Context, _ int, _ ...int) (map[int]string, error) {
 	return m.projectsMap, m.projectsMapErr
 }
 
@@ -629,7 +629,7 @@ func (m *captureWorkspaceMock) UpdateTimeEntry(ctx context.Context, wsID int, en
 	return m.mockEditService.UpdateTimeEntry(ctx, wsID, entryID, entry)
 }
 
-func (m *captureWorkspaceMock) ProjectNames(ctx context.Context, wsID int) (map[int]string, error) {
+func (m *captureWorkspaceMock) ProjectNames(ctx context.Context, wsID int, _ ...int) (map[int]string, error) {
 	m.projectsMapWS = wsID
 	return m.mockEditService.ProjectNames(ctx, wsID)
 }

@@ -37,7 +37,7 @@ func (m *mockStartService) CreateTimeEntry(_ context.Context, _ int, _ api.TimeE
 	return m.createEntry, m.createErr
 }
 
-func (m *mockStartService) ProjectNames(_ context.Context, _ int) (map[int]string, error) {
+func (m *mockStartService) ProjectNames(_ context.Context, _ int, _ ...int) (map[int]string, error) {
 	return m.projectsMap, m.projectsMapErr
 }
 

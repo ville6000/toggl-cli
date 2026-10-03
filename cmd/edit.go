@@ -19,7 +19,7 @@ type EditService interface {
 	EntryLookup
 	ProjectIDByName(ctx context.Context, workspaceID int, projectName string) (int, error)
 	UpdateTimeEntry(ctx context.Context, workspaceID int, entryID int, entry api.TimeEntry) (*api.TimeEntryItem, error)
-	ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error)
+	ProjectNames(ctx context.Context, workspaceID int, needed ...int) (map[int]string, error)
 }
 
 func newEditCmd(v *viper.Viper) *cobra.Command {
@@ -148,7 +148,7 @@ func runEdit(
 		return fmt.Errorf("failed to update time entry: %w", err)
 	}
 
-	projectsMap, err := client.ProjectNames(ctx, wsID)
+	projectsMap, err := client.ProjectNames(ctx, wsID, updatedEntry.ProjectID)
 	if err != nil {
 		fmt.Fprintln(errOut, "warning: failed to get projects, showing entry without project name:", err)
 		projectsMap = nil

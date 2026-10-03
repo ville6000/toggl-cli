@@ -37,7 +37,7 @@ var defaultTicketRe = regexp.MustCompile(defaultTicketPattern)
 type StartService interface {
 	ProjectIDByName(ctx context.Context, workspaceID int, projectName string) (int, error)
 	CreateTimeEntry(ctx context.Context, workspaceID int, entry api.TimeEntry) (*api.TimeEntry, error)
-	ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error)
+	ProjectNames(ctx context.Context, workspaceID int, needed ...int) (map[int]string, error)
 }
 
 func newStartCmd(v *viper.Viper) *cobra.Command {
@@ -80,7 +80,7 @@ func runStart(ctx context.Context, out, errOut io.Writer, client StartService, d
 		return fmt.Errorf("failed to create time entry: %w", err)
 	}
 
-	projectsMap, err := client.ProjectNames(ctx, workspaceID)
+	projectsMap, err := client.ProjectNames(ctx, workspaceID, createdEntry.ProjectID)
 	if err != nil {
 		// Non-fatal: the entry was already created. Show it without project name.
 		fmt.Fprintln(errOut, "warning: failed to get projects, showing entry without project name:", err)

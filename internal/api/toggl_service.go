@@ -125,13 +125,13 @@ func (c *Client) UpdateTimeEntry(ctx context.Context, workspaceID int, entryID i
 // Projects returns the projects in the workspace, from the cache when it holds
 // a fresh copy, otherwise from the API (refreshing the cache).
 func (c *Client) Projects(ctx context.Context, workspaceID int) ([]Project, error) {
-	if c.Cache != nil {
-		cachedProjects, cacheErr := c.Cache.Projects(workspaceID)
-		if cacheErr == nil {
-			return cachedProjects, nil
-		}
-	}
+	projects, _, err := c.projects(ctx, workspaceID)
+	return projects, err
+}
 
+// RefreshProjects fetches the workspace's projects from the API, bypassing
+// and then updating the cache.
+func (c *Client) RefreshProjects(ctx context.Context, workspaceID int) ([]Project, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceID)
 	req, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -152,21 +152,53 @@ func (c *Client) Projects(ctx context.Context, workspaceID int) ([]Project, erro
 	return projects, nil
 }
 
+// projects is Projects, also reporting whether the list came from the cache
+// and so may be missing projects created since it was saved.
+func (c *Client) projects(ctx context.Context, workspaceID int) ([]Project, bool, error) {
+	if c.Cache != nil {
+		if cached, err := c.Cache.Projects(workspaceID); err == nil {
+			return cached, true, nil
+		}
+	}
+
+	projects, err := c.RefreshProjects(ctx, workspaceID)
+	return projects, false, err
+}
+
 // ProjectIDByName returns the ID of the project whose name matches
-// projectName, ignoring case.
+// projectName, ignoring case. A name missing from the cached list is looked
+// up again from the API, so a project created since the cache was saved is
+// still found.
 func (c *Client) ProjectIDByName(ctx context.Context, workspaceID int, projectName string) (int, error) {
-	projects, err := c.Projects(ctx, workspaceID)
+	projects, cached, err := c.projects(ctx, workspaceID)
 	if err != nil {
 		return 0, err
 	}
 
-	for _, project := range projects {
-		if strings.EqualFold(project.Name, projectName) {
-			return project.ID, nil
+	if id, ok := projectIDByName(projects, projectName); ok {
+		return id, nil
+	}
+
+	if cached {
+		if projects, err = c.RefreshProjects(ctx, workspaceID); err != nil {
+			return 0, err
+		}
+		if id, ok := projectIDByName(projects, projectName); ok {
+			return id, nil
 		}
 	}
 
 	return 0, fmt.Errorf("project '%s' not found", projectName)
+}
+
+func projectIDByName(projects []Project, name string) (int, bool) {
+	for _, project := range projects {
+		if strings.EqualFold(project.Name, name) {
+			return project.ID, true
+		}
+	}
+
+	return 0, false
 }
 
 // TimeEntries returns the user's time entries between from and to. Either
@@ -202,18 +234,45 @@ func (c *Client) TimeEntries(ctx context.Context, from, to *time.Time) ([]TimeEn
 }
 
 // ProjectNames returns the workspace's project names keyed by project ID.
-func (c *Client) ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error) {
-	projects, err := c.Projects(ctx, workspaceID)
+// needed lists the project IDs the caller is about to look up: when the
+// cached list lacks any of them (a project created or renamed since it was
+// saved), the names are fetched again from the API. ID 0, no project, is
+// never looked up.
+func (c *Client) ProjectNames(ctx context.Context, workspaceID int, needed ...int) (map[int]string, error) {
+	projects, cached, err := c.projects(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}
 
-	lookup := make(map[int]string)
-	for _, project := range projects {
-		lookup[project.ID] = project.Name
+	names := projectNames(projects)
+	if cached && !hasAll(names, needed) {
+		if projects, err = c.RefreshProjects(ctx, workspaceID); err != nil {
+			return nil, err
+		}
+		names = projectNames(projects)
 	}
 
-	return lookup, nil
+	return names, nil
+}
+
+func projectNames(projects []Project) map[int]string {
+	names := make(map[int]string, len(projects))
+	for _, project := range projects {
+		names[project.ID] = project.Name
+	}
+
+	return names
+}
+
+// hasAll reports whether names has every non-zero ID in ids.
+func hasAll(names map[int]string, ids []int) bool {
+	for _, id := range ids {
+		if _, ok := names[id]; id != 0 && !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (c *Client) newRequest(ctx context.Context, method, endpoint string, body any) (*http.Request, error) {
