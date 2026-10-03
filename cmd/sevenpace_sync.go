@@ -65,7 +65,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 		}
 
 		client := api.NewClientFromConfig(token)
-		timeEntries, err := client.GetHistory(&startTime, &endTime)
+		timeEntries, err := client.TimeEntries(&startTime, &endTime)
 		if err != nil {
 			return fmt.Errorf("failed to get history: %w", err)
 		}

@@ -22,7 +22,7 @@ var continueCmd = &cobra.Command{
 		}
 
 		client := api.NewClientFromConfig(token)
-		timeEntries, err := client.GetHistory(nil, nil)
+		timeEntries, err := client.TimeEntries(nil, nil)
 		if err != nil {
 			return fmt.Errorf("failed to retrieve latest time entries: %w", err)
 		}

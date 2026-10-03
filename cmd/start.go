@@ -34,9 +34,9 @@ var defaultTicketRe = regexp.MustCompile(defaultTicketPattern)
 
 // StartService is the subset of api.Client used by the start command.
 type StartService interface {
-	GetProjectIDByName(workspaceID int, projectName string) (int, error)
+	ProjectIDByName(workspaceID int, projectName string) (int, error)
 	CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error)
-	GetProjectsLookupMap(workspaceID int) (map[int]string, error)
+	ProjectNames(workspaceID int) (map[int]string, error)
 }
 
 var startCmd = &cobra.Command{
@@ -73,7 +73,7 @@ func runStart(out, errOut io.Writer, client StartService, description string, wo
 		return fmt.Errorf("failed to create time entry: %w", err)
 	}
 
-	projectsMap, err := client.GetProjectsLookupMap(workspaceID)
+	projectsMap, err := client.ProjectNames(workspaceID)
 	if err != nil {
 		// Non-fatal: the entry was already created. Show it without project name.
 		fmt.Fprintln(errOut, "warning: failed to get projects, showing entry without project name:", err)
@@ -122,7 +122,7 @@ func findProjectIDForEntry(projectName string, client StartService, workspaceID 
 		return 0, "", fmt.Errorf("no project name provided and no matching project found in config for current path")
 	}
 
-	projectID, err := client.GetProjectIDByName(workspaceID, projectName)
+	projectID, err := client.ProjectIDByName(workspaceID, projectName)
 	if err != nil || projectID == 0 {
 		return 0, "", fmt.Errorf("failed to get project ID for '%s': %w", projectName, err)
 	}

@@ -13,10 +13,10 @@ import (
 
 // EditService is the subset of api.Client used by the edit command.
 type EditService interface {
-	GetHistory(from, to *time.Time) ([]data.TimeEntryItem, error)
-	GetProjectIDByName(workspaceID int, projectName string) (int, error)
+	TimeEntries(from, to *time.Time) ([]data.TimeEntryItem, error)
+	ProjectIDByName(workspaceID int, projectName string) (int, error)
 	UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error)
-	GetProjectsLookupMap(workspaceID int) (map[int]string, error)
+	ProjectNames(workspaceID int) (map[int]string, error)
 }
 
 var editCmd = &cobra.Command{
@@ -71,7 +71,7 @@ func runEdit(
 	newDescription, newProject, newStart string,
 	location *time.Location,
 ) error {
-	entries, err := client.GetHistory(nil, nil)
+	entries, err := client.TimeEntries(nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get history: %w", err)
 	}
@@ -97,7 +97,7 @@ func runEdit(
 
 	projectID := entry.ProjectID
 	if newProject != "" {
-		projectID, err = client.GetProjectIDByName(wsID, newProject)
+		projectID, err = client.ProjectIDByName(wsID, newProject)
 		if err != nil {
 			return fmt.Errorf("failed to find project '%s': %w", newProject, err)
 		}
@@ -145,7 +145,7 @@ func runEdit(
 		return fmt.Errorf("failed to update time entry: %w", err)
 	}
 
-	projectsMap, err := client.GetProjectsLookupMap(wsID)
+	projectsMap, err := client.ProjectNames(wsID)
 	if err != nil {
 		fmt.Fprintln(errOut, "warning: failed to get projects, showing entry without project name:", err)
 		projectsMap = nil

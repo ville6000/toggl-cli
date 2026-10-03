@@ -2,6 +2,7 @@ package data
 
 import "time"
 
+// TimeEntryItem is a time entry as returned by the Toggl API.
 type TimeEntryItem struct {
 	Billable      bool      `json:"billable"`
 	ClientID      int       `json:"client_id"`
@@ -22,6 +23,8 @@ type TimeEntryItem struct {
 	WorkspaceName string    `json:"workspace_name"`
 }
 
+// TimeEntry is the body sent to the Toggl API to create or update a time
+// entry. A negative Duration marks a running entry.
 type TimeEntry struct {
 	ID          int      `json:"id,omitempty"`
 	CreatedWith string   `json:"created_with"`
@@ -35,16 +38,19 @@ type TimeEntry struct {
 	ProjectID   int      `json:"project_id"`
 }
 
+// Workspace is a Toggl workspace.
 type Workspace struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
 
+// Project is a Toggl project.
 type Project struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
 
+// ProjectCache is the on-disk format of a cached project list.
 type ProjectCache struct {
 	Timestamp time.Time `json:"timestamp"`
 	Data      []Project `json:"data"`
@@ -61,6 +67,7 @@ type SevenPaceWorkLog struct {
 	ActivityType *SevenPaceActivityRef `json:"activityType,omitempty"`
 }
 
+// SevenPaceActivityRef refers to a 7pace activity type by ID.
 type SevenPaceActivityRef struct {
 	ID string `json:"id"`
 }

@@ -35,11 +35,11 @@ func init() {
 // ProjectsListService is the subset of api.Client used by the projects list
 // command.
 type ProjectsListService interface {
-	GetProjects(workspaceID int) ([]data.Project, error)
+	Projects(workspaceID int) ([]data.Project, error)
 }
 
 func projectListOutput(out io.Writer, client ProjectsListService, workspaceID int) error {
-	projects, err := client.GetProjects(workspaceID)
+	projects, err := client.Projects(workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to get projects: %w", err)
 	}

@@ -17,6 +17,7 @@ linters:
     revive:
       rules:
         - name: var-naming
+        - name: exported
     errcheck:
       # errcheck ignores terminal writes to os.Stdout/os.Stderr out of the box.
       # Commands write through an injected io.Writer so tests can capture the
