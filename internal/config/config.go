@@ -2,18 +2,48 @@
 package config
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
 )
 
+// EnvPrefix starts the name of every environment variable that sets a config
+// key: toggl.token is read from TOGGL_CLI_TOGGL_TOKEN.
+const EnvPrefix = "TOGGL_CLI"
+
+var envKeyReplacer = strings.NewReplacer(".", "_")
+
+// UseEnv makes v read config keys from the environment as well. A variable
+// outranks the config file, so credentials can be supplied without one.
+func UseEnv(v *viper.Viper) {
+	v.SetEnvPrefix(EnvPrefix)
+	v.SetEnvKeyReplacer(envKeyReplacer)
+	v.AutomaticEnv()
+}
+
+// EnvVar returns the environment variable that sets key.
+func EnvVar(key string) string {
+	return EnvPrefix + "_" + strings.ToUpper(envKeyReplacer.Replace(key))
+}
+
+// missing returns the error for required keys that are not set.
+func missing(keys ...string) error {
+	vars := make([]string, len(keys))
+	for i, key := range keys {
+		vars[i] = EnvVar(key)
+	}
+
+	return fmt.Errorf("missing %s in config (or %s), please run 'toggl-cli config'",
+		strings.Join(keys, " or "), strings.Join(vars, " / "))
+}
+
 // Token returns the configured Toggl API token.
 func Token(v *viper.Viper) (string, error) {
 	token := v.GetString("toggl.token")
 	if token == "" {
-		return "", errors.New("missing toggl.token in config, please run 'toggl-cli config'")
+		return "", missing("toggl.token")
 	}
 
 	return token, nil
@@ -24,12 +54,12 @@ func Token(v *viper.Viper) (string, error) {
 func TokenAndWorkspace(v *viper.Viper) (string, int, error) {
 	token := v.GetString("toggl.token")
 	if token == "" {
-		return "", 0, errors.New("missing toggl.token in config, please run 'toggl-cli config'")
+		return "", 0, missing("toggl.token")
 	}
 
 	workspaceID := v.GetInt("toggl.workspace_id")
 	if workspaceID == 0 {
-		return "", 0, errors.New("missing toggl.workspace_id in config, please run 'toggl-cli config'")
+		return "", 0, missing("toggl.workspace_id")
 	}
 
 	return token, workspaceID, nil
@@ -66,10 +96,10 @@ func LoadSevenPace(v *viper.Viper) (SevenPace, error) {
 	}
 
 	if cfg.BaseURL == "" {
-		return SevenPace{}, errors.New("missing sevenpace.base_url in config, please run 'toggl-cli config'")
+		return SevenPace{}, missing("sevenpace.base_url")
 	}
 	if cfg.Username == "" || cfg.Password == "" {
-		return SevenPace{}, errors.New("missing sevenpace.username or sevenpace.password in config, please run 'toggl-cli config'")
+		return SevenPace{}, missing("sevenpace.username", "sevenpace.password")
 	}
 
 	return cfg, nil

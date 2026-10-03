@@ -160,3 +160,65 @@ func TestTimezone_Invalid(t *testing.T) {
 		t.Errorf("error should mention 'invalid timezone', got: %q", err.Error())
 	}
 }
+
+// ---------- environment ----------
+
+func TestEnvVar(t *testing.T) {
+	tests := map[string]string{
+		"toggl.token":          "TOGGL_CLI_TOGGL_TOKEN",
+		"toggl.workspace_id":   "TOGGL_CLI_TOGGL_WORKSPACE_ID",
+		"sevenpace.password":   "TOGGL_CLI_SEVENPACE_PASSWORD",
+		"start.ticket_pattern": "TOGGL_CLI_START_TICKET_PATTERN",
+	}
+	for key, want := range tests {
+		if got := EnvVar(key); got != want {
+			t.Errorf("EnvVar(%q) = %q, want %q", key, got, want)
+		}
+	}
+}
+
+func TestUseEnv_ReadsPrefixedVariables(t *testing.T) {
+	t.Setenv("TOGGL_CLI_TOGGL_TOKEN", "env-token")
+	t.Setenv("TOGGL_CLI_TOGGL_WORKSPACE_ID", "42")
+	t.Setenv("TOGGL_CLI_SEVENPACE_BASE_URL", "https://7pace.example")
+	t.Setenv("TOGGL_CLI_SEVENPACE_USERNAME", "user")
+	t.Setenv("TOGGL_CLI_SEVENPACE_PASSWORD", "secret")
+
+	v := viper.New()
+	UseEnv(v)
+
+	token, workspaceID, err := TokenAndWorkspace(v)
+	if err != nil {
+		t.Fatalf("TokenAndWorkspace: %v", err)
+	}
+	if token != "env-token" || workspaceID != 42 {
+		t.Errorf("got token %q, workspace %d; want env-token, 42", token, workspaceID)
+	}
+
+	sp, err := LoadSevenPace(v)
+	if err != nil {
+		t.Fatalf("LoadSevenPace: %v", err)
+	}
+	if sp.BaseURL != "https://7pace.example" || sp.Username != "user" || sp.Password != "secret" {
+		t.Errorf("unexpected 7pace config from env: %+v", sp)
+	}
+}
+
+// Unprefixed names such as TOGGL_TOKEN are left to other tools.
+func TestUseEnv_IgnoresUnprefixedVariables(t *testing.T) {
+	t.Setenv("TOGGL_TOKEN", "other-tool")
+
+	v := viper.New()
+	UseEnv(v)
+
+	if _, err := Token(v); err == nil {
+		t.Error("expected TOGGL_TOKEN to be ignored")
+	}
+}
+
+func TestMissingKeyErrorNamesTheEnvVar(t *testing.T) {
+	_, err := Token(viper.New())
+	if err == nil || !strings.Contains(err.Error(), "TOGGL_CLI_TOGGL_TOKEN") {
+		t.Errorf("error should name TOGGL_CLI_TOGGL_TOKEN, got %v", err)
+	}
+}
