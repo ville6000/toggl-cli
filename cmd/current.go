@@ -6,37 +6,42 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/output"
 )
 
-var currentCmd = &cobra.Command{
-	Use:   "current",
-	Short: "Get the current timer entry",
-	Long:  "Get the current timer entry from Toggl.",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
+func newCurrentCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "current",
+		Short: "Get the current timer entry",
+		Long:  "Get the current timer entry from Toggl.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 
-		token, workspaceID, err := config.TokenAndWorkspace()
-		if err != nil {
-			return fmt.Errorf("failed to get configuration: %w", err)
-		}
+			token, workspaceID, err := config.TokenAndWorkspace(v)
+			if err != nil {
+				return fmt.Errorf("failed to get configuration: %w", err)
+			}
 
-		client := api.NewClientFromConfig(token)
-		currentEntry, err := client.CurrentTimeEntry(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get current timer entry: %w", err)
-		}
+			client := newTogglClient(v, token)
+			currentEntry, err := client.CurrentTimeEntry(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to get current timer entry: %w", err)
+			}
 
-		projectsMap, err := client.ProjectNames(ctx, workspaceID)
-		if err != nil {
-			return fmt.Errorf("failed to get projects: %w", err)
-		}
+			projectsMap, err := client.ProjectNames(ctx, workspaceID)
+			if err != nil {
+				return fmt.Errorf("failed to get projects: %w", err)
+			}
 
-		return outputCurrentEntry(cmd.OutOrStdout(), currentEntry, projectsMap)
-	},
+			return outputCurrentEntry(cmd.OutOrStdout(), currentEntry, projectsMap)
+		},
+	}
+
+	return cmd
 }
 
 func outputCurrentEntry(out io.Writer, entry *api.TimeEntryItem, projectsMap map[int]string) error {
@@ -61,8 +66,4 @@ func outputCurrentEntry(out io.Writer, entry *api.TimeEntryItem, projectsMap map
 	headers := []any{"#", "Started At", "Duration", "Description", "Project"}
 	output.RenderTable(out, "Current timer entry", headers, rows, nil)
 	return nil
-}
-
-func init() {
-	rootCmd.AddCommand(currentCmd)
 }

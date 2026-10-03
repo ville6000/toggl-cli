@@ -8,61 +8,60 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 )
 
-var projectsAddPathCmd = &cobra.Command{
-	Use:   "add-path [project_name]",
-	Short: "Save project path to be used with start command",
-	Long:  "",
-	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx := cmd.Context()
+func newProjectsAddPathCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add-path [project_name]",
+		Short: "Save project path to be used with start command",
+		Long:  "",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 
-		token, workspaceID, err := config.TokenAndWorkspace()
-		if err != nil {
-			return fmt.Errorf("failed to get configuration: %w", err)
-		}
-
-		projectName := args[0]
-		currentPath, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get current path: %w", err)
-		}
-
-		client := api.NewClientFromConfig(token)
-
-		var projectID int
-		if projectName != "" {
-			projectID, err = client.ProjectIDByName(ctx, workspaceID, projectName)
+			token, workspaceID, err := config.TokenAndWorkspace(v)
 			if err != nil {
-				return fmt.Errorf("failed to get project ID: %w", err)
+				return fmt.Errorf("failed to get configuration: %w", err)
 			}
-		}
 
-		viper.Set(fmt.Sprintf("projects.%s.id", projectName), projectID)
+			projectName := args[0]
+			currentPath, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("failed to get current path: %w", err)
+			}
 
-		key := fmt.Sprintf("projects.%s.paths", projectName)
-		existingPaths := viper.GetStringSlice(key)
+			client := newTogglClient(v, token)
 
-		if slices.Contains(existingPaths, currentPath) {
-			fmt.Fprintln(cmd.OutOrStdout(), "Path already exists for this project.")
+			var projectID int
+			if projectName != "" {
+				projectID, err = client.ProjectIDByName(ctx, workspaceID, projectName)
+				if err != nil {
+					return fmt.Errorf("failed to get project ID: %w", err)
+				}
+			}
+
+			v.Set(fmt.Sprintf("projects.%s.id", projectName), projectID)
+
+			key := fmt.Sprintf("projects.%s.paths", projectName)
+			existingPaths := v.GetStringSlice(key)
+
+			if slices.Contains(existingPaths, currentPath) {
+				fmt.Fprintln(cmd.OutOrStdout(), "Path already exists for this project.")
+				return nil
+			}
+			existingPaths = append(existingPaths, currentPath)
+
+			v.Set(key, existingPaths)
+
+			if err := v.WriteConfig(); err != nil {
+				return fmt.Errorf("error saving configuration: %w", err)
+			}
+
+			fmt.Fprintln(cmd.OutOrStdout(), "Configuration saved successfully!")
 			return nil
-		}
-		existingPaths = append(existingPaths, currentPath)
+		},
+	}
 
-		viper.Set(key, existingPaths)
-
-		if err := viper.WriteConfig(); err != nil {
-			return fmt.Errorf("error saving configuration: %w", err)
-		}
-
-		fmt.Fprintln(cmd.OutOrStdout(), "Configuration saved successfully!")
-		return nil
-	},
-}
-
-func init() {
-	projectsCmd.AddCommand(projectsAddPathCmd)
+	return cmd
 }

@@ -7,96 +7,107 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/output"
 )
 
-var sevenpaceAddCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Post a single worklog to 7pace",
-	Long: "Post a single worklog to 7pace Timetracker. A worklog must have either a work item id\n" +
-		"or a comment, and a duration greater than zero.",
-	RunE: func(cmd *cobra.Command, _ []string) error {
-		ctx := cmd.Context()
+func newSevenPaceAddCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "Post a single worklog to 7pace",
+		Long: "Post a single worklog to 7pace Timetracker. A worklog must have either a work item id\n" +
+			"or a comment, and a duration greater than zero.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 
-		spCfg, err := config.LoadSevenPace()
-		if err != nil {
-			return err
-		}
+			spCfg, err := config.LoadSevenPace(v)
+			if err != nil {
+				return err
+			}
 
-		location, err := config.Timezone()
-		if err != nil {
-			return err
-		}
+			location, err := config.Timezone(v)
+			if err != nil {
+				return err
+			}
 
-		workItem, err := cmd.Flags().GetInt("work-item")
-		if err != nil {
-			return fmt.Errorf("failed to get work-item flag: %w", err)
-		}
+			workItem, err := cmd.Flags().GetInt("work-item")
+			if err != nil {
+				return fmt.Errorf("failed to get work-item flag: %w", err)
+			}
 
-		comment, err := cmd.Flags().GetString("comment")
-		if err != nil {
-			return fmt.Errorf("failed to get comment flag: %w", err)
-		}
+			comment, err := cmd.Flags().GetString("comment")
+			if err != nil {
+				return fmt.Errorf("failed to get comment flag: %w", err)
+			}
 
-		durationStr, err := cmd.Flags().GetString("duration")
-		if err != nil {
-			return fmt.Errorf("failed to get duration flag: %w", err)
-		}
+			durationStr, err := cmd.Flags().GetString("duration")
+			if err != nil {
+				return fmt.Errorf("failed to get duration flag: %w", err)
+			}
 
-		dateStr, err := cmd.Flags().GetString("date")
-		if err != nil {
-			return fmt.Errorf("failed to get date flag: %w", err)
-		}
+			dateStr, err := cmd.Flags().GetString("date")
+			if err != nil {
+				return fmt.Errorf("failed to get date flag: %w", err)
+			}
 
-		activityType, err := cmd.Flags().GetString("activity-type")
-		if err != nil {
-			return fmt.Errorf("failed to get activity-type flag: %w", err)
-		}
+			activityType, err := cmd.Flags().GetString("activity-type")
+			if err != nil {
+				return fmt.Errorf("failed to get activity-type flag: %w", err)
+			}
 
-		length, err := parseDurationSeconds(durationStr)
-		if err != nil {
-			return err
-		}
-		if length <= 0 {
-			return errors.New("--duration must be greater than zero")
-		}
+			length, err := parseDurationSeconds(durationStr)
+			if err != nil {
+				return err
+			}
+			if length <= 0 {
+				return errors.New("--duration must be greater than zero")
+			}
 
-		if workItem == 0 && comment == "" {
-			return errors.New("a worklog must have either --work-item or --comment")
-		}
+			if workItem == 0 && comment == "" {
+				return errors.New("a worklog must have either --work-item or --comment")
+			}
 
-		timestamp, err := parseWorkLogDate(dateStr, location)
-		if err != nil {
-			return err
-		}
+			timestamp, err := parseWorkLogDate(dateStr, location)
+			if err != nil {
+				return err
+			}
 
-		if activityType == "" {
-			activityType = spCfg.ActivityTypeID
-		}
+			if activityType == "" {
+				activityType = spCfg.ActivityTypeID
+			}
 
-		workLog := api.SevenPaceWorkLog{
-			Timestamp: timestamp.Format(time.RFC3339),
-			Length:    length,
-			Comment:   comment,
-		}
-		if workItem != 0 {
-			workLog.WorkItemID = &workItem
-		}
-		if activityType != "" {
-			workLog.ActivityType = &api.SevenPaceActivityRef{ID: activityType}
-		}
+			workLog := api.SevenPaceWorkLog{
+				Timestamp: timestamp.Format(time.RFC3339),
+				Length:    length,
+				Comment:   comment,
+			}
+			if workItem != 0 {
+				workLog.WorkItemID = &workItem
+			}
+			if activityType != "" {
+				workLog.ActivityType = &api.SevenPaceActivityRef{ID: activityType}
+			}
 
-		spClient := api.NewSevenPaceClient(spCfg)
-		if _, err := spClient.CreateWorkLog(ctx, workLog); err != nil {
-			return fmt.Errorf("failed to create worklog: %w", err)
-		}
+			spClient := api.NewSevenPaceClient(spCfg)
+			if _, err := spClient.CreateWorkLog(ctx, workLog); err != nil {
+				return fmt.Errorf("failed to create worklog: %w", err)
+			}
 
-		fmt.Fprintf(cmd.OutOrStdout(), "Posted worklog: %s for %s\n", output.FormatDuration(length), timestamp.Format("2006-01-02 15:04"))
-		return nil
-	},
+			fmt.Fprintf(cmd.OutOrStdout(), "Posted worklog: %s for %s\n", output.FormatDuration(length), timestamp.Format("2006-01-02 15:04"))
+			return nil
+		},
+	}
+
+	cmd.Flags().Int("work-item", 0, "Azure DevOps work item id")
+	cmd.Flags().String("comment", "", "Worklog comment")
+	cmd.Flags().String("duration", "", "Duration, e.g. 1h30m or a number of seconds")
+	cmd.Flags().String("date", "", "Date/time of the worklog: YYYY-MM-DD or \"YYYY-MM-DD HH:MM\" (default now)")
+	cmd.Flags().String("activity-type", "", "Activity type UUID (overrides config)")
+
+	return cmd
 }
 
 // parseDurationSeconds accepts a Go duration string (e.g. "1h30m") or a plain
@@ -132,14 +143,4 @@ func parseWorkLogDate(value string, location *time.Location) (time.Time, error) 
 	}
 
 	return time.Time{}, fmt.Errorf("invalid --date %q: use YYYY-MM-DD or \"YYYY-MM-DD HH:MM\"", value)
-}
-
-func init() {
-	sevenpaceCmd.AddCommand(sevenpaceAddCmd)
-
-	sevenpaceAddCmd.Flags().Int("work-item", 0, "Azure DevOps work item id")
-	sevenpaceAddCmd.Flags().String("comment", "", "Worklog comment")
-	sevenpaceAddCmd.Flags().String("duration", "", "Duration, e.g. 1h30m or a number of seconds")
-	sevenpaceAddCmd.Flags().String("date", "", "Date/time of the worklog: YYYY-MM-DD or \"YYYY-MM-DD HH:MM\" (default now)")
-	sevenpaceAddCmd.Flags().String("activity-type", "", "Activity type UUID (overrides config)")
 }

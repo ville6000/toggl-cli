@@ -16,8 +16,6 @@ import (
 	// on the host having one installed.
 	_ "time/tzdata"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/ville6000/toggl-cli/internal/api"
@@ -153,8 +151,9 @@ func (s *apiStub) stubProjects(projects ...api.Project) {
 }
 
 // setupCLITest isolates a command run from the developer's real config, cache
-// and timezone, and points the Toggl client at stub.
-func setupCLITest(t *testing.T, stub *apiStub) {
+// and timezone, and returns the configuration to run commands with, pointing
+// the Toggl client at stub.
+func setupCLITest(t *testing.T, stub *apiStub) *viper.Viper {
 	t.Helper()
 
 	home := t.TempDir()
@@ -162,71 +161,39 @@ func setupCLITest(t *testing.T, stub *apiStub) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
 	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, "cache"))
 
-	viper.Reset()
-	t.Cleanup(viper.Reset)
-
-	viper.Set("toggl.token", "test-token")
-	viper.Set("toggl.workspace_id", testWorkspaceID)
-	viper.Set("toggl.timezone", testTimezone)
+	v := viper.New()
+	v.Set("toggl.token", "test-token")
+	v.Set("toggl.workspace_id", testWorkspaceID)
+	v.Set("toggl.timezone", testTimezone)
 	if stub != nil {
-		viper.Set("toggl.base_url", stub.server.URL)
+		v.Set("toggl.base_url", stub.server.URL)
 	}
+
+	return v
 }
 
-// executeCommand runs the CLI the way main() does — through rootCmd, so flag
-// parsing, config lookup and output rendering are all exercised — and returns
-// what the command wrote to stdout and stderr.
-func executeCommand(t *testing.T, args ...string) (stdout, stderr string, err error) {
+// executeCommand runs the CLI the way main() does — through a full command
+// tree, so flag parsing, config lookup and output rendering are all exercised
+// — and returns what the command wrote to stdout and stderr.
+func executeCommand(t *testing.T, v *viper.Viper, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
-	return executeCommandWithInput(t, "", args...)
+	return executeCommandWithInput(t, v, "", args...)
 }
 
 // executeCommandWithInput is executeCommand with stdin wired to input, for the
 // commands that prompt.
-func executeCommandWithInput(t *testing.T, input string, args ...string) (stdout, stderr string, err error) {
+func executeCommandWithInput(t *testing.T, v *viper.Viper, input string, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
 
-	// rootCmd is a package-level singleton: flags keep the values a previous
-	// run parsed into them, so reset before and after every run.
-	resetFlags(t, rootCmd)
+	root := newRootCmd(v)
 
 	var outBuf, errBuf bytes.Buffer
-	rootCmd.SetOut(&outBuf)
-	rootCmd.SetErr(&errBuf)
-	rootCmd.SetIn(bytes.NewBufferString(input))
-	rootCmd.SetArgs(args)
+	root.SetOut(&outBuf)
+	root.SetErr(&errBuf)
+	root.SetIn(bytes.NewBufferString(input))
+	root.SetArgs(args)
 
-	t.Cleanup(func() {
-		rootCmd.SetOut(nil)
-		rootCmd.SetErr(nil)
-		rootCmd.SetIn(nil)
-		rootCmd.SetArgs(nil)
-		resetFlags(t, rootCmd)
-	})
-
-	err = rootCmd.Execute()
+	err = root.ExecuteContext(t.Context())
 
 	return outBuf.String(), errBuf.String(), err
-}
-
-// resetFlags restores every flag on cmd and its subcommands to its default.
-func resetFlags(t *testing.T, cmd *cobra.Command) {
-	t.Helper()
-
-	reset := func(f *pflag.Flag) {
-		if !f.Changed {
-			return
-		}
-		if err := f.Value.Set(f.DefValue); err != nil {
-			t.Fatalf("reset flag --%s: %v", f.Name, err)
-		}
-		f.Changed = false
-	}
-
-	cmd.Flags().VisitAll(reset)
-	cmd.PersistentFlags().VisitAll(reset)
-
-	for _, sub := range cmd.Commands() {
-		resetFlags(t, sub)
-	}
 }
