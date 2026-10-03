@@ -60,7 +60,7 @@ var startCmd = &cobra.Command{
 			return fmt.Errorf("failed to find project ID: %w", err)
 		}
 
-		description := getDescription(args, resolvedProject)
+		description := getDescription(cmd.ErrOrStderr(), args, resolvedProject)
 		return runStart(cmd.OutOrStdout(), cmd.ErrOrStderr(), client, description, workspaceId, projectId)
 	},
 }
@@ -160,27 +160,34 @@ func findProjectNameFromConfig(currentPath string) (string, error) {
 	return "", fmt.Errorf("no matching project found for current path '%s'", currentPath)
 }
 
-func getDescription(args []string, projectName string) string {
-	var description string
-
-	if len(args) > 0 {
-		description = args[0]
+// getDescription returns the description given on the command line, falling
+// back to a ticket number detected from the current directory's name. When
+// nothing can be detected the user is told why the entry has no description.
+func getDescription(errOut io.Writer, args []string, projectName string) string {
+	if len(args) > 0 && args[0] != "" {
+		return args[0]
 	}
 
+	description, dir := detectDescriptionFromCurrentPath(projectName)
 	if description == "" {
-		description = detectDescriptionFromCurrentPath(projectName)
+		fmt.Fprintf(errOut, "warning: could not detect a ticket number from directory name %q "+
+			"(no match, or more than one candidate), starting entry without description; "+
+			"pass a description or set ticket_pattern in the config\n", dir)
 	}
 
 	return description
 }
 
-func detectDescriptionFromCurrentPath(projectName string) string {
+// detectDescriptionFromCurrentPath returns the ticket number detected from the
+// current directory's name, along with that name.
+func detectDescriptionFromCurrentPath(projectName string) (description, dir string) {
 	currentPath, err := os.Getwd()
 	if err != nil {
-		return ""
+		return "", ""
 	}
 
-	return getTicketNumberFromPath(filepath.Base(currentPath), ticketPattern(projectName))
+	dir = filepath.Base(currentPath)
+	return getTicketNumberFromPath(dir, ticketPattern(projectName)), dir
 }
 
 // ticketPattern returns the expression used to pull a ticket number out of a
