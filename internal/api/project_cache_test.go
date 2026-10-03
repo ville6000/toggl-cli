@@ -1,4 +1,4 @@
-package cache
+package api
 
 import (
 	"encoding/json"
@@ -6,13 +6,11 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/ville6000/toggl-cli/internal/data"
 )
 
-func newTestCache(t *testing.T) *Service {
+func newTestCache(t *testing.T) *ProjectCache {
 	t.Helper()
-	return &Service{CacheDir: t.TempDir()}
+	return &ProjectCache{CacheDir: t.TempDir()}
 }
 
 // ---------- Path ----------
@@ -57,7 +55,7 @@ func TestPath_ContainsCacheDir(t *testing.T) {
 
 func TestSaveAndGetProjects(t *testing.T) {
 	cs := newTestCache(t)
-	projects := []data.Project{
+	projects := []Project{
 		{ID: 1, Name: "Alpha"},
 		{ID: 2, Name: "Beta"},
 	}
@@ -83,7 +81,7 @@ func TestSaveAndGetProjects(t *testing.T) {
 
 func TestSaveProjects_EmptySlice(t *testing.T) {
 	cs := newTestCache(t)
-	if err := cs.SaveProjects(1, []data.Project{}); err != nil {
+	if err := cs.SaveProjects(1, []Project{}); err != nil {
 		t.Fatalf("SaveProjects: %v", err)
 	}
 	got, err := cs.Projects(1)
@@ -98,12 +96,12 @@ func TestSaveProjects_EmptySlice(t *testing.T) {
 func TestSaveProjects_OverwritesPreviousCache(t *testing.T) {
 	cs := newTestCache(t)
 
-	original := []data.Project{{ID: 1, Name: "Original"}}
+	original := []Project{{ID: 1, Name: "Original"}}
 	if err := cs.SaveProjects(5, original); err != nil {
 		t.Fatalf("SaveProjects (original): %v", err)
 	}
 
-	updated := []data.Project{{ID: 2, Name: "Updated"}}
+	updated := []Project{{ID: 2, Name: "Updated"}}
 	if err := cs.SaveProjects(5, updated); err != nil {
 		t.Fatalf("SaveProjects (updated): %v", err)
 	}
@@ -119,8 +117,8 @@ func TestSaveProjects_OverwritesPreviousCache(t *testing.T) {
 
 func TestSaveProjects_IsolatedByWorkspace(t *testing.T) {
 	cs := newTestCache(t)
-	p1 := []data.Project{{ID: 1, Name: "WS-1"}}
-	p2 := []data.Project{{ID: 2, Name: "WS-2"}}
+	p1 := []Project{{ID: 1, Name: "WS-1"}}
+	p2 := []Project{{ID: 2, Name: "WS-2"}}
 
 	if err := cs.SaveProjects(100, p1); err != nil {
 		t.Fatalf("SaveProjects ws 100: %v", err)
@@ -153,14 +151,14 @@ func TestProjects_CacheMiss(t *testing.T) {
 
 func TestProjects_CacheExpired(t *testing.T) {
 	cs := newTestCache(t)
-	projects := []data.Project{{ID: 1, Name: "Stale"}}
+	projects := []Project{{ID: 1, Name: "Stale"}}
 
 	cacheFile, err := cs.Path(42)
 	if err != nil {
 		t.Fatalf("Path: %v", err)
 	}
 
-	expired := data.ProjectCache{
+	expired := cachedProjects{
 		Timestamp: time.Now().Add(-25 * time.Hour),
 		Data:      projects,
 	}
@@ -179,7 +177,7 @@ func TestProjects_CacheExpired(t *testing.T) {
 
 func TestProjects_CacheJustUnderTTL(t *testing.T) {
 	cs := newTestCache(t)
-	projects := []data.Project{{ID: 1, Name: "Fresh"}}
+	projects := []Project{{ID: 1, Name: "Fresh"}}
 
 	cacheFile, err := cs.Path(7)
 	if err != nil {
@@ -187,7 +185,7 @@ func TestProjects_CacheJustUnderTTL(t *testing.T) {
 	}
 
 	// Just under 24 hours — should still be valid.
-	fresh := data.ProjectCache{
+	fresh := cachedProjects{
 		Timestamp: time.Now().Add(-23*time.Hour - 59*time.Minute),
 		Data:      projects,
 	}
@@ -210,7 +208,7 @@ func TestProjects_CacheJustUnderTTL(t *testing.T) {
 
 func TestProjects_CacheExactlyAtTTL(t *testing.T) {
 	cs := newTestCache(t)
-	projects := []data.Project{{ID: 1, Name: "Boundary"}}
+	projects := []Project{{ID: 1, Name: "Boundary"}}
 
 	cacheFile, err := cs.Path(8)
 	if err != nil {
@@ -218,7 +216,7 @@ func TestProjects_CacheExactlyAtTTL(t *testing.T) {
 	}
 
 	// Exactly 24 hours ago — should be considered expired (>= 24h).
-	boundary := data.ProjectCache{
+	boundary := cachedProjects{
 		Timestamp: time.Now().Add(-24 * time.Hour),
 		Data:      projects,
 	}

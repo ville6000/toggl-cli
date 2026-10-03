@@ -1,20 +1,21 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"testing"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 // mockContinueService implements ContinueService for testing.
 type mockContinueService struct {
-	created     data.TimeEntry
+	created     api.TimeEntry
 	createdWsID int
 	createErr   error
 }
 
-func (m *mockContinueService) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error) {
+func (m *mockContinueService) CreateTimeEntry(_ context.Context, workspaceID int, entry api.TimeEntry) (*api.TimeEntry, error) {
 	m.createdWsID = workspaceID
 	m.created = entry
 	if m.createErr != nil {
@@ -23,8 +24,8 @@ func (m *mockContinueService) CreateTimeEntry(workspaceID int, entry data.TimeEn
 	return &entry, nil
 }
 
-func continueEntries() []data.TimeEntryItem {
-	return []data.TimeEntryItem{
+func continueEntries() []api.TimeEntryItem {
+	return []api.TimeEntryItem{
 		{ID: 1, Description: "most recent", ProjectID: 9, WorkspaceID: 777, Billable: true},
 		{ID: 2, Description: "older", ProjectID: 7, WorkspaceID: 100},
 	}
@@ -33,7 +34,7 @@ func continueEntries() []data.TimeEntryItem {
 func TestCreateTimeEntryFrom_UsesTheWorkspaceOfTheSelectedEntry(t *testing.T) {
 	mock := &mockContinueService{}
 
-	description, err := createTimeEntryFrom(0, continueEntries(), mock, 100)
+	description, err := createTimeEntryFrom(t.Context(), 0, continueEntries(), mock, 100)
 	if err != nil {
 		t.Fatalf("createTimeEntryFrom: %v", err)
 	}
@@ -58,9 +59,9 @@ func TestCreateTimeEntryFrom_UsesTheWorkspaceOfTheSelectedEntry(t *testing.T) {
 
 func TestCreateTimeEntryFrom_FallsBackToTheConfiguredWorkspace(t *testing.T) {
 	mock := &mockContinueService{}
-	entries := []data.TimeEntryItem{{ID: 1, Description: "no workspace", ProjectID: 9}}
+	entries := []api.TimeEntryItem{{ID: 1, Description: "no workspace", ProjectID: 9}}
 
-	if _, err := createTimeEntryFrom(0, entries, mock, 100); err != nil {
+	if _, err := createTimeEntryFrom(t.Context(), 0, entries, mock, 100); err != nil {
 		t.Fatalf("createTimeEntryFrom: %v", err)
 	}
 
@@ -72,7 +73,7 @@ func TestCreateTimeEntryFrom_FallsBackToTheConfiguredWorkspace(t *testing.T) {
 func TestCreateTimeEntryFrom_SelectsByIndex(t *testing.T) {
 	mock := &mockContinueService{}
 
-	description, err := createTimeEntryFrom(1, continueEntries(), mock, 100)
+	description, err := createTimeEntryFrom(t.Context(), 1, continueEntries(), mock, 100)
 	if err != nil {
 		t.Fatalf("createTimeEntryFrom: %v", err)
 	}
@@ -88,7 +89,7 @@ func TestCreateTimeEntryFrom_SelectsByIndex(t *testing.T) {
 func TestCreateTimeEntryFrom_IndexOutOfRange(t *testing.T) {
 	for _, index := range []int{-1, 2} {
 		mock := &mockContinueService{}
-		if _, err := createTimeEntryFrom(index, continueEntries(), mock, 100); err == nil {
+		if _, err := createTimeEntryFrom(t.Context(), index, continueEntries(), mock, 100); err == nil {
 			t.Errorf("index %d: expected an error", index)
 		}
 	}
@@ -97,7 +98,7 @@ func TestCreateTimeEntryFrom_IndexOutOfRange(t *testing.T) {
 func TestCreateTimeEntryFrom_CreateError(t *testing.T) {
 	mock := &mockContinueService{createErr: errors.New("API unavailable")}
 
-	_, err := createTimeEntryFrom(0, continueEntries(), mock, 100)
+	_, err := createTimeEntryFrom(t.Context(), 0, continueEntries(), mock, 100)
 	if err == nil {
 		t.Fatal("expected an error")
 	}

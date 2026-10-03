@@ -2,49 +2,50 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 // mockEditService implements EditService for testing.
 type mockEditService struct {
-	history         []data.TimeEntryItem
+	history         []api.TimeEntryItem
 	historyErr      error
 	projectIDByName map[string]int
 	projectIDErr    error
-	updatedEntry    *data.TimeEntryItem
+	updatedEntry    *api.TimeEntryItem
 	updateErr       error
 	projectsMap     map[int]string
 	projectsMapErr  error
 }
 
-func (m *mockEditService) TimeEntries(_, _ *time.Time) ([]data.TimeEntryItem, error) {
+func (m *mockEditService) TimeEntries(_ context.Context, _, _ *time.Time) ([]api.TimeEntryItem, error) {
 	return m.history, m.historyErr
 }
 
-func (m *mockEditService) ProjectIDByName(_ int, name string) (int, error) {
+func (m *mockEditService) ProjectIDByName(_ context.Context, _ int, name string) (int, error) {
 	if m.projectIDErr != nil {
 		return 0, m.projectIDErr
 	}
 	return m.projectIDByName[name], nil
 }
 
-func (m *mockEditService) UpdateTimeEntry(_ int, _ int, _ data.TimeEntry) (*data.TimeEntryItem, error) {
+func (m *mockEditService) UpdateTimeEntry(_ context.Context, _ int, _ int, _ api.TimeEntry) (*api.TimeEntryItem, error) {
 	return m.updatedEntry, m.updateErr
 }
 
-func (m *mockEditService) ProjectNames(_ int) (map[int]string, error) {
+func (m *mockEditService) ProjectNames(_ context.Context, _ int) (map[int]string, error) {
 	return m.projectsMap, m.projectsMapErr
 }
 
 // baseEntry returns a stopped entry with a realistic WorkspaceID.
-func baseEntry(id int, desc string) data.TimeEntryItem {
-	return data.TimeEntryItem{
+func baseEntry(id int, desc string) api.TimeEntryItem {
+	return api.TimeEntryItem{
 		ID:          id,
 		Description: desc,
 		ProjectID:   5,
@@ -55,8 +56,8 @@ func baseEntry(id int, desc string) data.TimeEntryItem {
 }
 
 // runningEntry returns a running entry (Duration < 0).
-func runningEntry(id int, desc string, projectID int) data.TimeEntryItem {
-	return data.TimeEntryItem{
+func runningEntry(id int, desc string, projectID int) api.TimeEntryItem {
+	return api.TimeEntryItem{
 		ID:          id,
 		Description: desc,
 		ProjectID:   projectID,
@@ -69,29 +70,29 @@ func runningEntry(id int, desc string, projectID int) data.TimeEntryItem {
 // ---------- runEdit: validation ----------
 
 func TestRunEdit_NoEntries(t *testing.T) {
-	mock := &mockEditService{history: []data.TimeEntryItem{}}
+	mock := &mockEditService{history: []api.TimeEntryItem{}}
 
-	if err := runEdit(io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC); err == nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC); err == nil {
 		t.Error("expected error for empty history")
 	}
 }
 
 func TestRunEdit_IndexOutOfRange(t *testing.T) {
 	mock := &mockEditService{
-		history: []data.TimeEntryItem{baseEntry(1, "task")},
+		history: []api.TimeEntryItem{baseEntry(1, "task")},
 	}
 
-	if err := runEdit(io.Discard, io.Discard, mock, 5, "new desc", "", "", time.UTC); err == nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock, 5, "new desc", "", "", time.UTC); err == nil {
 		t.Error("expected error for out-of-range index")
 	}
 }
 
 func TestRunEdit_NegativeIndex(t *testing.T) {
 	mock := &mockEditService{
-		history: []data.TimeEntryItem{baseEntry(1, "task")},
+		history: []api.TimeEntryItem{baseEntry(1, "task")},
 	}
 
-	if err := runEdit(io.Discard, io.Discard, mock, -1, "new desc", "", "", time.UTC); err == nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock, -1, "new desc", "", "", time.UTC); err == nil {
 		t.Error("expected error for negative index")
 	}
 }
@@ -99,7 +100,7 @@ func TestRunEdit_NegativeIndex(t *testing.T) {
 func TestRunEdit_HistoryError(t *testing.T) {
 	mock := &mockEditService{historyErr: errors.New("API error")}
 
-	err := runEdit(io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC)
+	err := runEdit(t.Context(), io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -111,18 +112,18 @@ func TestRunEdit_HistoryError(t *testing.T) {
 // ---------- runEdit: description update ----------
 
 func TestRunEdit_UpdateDescription(t *testing.T) {
-	updated := &data.TimeEntryItem{ID: 1, Description: "new desc", Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Description: "new desc", Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "old desc")},
+		history:      []api.TimeEntryItem{baseEntry(1, "old desc")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{5: "Proj"},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
 	var buf bytes.Buffer
-	if err := runEdit(&buf, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), &buf, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	out := buf.String()
@@ -136,18 +137,18 @@ func TestRunEdit_UpdateDescription(t *testing.T) {
 }
 
 func TestRunEdit_KeepsDescriptionWhenNotProvided(t *testing.T) {
-	updated := &data.TimeEntryItem{ID: 1, Description: "original", Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Description: "original", Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:         []data.TimeEntryItem{baseEntry(1, "original")},
+		history:         []api.TimeEntryItem{baseEntry(1, "original")},
 		updatedEntry:    updated,
 		projectIDByName: map[string]int{"NewProj": 10},
 		projectsMap:     map[int]string{10: "NewProj"},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "NewProj", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "", "NewProj", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -159,18 +160,18 @@ func TestRunEdit_KeepsDescriptionWhenNotProvided(t *testing.T) {
 // ---------- runEdit: project update ----------
 
 func TestRunEdit_UpdateProject(t *testing.T) {
-	updated := &data.TimeEntryItem{ID: 1, Description: "task", ProjectID: 10, Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Description: "task", ProjectID: 10, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:         []data.TimeEntryItem{baseEntry(1, "task")},
+		history:         []api.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry:    updated,
 		projectIDByName: map[string]int{"NewProj": 10},
 		projectsMap:     map[int]string{10: "NewProj"},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "NewProj", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "", "NewProj", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -181,11 +182,11 @@ func TestRunEdit_UpdateProject(t *testing.T) {
 
 func TestRunEdit_ProjectNotFound(t *testing.T) {
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task")},
+		history:      []api.TimeEntryItem{baseEntry(1, "task")},
 		projectIDErr: errors.New("not found"),
 	}
 
-	err := runEdit(io.Discard, io.Discard, mock, 0, "", "Ghost", "", time.UTC)
+	err := runEdit(t.Context(), io.Discard, io.Discard, mock, 0, "", "Ghost", "", time.UTC)
 	if err == nil {
 		t.Fatal("expected error for unknown project")
 	}
@@ -195,17 +196,17 @@ func TestRunEdit_ProjectNotFound(t *testing.T) {
 }
 
 func TestRunEdit_KeepsProjectWhenNotProvided(t *testing.T) {
-	updated := &data.TimeEntryItem{ID: 1, ProjectID: 5, Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, ProjectID: 5, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task")},
+		history:      []api.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{5: "OrigProj"},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -218,9 +219,9 @@ func TestRunEdit_KeepsProjectWhenNotProvided(t *testing.T) {
 
 func TestRunEdit_UsesEntryWorkspaceID(t *testing.T) {
 	entry := baseEntry(1, "task") // WorkspaceID = 100
-	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:         []data.TimeEntryItem{entry},
+		history:         []api.TimeEntryItem{entry},
 		updatedEntry:    updated,
 		projectIDByName: map[string]int{"Proj": 5},
 		projectsMap:     map[int]string{5: "Proj"},
@@ -228,7 +229,7 @@ func TestRunEdit_UsesEntryWorkspaceID(t *testing.T) {
 
 	ws := &captureWorkspaceMock{mockEditService: mock}
 
-	if err := runEdit(io.Discard, io.Discard, ws, 0, "", "Proj", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, ws, 0, "", "Proj", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -248,17 +249,17 @@ func TestRunEdit_UsesEntryWorkspaceID(t *testing.T) {
 func TestRunEdit_PreservesStopTimeForStoppedEntry(t *testing.T) {
 	// Duration 3600s => stop = start + 1h = 2024-06-01T10:00:00Z
 	entry := baseEntry(1, "task")
-	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{entry},
+		history:      []api.TimeEntryItem{entry},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -272,17 +273,17 @@ func TestRunEdit_PreservesStopTimeForStoppedEntry(t *testing.T) {
 
 func TestRunEdit_NoStopTimeForRunningEntry(t *testing.T) {
 	entry := runningEntry(1, "task", 5)
-	updated := &data.TimeEntryItem{ID: 1, Duration: -1, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: -1, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{entry},
+		history:      []api.TimeEntryItem{entry},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -294,15 +295,15 @@ func TestRunEdit_NoStopTimeForRunningEntry(t *testing.T) {
 // ---------- runEdit: output routing ----------
 
 func TestRunEdit_StoppedEntryUsesStoppedOutput(t *testing.T) {
-	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task")},
+		history:      []api.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
 	var buf bytes.Buffer
-	if err := runEdit(&buf, io.Discard, mock, 0, "task", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), &buf, io.Discard, mock, 0, "task", "", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	out := buf.String()
@@ -313,15 +314,15 @@ func TestRunEdit_StoppedEntryUsesStoppedOutput(t *testing.T) {
 }
 
 func TestRunEdit_RunningEntryUsesCurrentOutput(t *testing.T) {
-	updated := &data.TimeEntryItem{ID: 1, Duration: -1, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: -1, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{runningEntry(1, "task", 5)},
+		history:      []api.TimeEntryItem{runningEntry(1, "task", 5)},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
 	var buf bytes.Buffer
-	if err := runEdit(&buf, io.Discard, mock, 0, "task", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), &buf, io.Discard, mock, 0, "task", "", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	out := buf.String()
@@ -335,11 +336,11 @@ func TestRunEdit_RunningEntryUsesCurrentOutput(t *testing.T) {
 
 func TestRunEdit_UpdateError(t *testing.T) {
 	mock := &mockEditService{
-		history:   []data.TimeEntryItem{baseEntry(1, "task")},
+		history:   []api.TimeEntryItem{baseEntry(1, "task")},
 		updateErr: errors.New("server error"),
 	}
 
-	err := runEdit(io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC)
+	err := runEdit(t.Context(), io.Discard, io.Discard, mock, 0, "new desc", "", "", time.UTC)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -351,15 +352,15 @@ func TestRunEdit_UpdateError(t *testing.T) {
 // ---------- runEdit: projects map non-fatal ----------
 
 func TestRunEdit_ProjectsMapErrorNonFatal(t *testing.T) {
-	updated := &data.TimeEntryItem{ID: 1, Description: "task", Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Description: "task", Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:        []data.TimeEntryItem{baseEntry(1, "task")},
+		history:        []api.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry:   updated,
 		projectsMapErr: errors.New("projects unavailable"),
 	}
 
 	var buf, errBuf bytes.Buffer
-	if err := runEdit(&buf, &errBuf, mock, 0, "task", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), &buf, &errBuf, mock, 0, "task", "", "", time.UTC); err != nil {
 		t.Errorf("expected success despite projects map failure, got: %v", err)
 	}
 	out := buf.String()
@@ -378,12 +379,12 @@ func TestRunEdit_ProjectsMapErrorNonFatal(t *testing.T) {
 // ---------- runEdit: index selection ----------
 
 func TestRunEdit_SelectsByIndex(t *testing.T) {
-	entries := []data.TimeEntryItem{
+	entries := []api.TimeEntryItem{
 		baseEntry(1, "first"),
 		baseEntry(2, "second"),
 		baseEntry(3, "third"),
 	}
-	updated := &data.TimeEntryItem{ID: 2, Description: "updated second", Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 2, Description: "updated second", Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
 		history:      entries,
 		updatedEntry: updated,
@@ -393,7 +394,7 @@ func TestRunEdit_SelectsByIndex(t *testing.T) {
 	var capturedID int
 	mock2 := &captureIDMock{mockEditService: mock, capturedID: &capturedID}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 1, "updated second", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 1, "updated second", "", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -403,7 +404,7 @@ func TestRunEdit_SelectsByIndex(t *testing.T) {
 }
 
 func TestRunEdit_PreservesEntryFields(t *testing.T) {
-	entry := data.TimeEntryItem{
+	entry := api.TimeEntryItem{
 		ID:          7,
 		Description: "task",
 		ProjectID:   5,
@@ -413,17 +414,17 @@ func TestRunEdit_PreservesEntryFields(t *testing.T) {
 		Tags:        []string{"urgent"},
 		Start:       time.Date(2024, 1, 1, 10, 0, 0, 0, time.UTC),
 	}
-	updated := &data.TimeEntryItem{ID: 7, Duration: 1800, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 7, Duration: 1800, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{entry},
+		history:      []api.TimeEntryItem{entry},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "new desc", "", "", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -448,17 +449,17 @@ func TestRunEdit_PreservesEntryFields(t *testing.T) {
 
 func TestRunEdit_UpdateStartKeepsEndRecomputesDuration(t *testing.T) {
 	// base entry: 2024-06-01 09:00 UTC, duration 3600 => end 10:00.
-	updated := &data.TimeEntryItem{ID: 1, Duration: 7200, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: 7200, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task")},
+		history:      []api.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "", "2024-06-01 08:00", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "", "", "2024-06-01 08:00", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -474,17 +475,17 @@ func TestRunEdit_UpdateStartKeepsEndRecomputesDuration(t *testing.T) {
 }
 
 func TestRunEdit_UpdateStartTimeOnlyUsesEntryDate(t *testing.T) {
-	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task")},
+		history:      []api.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "", "08:30", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "", "", "08:30", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -499,17 +500,17 @@ func TestRunEdit_UpdateStartRespectsTimezoneOffset(t *testing.T) {
 		t.Fatalf("failed to load location: %v", err)
 	}
 
-	updated := &data.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: 3600, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{baseEntry(1, "task")},
+		history:      []api.TimeEntryItem{baseEntry(1, "task")},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "", "2024-06-01 09:00", loc); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "", "", "2024-06-01 09:00", loc); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -521,11 +522,11 @@ func TestRunEdit_UpdateStartRespectsTimezoneOffset(t *testing.T) {
 
 func TestRunEdit_StartAtOrAfterEndFails(t *testing.T) {
 	mock := &mockEditService{
-		history:     []data.TimeEntryItem{baseEntry(1, "task")}, // end 10:00
+		history:     []api.TimeEntryItem{baseEntry(1, "task")}, // end 10:00
 		projectsMap: map[int]string{},
 	}
 
-	err := runEdit(io.Discard, io.Discard, mock, 0, "", "", "2024-06-01 10:30", time.UTC)
+	err := runEdit(t.Context(), io.Discard, io.Discard, mock, 0, "", "", "2024-06-01 10:30", time.UTC)
 	if err == nil {
 		t.Fatal("expected error when start is after end")
 	}
@@ -536,11 +537,11 @@ func TestRunEdit_StartAtOrAfterEndFails(t *testing.T) {
 
 func TestRunEdit_InvalidStartFormatFails(t *testing.T) {
 	mock := &mockEditService{
-		history:     []data.TimeEntryItem{baseEntry(1, "task")},
+		history:     []api.TimeEntryItem{baseEntry(1, "task")},
 		projectsMap: map[int]string{},
 	}
 
-	err := runEdit(io.Discard, io.Discard, mock, 0, "", "", "not-a-time", time.UTC)
+	err := runEdit(t.Context(), io.Discard, io.Discard, mock, 0, "", "", "not-a-time", time.UTC)
 	if err == nil {
 		t.Fatal("expected error for invalid start format")
 	}
@@ -552,17 +553,17 @@ func TestRunEdit_InvalidStartFormatFails(t *testing.T) {
 func TestRunEdit_UpdateStartOnRunningEntryStaysRunning(t *testing.T) {
 	entry := runningEntry(1, "task", 5)
 	entry.Start = time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC)
-	updated := &data.TimeEntryItem{ID: 1, Duration: -1, Start: time.Now()}
+	updated := &api.TimeEntryItem{ID: 1, Duration: -1, Start: time.Now()}
 	mock := &mockEditService{
-		history:      []data.TimeEntryItem{entry},
+		history:      []api.TimeEntryItem{entry},
 		updatedEntry: updated,
 		projectsMap:  map[int]string{},
 	}
 
-	var capturedEntry data.TimeEntry
+	var capturedEntry api.TimeEntry
 	mock2 := &captureUpdateMock{mockEditService: mock, capture: &capturedEntry}
 
-	if err := runEdit(io.Discard, io.Discard, mock2, 0, "", "", "08:00", time.UTC); err != nil {
+	if err := runEdit(t.Context(), io.Discard, io.Discard, mock2, 0, "", "", "08:00", time.UTC); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -582,12 +583,12 @@ func TestRunEdit_UpdateStartOnRunningEntryStaysRunning(t *testing.T) {
 // captureUpdateMock wraps mockEditService and records the TimeEntry passed to UpdateTimeEntry.
 type captureUpdateMock struct {
 	*mockEditService
-	capture *data.TimeEntry
+	capture *api.TimeEntry
 }
 
-func (m *captureUpdateMock) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+func (m *captureUpdateMock) UpdateTimeEntry(ctx context.Context, workspaceID int, entryID int, entry api.TimeEntry) (*api.TimeEntryItem, error) {
 	*m.capture = entry
-	return m.mockEditService.UpdateTimeEntry(workspaceID, entryID, entry)
+	return m.mockEditService.UpdateTimeEntry(ctx, workspaceID, entryID, entry)
 }
 
 // captureIDMock records the entry ID passed to UpdateTimeEntry.
@@ -596,9 +597,9 @@ type captureIDMock struct {
 	capturedID *int
 }
 
-func (m *captureIDMock) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+func (m *captureIDMock) UpdateTimeEntry(ctx context.Context, workspaceID int, entryID int, entry api.TimeEntry) (*api.TimeEntryItem, error) {
 	*m.capturedID = entryID
-	return m.mockEditService.UpdateTimeEntry(workspaceID, entryID, entry)
+	return m.mockEditService.UpdateTimeEntry(ctx, workspaceID, entryID, entry)
 }
 
 // captureWorkspaceMock records workspace IDs passed to each method.
@@ -609,17 +610,17 @@ type captureWorkspaceMock struct {
 	projectsMapWS   int
 }
 
-func (m *captureWorkspaceMock) ProjectIDByName(wsID int, name string) (int, error) {
+func (m *captureWorkspaceMock) ProjectIDByName(ctx context.Context, wsID int, name string) (int, error) {
 	m.projectLookupWS = wsID
-	return m.mockEditService.ProjectIDByName(wsID, name)
+	return m.mockEditService.ProjectIDByName(ctx, wsID, name)
 }
 
-func (m *captureWorkspaceMock) UpdateTimeEntry(wsID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+func (m *captureWorkspaceMock) UpdateTimeEntry(ctx context.Context, wsID int, entryID int, entry api.TimeEntry) (*api.TimeEntryItem, error) {
 	m.updateWS = wsID
-	return m.mockEditService.UpdateTimeEntry(wsID, entryID, entry)
+	return m.mockEditService.UpdateTimeEntry(ctx, wsID, entryID, entry)
 }
 
-func (m *captureWorkspaceMock) ProjectNames(wsID int) (map[int]string, error) {
+func (m *captureWorkspaceMock) ProjectNames(ctx context.Context, wsID int) (map[int]string, error) {
 	m.projectsMapWS = wsID
-	return m.mockEditService.ProjectNames(wsID)
+	return m.mockEditService.ProjectNames(ctx, wsID)
 }

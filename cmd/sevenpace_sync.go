@@ -13,7 +13,6 @@ import (
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
-	"github.com/ville6000/toggl-cli/internal/data"
 	"github.com/ville6000/toggl-cli/internal/output"
 )
 
@@ -24,7 +23,7 @@ type plannedWorkLog struct {
 	started  string
 	duration string
 	comment  string
-	payload  data.SevenPaceWorkLog
+	payload  api.SevenPaceWorkLog
 }
 
 var sevenpaceSyncCmd = &cobra.Command{
@@ -37,6 +36,8 @@ var sevenpaceSyncCmd = &cobra.Command{
 		"skipped. There is no de-duplication, so re-running the same range creates duplicate\n" +
 		"worklogs — use --dry-run first to preview.",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+
 		token, _, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
@@ -68,7 +69,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 		}
 
 		client := api.NewClientFromConfig(token)
-		timeEntries, err := client.TimeEntries(&startTime, &endTime)
+		timeEntries, err := client.TimeEntries(ctx, &startTime, &endTime)
 		if err != nil {
 			return fmt.Errorf("failed to get history: %w", err)
 		}
@@ -144,7 +145,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 		postedSeconds := 0
 		var failures [][]any
 		for _, p := range planned {
-			if _, postErr := spClient.CreateWorkLog(p.payload); postErr != nil {
+			if _, postErr := spClient.CreateWorkLog(ctx, p.payload); postErr != nil {
 				failures = append(failures, []any{p.workItem, p.started, p.duration, postErr.Error()})
 				continue
 			}

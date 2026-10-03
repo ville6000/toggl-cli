@@ -5,18 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 // CreateWorkLog posts a single worklog to 7pace Timetracker.
-func (c *SevenPaceClient) CreateWorkLog(workLog data.SevenPaceWorkLog) (*data.SevenPaceWorkLog, error) {
-	req, err := c.newRequest(http.MethodPost, "/workLogs?api-version=3.0", workLog)
+func (c *SevenPaceClient) CreateWorkLog(ctx context.Context, workLog SevenPaceWorkLog) (*SevenPaceWorkLog, error) {
+	req, err := c.newRequest(ctx, http.MethodPost, "/workLogs?api-version=3.0", workLog)
 	if err != nil {
 		return nil, err
 	}
 
-	var created data.SevenPaceWorkLog
+	var created SevenPaceWorkLog
 	if reqErr := c.doRequest(req, &created); reqErr != nil {
 		return nil, reqErr
 	}
@@ -24,9 +22,8 @@ func (c *SevenPaceClient) CreateWorkLog(workLog data.SevenPaceWorkLog) (*data.Se
 	return &created, nil
 }
 
-func (c *SevenPaceClient) newRequest(method, endpoint string, body any) (*http.Request, error) {
-	// context.TODO until the API methods take a context from their callers.
-	req, err := newJSONRequest(context.TODO(), method, c.BaseURL+endpoint, body)
+func (c *SevenPaceClient) newRequest(ctx context.Context, method, endpoint string, body any) (*http.Request, error) {
+	req, err := newJSONRequest(ctx, method, c.BaseURL+endpoint, body)
 	if err != nil {
 		return nil, err
 	}

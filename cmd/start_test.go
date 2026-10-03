@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -12,31 +13,31 @@ import (
 
 	"github.com/spf13/viper"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 // mockStartService implements StartService for testing.
 type mockStartService struct {
 	projectIDByName map[string]int
 	projectIDErr    error
-	createEntry     *data.TimeEntry
+	createEntry     *api.TimeEntry
 	createErr       error
 	projectsMap     map[int]string
 	projectsMapErr  error
 }
 
-func (m *mockStartService) ProjectIDByName(_ int, name string) (int, error) {
+func (m *mockStartService) ProjectIDByName(_ context.Context, _ int, name string) (int, error) {
 	if m.projectIDErr != nil {
 		return 0, m.projectIDErr
 	}
 	return m.projectIDByName[name], nil
 }
 
-func (m *mockStartService) CreateTimeEntry(_ int, _ data.TimeEntry) (*data.TimeEntry, error) {
+func (m *mockStartService) CreateTimeEntry(_ context.Context, _ int, _ api.TimeEntry) (*api.TimeEntry, error) {
 	return m.createEntry, m.createErr
 }
 
-func (m *mockStartService) ProjectNames(_ int) (map[int]string, error) {
+func (m *mockStartService) ProjectNames(_ context.Context, _ int) (map[int]string, error) {
 	return m.projectsMap, m.projectsMapErr
 }
 
@@ -44,7 +45,7 @@ func (m *mockStartService) ProjectNames(_ int) (map[int]string, error) {
 
 func TestRunStart_Success(t *testing.T) {
 	mock := &mockStartService{
-		createEntry: &data.TimeEntry{
+		createEntry: &api.TimeEntry{
 			ID:          42,
 			Description: "my task",
 			ProjectID:   7,
@@ -54,7 +55,7 @@ func TestRunStart_Success(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := runStart(&buf, io.Discard, mock, "my task", 1, 7); err != nil {
+	if err := runStart(t.Context(), &buf, io.Discard, mock, "my task", 1, 7); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	out := buf.String()
@@ -72,7 +73,7 @@ func TestRunStart_CreateTimeEntryError(t *testing.T) {
 		createErr: errors.New("API unavailable"),
 	}
 
-	err := runStart(io.Discard, io.Discard, mock, "task", 1, 7)
+	err := runStart(t.Context(), io.Discard, io.Discard, mock, "task", 1, 7)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -83,7 +84,7 @@ func TestRunStart_CreateTimeEntryError(t *testing.T) {
 
 func TestRunStart_GetProjectsMapError(t *testing.T) {
 	mock := &mockStartService{
-		createEntry: &data.TimeEntry{
+		createEntry: &api.TimeEntry{
 			ID:    1,
 			Start: time.Now().Format(time.RFC3339),
 		},
@@ -93,7 +94,7 @@ func TestRunStart_GetProjectsMapError(t *testing.T) {
 	// Project lookup failure is non-fatal: entry was already created.
 	// The command should succeed and print a warning to stderr instead.
 	var buf, errBuf bytes.Buffer
-	if err := runStart(&buf, &errBuf, mock, "task", 1, 7); err != nil {
+	if err := runStart(t.Context(), &buf, &errBuf, mock, "task", 1, 7); err != nil {
 		t.Errorf("expected success despite projects lookup failure, got: %v", err)
 	}
 	out := buf.String()
@@ -113,14 +114,14 @@ func TestRunStart_GetProjectsMapError(t *testing.T) {
 
 func TestRunStart_InvalidStartTime(t *testing.T) {
 	mock := &mockStartService{
-		createEntry: &data.TimeEntry{
+		createEntry: &api.TimeEntry{
 			ID:    1,
 			Start: "not-a-valid-time",
 		},
 		projectsMap: map[int]string{},
 	}
 
-	err := runStart(io.Discard, io.Discard, mock, "task", 1, 7)
+	err := runStart(t.Context(), io.Discard, io.Discard, mock, "task", 1, 7)
 	if err == nil {
 		t.Fatal("expected error for invalid start time")
 	}
@@ -133,7 +134,7 @@ func TestRunStart_RFC3339NanoStartTime(t *testing.T) {
 	// API may return fractional seconds; ensure they parse correctly.
 	start := time.Date(2024, 6, 15, 9, 30, 0, 123000000, time.UTC)
 	mock := &mockStartService{
-		createEntry: &data.TimeEntry{
+		createEntry: &api.TimeEntry{
 			ID:          1,
 			Description: "work",
 			Start:       start.Format(time.RFC3339Nano),
@@ -142,7 +143,7 @@ func TestRunStart_RFC3339NanoStartTime(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := runStart(&buf, io.Discard, mock, "work", 1, 0); err != nil {
+	if err := runStart(t.Context(), &buf, io.Discard, mock, "work", 1, 0); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	out := buf.String()
@@ -154,7 +155,7 @@ func TestRunStart_RFC3339NanoStartTime(t *testing.T) {
 func TestRunStart_OutputContainsStartTime(t *testing.T) {
 	start := time.Date(2024, 6, 15, 9, 30, 0, 0, time.UTC)
 	mock := &mockStartService{
-		createEntry: &data.TimeEntry{
+		createEntry: &api.TimeEntry{
 			ID:          1,
 			Description: "work",
 			Start:       start.Format(time.RFC3339),
@@ -163,7 +164,7 @@ func TestRunStart_OutputContainsStartTime(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := runStart(&buf, io.Discard, mock, "work", 1, 0); err != nil {
+	if err := runStart(t.Context(), &buf, io.Discard, mock, "work", 1, 0); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	out := buf.String()
@@ -238,7 +239,7 @@ func TestFindProjectIDForEntry_WithExplicitName(t *testing.T) {
 		projectIDByName: map[string]int{"MyProject": 99},
 	}
 
-	id, name, err := findProjectIDForEntry("MyProject", mock, 1)
+	id, name, err := findProjectIDForEntry(t.Context(), "MyProject", mock, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -255,7 +256,7 @@ func TestFindProjectIDForEntry_ProjectNotFound(t *testing.T) {
 		projectIDErr: errors.New("not found"),
 	}
 
-	if _, _, err := findProjectIDForEntry("Missing", mock, 1); err == nil {
+	if _, _, err := findProjectIDForEntry(t.Context(), "Missing", mock, 1); err == nil {
 		t.Error("expected error for missing project")
 	}
 }
@@ -264,7 +265,7 @@ func TestFindProjectIDForEntry_EmptyNameNoConfig(t *testing.T) {
 	resetViperForStartTests()
 	mock := &mockStartService{}
 
-	_, _, err := findProjectIDForEntry("", mock, 1)
+	_, _, err := findProjectIDForEntry(t.Context(), "", mock, 1)
 	if err == nil {
 		t.Error("expected error when no name and no config match")
 	}

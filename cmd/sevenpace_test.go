@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 func TestParseWorkItemID(t *testing.T) {
@@ -34,7 +34,7 @@ func TestParseWorkItemID(t *testing.T) {
 
 func TestToWorkLog_WithWorkItem(t *testing.T) {
 	start := time.Date(2024, 1, 2, 10, 30, 0, 0, time.UTC)
-	entry := data.TimeEntryItem{
+	entry := api.TimeEntryItem{
 		Description: "#1234 build the thing",
 		Duration:    3600,
 		Start:       start,
@@ -62,7 +62,7 @@ func TestToWorkLog_WithWorkItem(t *testing.T) {
 }
 
 func TestToWorkLog_NoWorkItem(t *testing.T) {
-	entry := data.TimeEntryItem{
+	entry := api.TimeEntryItem{
 		Description: "misc work",
 		Duration:    1800,
 		Start:       time.Date(2024, 3, 4, 9, 0, 0, 0, time.UTC),
@@ -105,7 +105,7 @@ func TestAggregateEntries(t *testing.T) {
 	early := time.Date(2024, 1, 2, 9, 0, 0, 0, time.UTC)
 	later := time.Date(2024, 1, 2, 14, 0, 0, 0, time.UTC)
 
-	entries := []data.TimeEntryItem{
+	entries := []api.TimeEntryItem{
 		{Description: "#1234 build the thing", Duration: 100, Start: later},
 		{Description: "#5678 other", Duration: 120, Start: later},
 		{Description: "#1234 build the thing", Duration: 50, Start: early},

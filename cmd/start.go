@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/ville6000/toggl-cli/internal/api"
 	"github.com/ville6000/toggl-cli/internal/config"
-	"github.com/ville6000/toggl-cli/internal/data"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -35,9 +35,9 @@ var defaultTicketRe = regexp.MustCompile(defaultTicketPattern)
 
 // StartService is the subset of api.Client used by the start command.
 type StartService interface {
-	ProjectIDByName(workspaceID int, projectName string) (int, error)
-	CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error)
-	ProjectNames(workspaceID int) (map[int]string, error)
+	ProjectIDByName(ctx context.Context, workspaceID int, projectName string) (int, error)
+	CreateTimeEntry(ctx context.Context, workspaceID int, entry api.TimeEntry) (*api.TimeEntry, error)
+	ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error)
 }
 
 var startCmd = &cobra.Command{
@@ -56,25 +56,25 @@ var startCmd = &cobra.Command{
 		}
 
 		client := api.NewClientFromConfig(token)
-		projectID, resolvedProject, err := findProjectIDForEntry(projectName, client, workspaceID)
+		projectID, resolvedProject, err := findProjectIDForEntry(cmd.Context(), projectName, client, workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to find project ID: %w", err)
 		}
 
 		description := getDescription(cmd.ErrOrStderr(), args, resolvedProject)
-		return runStart(cmd.OutOrStdout(), cmd.ErrOrStderr(), client, description, workspaceID, projectID)
+		return runStart(cmd.Context(), cmd.OutOrStdout(), cmd.ErrOrStderr(), client, description, workspaceID, projectID)
 	},
 }
 
-func runStart(out, errOut io.Writer, client StartService, description string, workspaceID, projectID int) error {
+func runStart(ctx context.Context, out, errOut io.Writer, client StartService, description string, workspaceID, projectID int) error {
 	timeEntry := api.NewTimeEntry(description, workspaceID, projectID, false)
 
-	createdEntry, err := client.CreateTimeEntry(workspaceID, timeEntry)
+	createdEntry, err := client.CreateTimeEntry(ctx, workspaceID, timeEntry)
 	if err != nil {
 		return fmt.Errorf("failed to create time entry: %w", err)
 	}
 
-	projectsMap, err := client.ProjectNames(workspaceID)
+	projectsMap, err := client.ProjectNames(ctx, workspaceID)
 	if err != nil {
 		// Non-fatal: the entry was already created. Show it without project name.
 		fmt.Fprintln(errOut, "warning: failed to get projects, showing entry without project name:", err)
@@ -89,7 +89,7 @@ func runStart(out, errOut io.Writer, client StartService, description string, wo
 		}
 	}
 
-	return outputCurrentEntry(out, &data.TimeEntryItem{
+	return outputCurrentEntry(out, &api.TimeEntryItem{
 		ID:          createdEntry.ID,
 		Description: createdEntry.Description,
 		ProjectID:   createdEntry.ProjectID,
@@ -106,7 +106,7 @@ func init() {
 // findProjectIDForEntry resolves the project for the entry, returning both its
 // id and the name it was resolved to (the config key when detected from the
 // current path), so the caller can look up project-specific settings.
-func findProjectIDForEntry(projectName string, client StartService, workspaceID int) (int, string, error) {
+func findProjectIDForEntry(ctx context.Context, projectName string, client StartService, workspaceID int) (int, string, error) {
 	if projectName == "" {
 		currentPath, err := os.Getwd()
 		if err != nil {
@@ -123,7 +123,7 @@ func findProjectIDForEntry(projectName string, client StartService, workspaceID 
 		return 0, "", errors.New("no project name provided and no matching project found in config for current path")
 	}
 
-	projectID, err := client.ProjectIDByName(workspaceID, projectName)
+	projectID, err := client.ProjectIDByName(ctx, workspaceID, projectName)
 	if err != nil || projectID == 0 {
 		return 0, "", fmt.Errorf("failed to get project ID for '%s': %w", projectName, err)
 	}

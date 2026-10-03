@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 // newTestSevenPaceClient creates a SevenPaceClient pointing at the test server,
@@ -27,7 +25,7 @@ func newTestSevenPaceClient(t *testing.T, handler http.Handler) *SevenPaceClient
 
 func TestCreateWorkLog_PostsToEndpoint(t *testing.T) {
 	var capturedMethod, capturedPath, capturedQuery, capturedAuth string
-	var capturedBody data.SevenPaceWorkLog
+	var capturedBody SevenPaceWorkLog
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedMethod = r.Method
 		capturedPath = r.URL.Path
@@ -46,14 +44,14 @@ func TestCreateWorkLog_PostsToEndpoint(t *testing.T) {
 	client := newTestSevenPaceClient(t, handler)
 
 	workItem := 1234
-	input := data.SevenPaceWorkLog{
+	input := SevenPaceWorkLog{
 		Timestamp:  "2024-01-02T10:00:00Z",
 		Length:     3600,
 		WorkItemID: &workItem,
 		Comment:    "#1234 do stuff",
 	}
 
-	got, err := client.CreateWorkLog(input)
+	got, err := client.CreateWorkLog(t.Context(), input)
 	if err != nil {
 		t.Fatalf("CreateWorkLog: %v", err)
 	}
@@ -83,7 +81,7 @@ func TestCreateWorkLog_HTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusBadRequest)
 	}))
 
-	if _, err := client.CreateWorkLog(data.SevenPaceWorkLog{Length: 3600}); err == nil {
+	if _, err := client.CreateWorkLog(t.Context(), SevenPaceWorkLog{Length: 3600}); err == nil {
 		t.Error("expected error for HTTP 400")
 	}
 }

@@ -7,8 +7,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/ville6000/toggl-cli/internal/data"
-
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 
@@ -30,6 +28,8 @@ var historyCmd = &cobra.Command{
 	Short: "Fetch the history of time entries",
 	Long:  "Fetch the history of time entries from Toggl",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+
 		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
@@ -41,7 +41,7 @@ var historyCmd = &cobra.Command{
 		}
 
 		client := api.NewClientFromConfig(token)
-		projectsLookup, err := client.ProjectNames(workspaceID)
+		projectsLookup, err := client.ProjectNames(ctx, workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get projects: %w", err)
 		}
@@ -51,7 +51,7 @@ var historyCmd = &cobra.Command{
 			return err
 		}
 
-		timeEntries, err := client.TimeEntries(&startTime, &endTime)
+		timeEntries, err := client.TimeEntries(ctx, &startTime, &endTime)
 		if err != nil {
 			return fmt.Errorf("failed to get history: %w", err)
 		}
@@ -118,7 +118,7 @@ func outputSummaryEntries(out io.Writer, key string, headers []any, entries map[
 }
 
 func sumEntriesByDescriptionAndProject(
-	entries []data.TimeEntryItem,
+	entries []api.TimeEntryItem,
 	projectsLookup map[int]string,
 	now time.Time,
 ) map[string]HistoryEntry {
@@ -148,7 +148,7 @@ func sumEntriesByDescriptionAndProject(
 // running entry as a negative duration (the negated start timestamp), so those
 // are reported as the time elapsed so far instead of the raw sentinel, which
 // would otherwise wreck the daily totals.
-func entryDuration(entry data.TimeEntryItem, now time.Time) int {
+func entryDuration(entry api.TimeEntryItem, now time.Time) int {
 	if entry.Duration < 0 {
 		elapsed := int(now.Sub(entry.Start).Seconds())
 		if elapsed < 0 {
@@ -164,7 +164,7 @@ func outputDateEntries(
 	out io.Writer,
 	key string,
 	headers []any,
-	groupedEntries map[string][]data.TimeEntryItem,
+	groupedEntries map[string][]api.TimeEntryItem,
 	projectsLookup map[int]string,
 	location *time.Location,
 	now time.Time,
@@ -199,8 +199,8 @@ func outputDateEntries(
 // groupEntriesByDate buckets entries by their calendar date in the configured
 // timezone. The API hands back UTC timestamps, so grouping on those directly
 // would file an entry started at 01:00 in a UTC+2 zone under the previous day.
-func groupEntriesByDate(entries []data.TimeEntryItem, location *time.Location) map[string][]data.TimeEntryItem {
-	groupedEntries := make(map[string][]data.TimeEntryItem)
+func groupEntriesByDate(entries []api.TimeEntryItem, location *time.Location) map[string][]api.TimeEntryItem {
+	groupedEntries := make(map[string][]api.TimeEntryItem)
 
 	for _, entry := range entries {
 		date := entry.Start.In(location).Format("2006-01-02")
@@ -210,7 +210,7 @@ func groupEntriesByDate(entries []data.TimeEntryItem, location *time.Location) m
 	return groupedEntries
 }
 
-func getSortedTimeEntryDates(groupedEntries map[string][]data.TimeEntryItem) []string {
+func getSortedTimeEntryDates(groupedEntries map[string][]api.TimeEntryItem) []string {
 	sortedKeys := make([]string, 0, len(groupedEntries))
 	for key := range groupedEntries {
 		sortedKeys = append(sortedKeys, key)

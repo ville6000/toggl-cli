@@ -18,6 +18,8 @@ var projectsAddPathCmd = &cobra.Command{
 	Long:  "",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+
 		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
@@ -33,7 +35,7 @@ var projectsAddPathCmd = &cobra.Command{
 
 		var projectID int
 		if projectName != "" {
-			projectID, err = client.ProjectIDByName(workspaceID, projectName)
+			projectID, err = client.ProjectIDByName(ctx, workspaceID, projectName)
 			if err != nil {
 				return fmt.Errorf("failed to get project ID: %w", err)
 			}

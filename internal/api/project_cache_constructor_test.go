@@ -1,26 +1,26 @@
-package cache
+package api
 
 import (
 	"os"
 	"testing"
 )
 
-func TestNewService_ReturnsNonNil(t *testing.T) {
+func TestNewProjectCache_ReturnsNonNil(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	cs, err := NewService()
+	cs, err := NewProjectCache()
 	if err != nil {
-		t.Fatalf("NewService: %v", err)
+		t.Fatalf("NewProjectCache: %v", err)
 	}
 	if cs == nil {
-		t.Fatal("expected non-nil Service")
+		t.Fatal("expected non-nil ProjectCache")
 	}
 }
 
-func TestNewService_CacheDirExists(t *testing.T) {
+func TestNewProjectCache_CacheDirExists(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	cs, err := NewService()
+	cs, err := NewProjectCache()
 	if err != nil {
-		t.Fatalf("NewService: %v", err)
+		t.Fatalf("NewProjectCache: %v", err)
 	}
 	if cs.CacheDir == "" {
 		t.Error("CacheDir should not be empty")

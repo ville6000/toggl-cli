@@ -8,9 +8,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/ville6000/toggl-cli/internal/cache"
-	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 // newTestClient creates a Client whose BaseURL points at the given test server.
@@ -22,7 +19,7 @@ func newTestClient(t *testing.T, handler http.Handler) *Client {
 		BaseURL:    server.URL,
 		HTTPClient: server.Client(),
 		AuthToken:  "test-token",
-		Cache:      &cache.Service{CacheDir: t.TempDir()},
+		Cache:      &ProjectCache{CacheDir: t.TempDir()},
 	}
 	return client
 }
@@ -100,14 +97,14 @@ func TestAuthHeaderEncoding(t *testing.T) {
 	var capturedAuth string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedAuth = r.Header.Get("Authorization")
-		if err := json.NewEncoder(w).Encode([]data.Workspace{}); err != nil {
+		if err := json.NewEncoder(w).Encode([]Workspace{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 	client.AuthToken = "mytoken"
 
-	if _, err := client.Workspaces(); err != nil {
+	if _, err := client.Workspaces(t.Context()); err != nil {
 		t.Fatalf("Workspaces: %v", err)
 	}
 
@@ -121,13 +118,13 @@ func TestContentTypeHeader(t *testing.T) {
 	var capturedContentType string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedContentType = r.Header.Get("Content-Type")
-		if err := json.NewEncoder(w).Encode([]data.Workspace{}); err != nil {
+		if err := json.NewEncoder(w).Encode([]Workspace{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 
-	if _, err := client.Workspaces(); err != nil {
+	if _, err := client.Workspaces(t.Context()); err != nil {
 		t.Fatalf("Workspaces: %v", err)
 	}
 
@@ -139,10 +136,10 @@ func TestContentTypeHeader(t *testing.T) {
 // ---------- Workspaces ----------
 
 func TestWorkspaces_Success(t *testing.T) {
-	workspaces := []data.Workspace{{ID: 1, Name: "Main"}, {ID: 2, Name: "Side"}}
+	workspaces := []Workspace{{ID: 1, Name: "Main"}, {ID: 2, Name: "Side"}}
 	client := newTestClient(t, jsonHandler(t, workspaces))
 
-	got, err := client.Workspaces()
+	got, err := client.Workspaces(t.Context())
 	if err != nil {
 		t.Fatalf("Workspaces: %v", err)
 	}
@@ -153,7 +150,7 @@ func TestWorkspaces_Success(t *testing.T) {
 
 func TestWorkspaces_HTTPError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.Workspaces(); err == nil {
+	if _, err := client.Workspaces(t.Context()); err == nil {
 		t.Error("expected error for HTTP 401")
 	}
 }
@@ -161,10 +158,10 @@ func TestWorkspaces_HTTPError(t *testing.T) {
 // ---------- CurrentTimeEntry ----------
 
 func TestCurrentTimeEntry_Success(t *testing.T) {
-	entry := data.TimeEntryItem{ID: 99, Description: "current work"}
+	entry := TimeEntryItem{ID: 99, Description: "current work"}
 	client := newTestClient(t, jsonHandler(t, entry))
 
-	got, err := client.CurrentTimeEntry()
+	got, err := client.CurrentTimeEntry(t.Context())
 	if err != nil {
 		t.Fatalf("CurrentTimeEntry: %v", err)
 	}
@@ -175,7 +172,7 @@ func TestCurrentTimeEntry_Success(t *testing.T) {
 
 func TestCurrentTimeEntry_HTTPError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusNotFound))
-	if _, err := client.CurrentTimeEntry(); err == nil {
+	if _, err := client.CurrentTimeEntry(t.Context()); err == nil {
 		t.Error("expected error for HTTP 404")
 	}
 }
@@ -183,7 +180,7 @@ func TestCurrentTimeEntry_HTTPError(t *testing.T) {
 // ---------- CreateTimeEntry ----------
 
 func TestCreateTimeEntry_Success(t *testing.T) {
-	input := data.TimeEntry{Description: "coding", WorkspaceID: 5, Duration: -1}
+	input := TimeEntry{Description: "coding", WorkspaceID: 5, Duration: -1}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("expected POST, got %s", r.Method)
@@ -194,7 +191,7 @@ func TestCreateTimeEntry_Success(t *testing.T) {
 	})
 	client := newTestClient(t, handler)
 
-	got, err := client.CreateTimeEntry(5, input)
+	got, err := client.CreateTimeEntry(t.Context(), 5, input)
 	if err != nil {
 		t.Fatalf("CreateTimeEntry: %v", err)
 	}
@@ -205,7 +202,7 @@ func TestCreateTimeEntry_Success(t *testing.T) {
 
 func TestCreateTimeEntry_HTTPError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusInternalServerError))
-	if _, err := client.CreateTimeEntry(1, data.TimeEntry{}); err == nil {
+	if _, err := client.CreateTimeEntry(t.Context(), 1, TimeEntry{}); err == nil {
 		t.Error("expected error for HTTP 500")
 	}
 }
@@ -214,13 +211,13 @@ func TestCreateTimeEntry_URLContainsWorkspaceID(t *testing.T) {
 	var capturedPath string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedPath = r.URL.Path
-		if err := json.NewEncoder(w).Encode(data.TimeEntry{}); err != nil {
+		if err := json.NewEncoder(w).Encode(TimeEntry{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 
-	_, _ = client.CreateTimeEntry(42, data.TimeEntry{})
+	_, _ = client.CreateTimeEntry(t.Context(), 42, TimeEntry{})
 	if !strings.Contains(capturedPath, "42") {
 		t.Errorf("URL path %q does not contain workspace ID 42", capturedPath)
 	}
@@ -229,7 +226,7 @@ func TestCreateTimeEntry_URLContainsWorkspaceID(t *testing.T) {
 // ---------- StopTimeEntry ----------
 
 func TestStopTimeEntry_Success(t *testing.T) {
-	entry := data.TimeEntryItem{ID: 77}
+	entry := TimeEntryItem{ID: 77}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("expected PATCH, got %s", r.Method)
@@ -240,7 +237,7 @@ func TestStopTimeEntry_Success(t *testing.T) {
 	})
 	client := newTestClient(t, handler)
 
-	got, err := client.StopTimeEntry(1, 77)
+	got, err := client.StopTimeEntry(t.Context(), 1, 77)
 	if err != nil {
 		t.Fatalf("StopTimeEntry: %v", err)
 	}
@@ -251,7 +248,7 @@ func TestStopTimeEntry_Success(t *testing.T) {
 
 func TestStopTimeEntry_HTTPError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusNotFound))
-	if _, err := client.StopTimeEntry(1, 99); err == nil {
+	if _, err := client.StopTimeEntry(t.Context(), 1, 99); err == nil {
 		t.Error("expected error for HTTP 404")
 	}
 }
@@ -260,13 +257,13 @@ func TestStopTimeEntry_URLContainsIDs(t *testing.T) {
 	var capturedPath string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedPath = r.URL.Path
-		if err := json.NewEncoder(w).Encode(data.TimeEntryItem{}); err != nil {
+		if err := json.NewEncoder(w).Encode(TimeEntryItem{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 
-	_, _ = client.StopTimeEntry(10, 20)
+	_, _ = client.StopTimeEntry(t.Context(), 10, 20)
 	if !strings.Contains(capturedPath, "10") || !strings.Contains(capturedPath, "20") {
 		t.Errorf("URL path %q does not contain workspace/entry IDs", capturedPath)
 	}
@@ -278,7 +275,7 @@ func TestStopTimeEntry_URLContainsIDs(t *testing.T) {
 // ---------- UpdateTimeEntry ----------
 
 func TestUpdateTimeEntry_Success(t *testing.T) {
-	result := data.TimeEntryItem{ID: 5, Description: "updated"}
+	result := TimeEntryItem{ID: 5, Description: "updated"}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
 			t.Errorf("expected PUT, got %s", r.Method)
@@ -289,7 +286,7 @@ func TestUpdateTimeEntry_Success(t *testing.T) {
 	})
 	client := newTestClient(t, handler)
 
-	got, err := client.UpdateTimeEntry(1, 5, data.TimeEntry{Description: "updated"})
+	got, err := client.UpdateTimeEntry(t.Context(), 1, 5, TimeEntry{Description: "updated"})
 	if err != nil {
 		t.Fatalf("UpdateTimeEntry: %v", err)
 	}
@@ -302,13 +299,13 @@ func TestUpdateTimeEntry_URLContainsIDs(t *testing.T) {
 	var capturedPath string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedPath = r.URL.Path
-		if err := json.NewEncoder(w).Encode(data.TimeEntryItem{}); err != nil {
+		if err := json.NewEncoder(w).Encode(TimeEntryItem{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 
-	_, _ = client.UpdateTimeEntry(10, 20, data.TimeEntry{})
+	_, _ = client.UpdateTimeEntry(t.Context(), 10, 20, TimeEntry{})
 	const wantPath = "/workspaces/10/time_entries/20"
 	if capturedPath != wantPath {
 		t.Errorf("URL path: got %q, want %q", capturedPath, wantPath)
@@ -317,7 +314,7 @@ func TestUpdateTimeEntry_URLContainsIDs(t *testing.T) {
 
 func TestUpdateTimeEntry_HTTPError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusNotFound))
-	if _, err := client.UpdateTimeEntry(1, 99, data.TimeEntry{}); err == nil {
+	if _, err := client.UpdateTimeEntry(t.Context(), 1, 99, TimeEntry{}); err == nil {
 		t.Error("expected error for HTTP 404")
 	}
 }
@@ -325,10 +322,10 @@ func TestUpdateTimeEntry_HTTPError(t *testing.T) {
 // ---------- Projects ----------
 
 func TestProjects_FetchesFromAPI(t *testing.T) {
-	projects := []data.Project{{ID: 1, Name: "Alpha"}, {ID: 2, Name: "Beta"}}
+	projects := []Project{{ID: 1, Name: "Alpha"}, {ID: 2, Name: "Beta"}}
 	client := newTestClient(t, jsonHandler(t, projects))
 
-	got, err := client.Projects(10)
+	got, err := client.Projects(t.Context(), 10)
 	if err != nil {
 		t.Fatalf("Projects: %v", err)
 	}
@@ -339,7 +336,7 @@ func TestProjects_FetchesFromAPI(t *testing.T) {
 
 func TestProjects_UsesCache(t *testing.T) {
 	callCount := 0
-	projects := []data.Project{{ID: 1, Name: "Cached"}}
+	projects := []Project{{ID: 1, Name: "Cached"}}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		callCount++
 		if err := json.NewEncoder(w).Encode(projects); err != nil {
@@ -348,10 +345,10 @@ func TestProjects_UsesCache(t *testing.T) {
 	})
 	client := newTestClient(t, handler)
 
-	if _, err := client.Projects(10); err != nil {
+	if _, err := client.Projects(t.Context(), 10); err != nil {
 		t.Fatalf("first Projects: %v", err)
 	}
-	if _, err := client.Projects(10); err != nil {
+	if _, err := client.Projects(t.Context(), 10); err != nil {
 		t.Fatalf("second Projects: %v", err)
 	}
 
@@ -362,7 +359,7 @@ func TestProjects_UsesCache(t *testing.T) {
 
 func TestProjects_HTTPError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.Projects(10); err == nil {
+	if _, err := client.Projects(t.Context(), 10); err == nil {
 		t.Error("expected error for HTTP 401")
 	}
 }
@@ -371,13 +368,13 @@ func TestProjects_URLContainsWorkspaceID(t *testing.T) {
 	var capturedPath string
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedPath = r.URL.Path
-		if err := json.NewEncoder(w).Encode([]data.Project{}); err != nil {
+		if err := json.NewEncoder(w).Encode([]Project{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 
-	_, _ = client.Projects(99)
+	_, _ = client.Projects(t.Context(), 99)
 	if !strings.Contains(capturedPath, "99") {
 		t.Errorf("URL path %q does not contain workspace ID 99", capturedPath)
 	}
@@ -386,10 +383,10 @@ func TestProjects_URLContainsWorkspaceID(t *testing.T) {
 // ---------- ProjectIDByName ----------
 
 func TestProjectIDByName_Found(t *testing.T) {
-	projects := []data.Project{{ID: 5, Name: "MyProject"}}
+	projects := []Project{{ID: 5, Name: "MyProject"}}
 	client := newTestClient(t, jsonHandler(t, projects))
 
-	id, err := client.ProjectIDByName(10, "MyProject")
+	id, err := client.ProjectIDByName(t.Context(), 10, "MyProject")
 	if err != nil {
 		t.Fatalf("ProjectIDByName: %v", err)
 	}
@@ -399,10 +396,10 @@ func TestProjectIDByName_Found(t *testing.T) {
 }
 
 func TestProjectIDByName_CaseInsensitive(t *testing.T) {
-	projects := []data.Project{{ID: 5, Name: "MyProject"}}
+	projects := []Project{{ID: 5, Name: "MyProject"}}
 	client := newTestClient(t, jsonHandler(t, projects))
 
-	id, err := client.ProjectIDByName(10, "myproject")
+	id, err := client.ProjectIDByName(t.Context(), 10, "myproject")
 	if err != nil {
 		t.Fatalf("ProjectIDByName: %v", err)
 	}
@@ -412,25 +409,25 @@ func TestProjectIDByName_CaseInsensitive(t *testing.T) {
 }
 
 func TestProjectIDByName_NotFound(t *testing.T) {
-	projects := []data.Project{{ID: 5, Name: "MyProject"}}
+	projects := []Project{{ID: 5, Name: "MyProject"}}
 	client := newTestClient(t, jsonHandler(t, projects))
 
-	if _, err := client.ProjectIDByName(10, "nonexistent"); err == nil {
+	if _, err := client.ProjectIDByName(t.Context(), 10, "nonexistent"); err == nil {
 		t.Error("expected error for missing project")
 	}
 }
 
 func TestProjectIDByName_EmptyProjects(t *testing.T) {
-	client := newTestClient(t, jsonHandler(t, []data.Project{}))
+	client := newTestClient(t, jsonHandler(t, []Project{}))
 
-	if _, err := client.ProjectIDByName(10, "any"); err == nil {
+	if _, err := client.ProjectIDByName(t.Context(), 10, "any"); err == nil {
 		t.Error("expected error with empty project list")
 	}
 }
 
 func TestProjectIDByName_APIError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.ProjectIDByName(10, "any"); err == nil {
+	if _, err := client.ProjectIDByName(t.Context(), 10, "any"); err == nil {
 		t.Error("expected error when API fails")
 	}
 }
@@ -438,7 +435,7 @@ func TestProjectIDByName_APIError(t *testing.T) {
 // ---------- TimeEntries ----------
 
 func TestTimeEntries_NoParams(t *testing.T) {
-	entries := []data.TimeEntryItem{{ID: 1, Description: "work"}}
+	entries := []TimeEntryItem{{ID: 1, Description: "work"}}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.RawQuery != "" {
 			t.Errorf("expected no query params, got %q", r.URL.RawQuery)
@@ -449,7 +446,7 @@ func TestTimeEntries_NoParams(t *testing.T) {
 	})
 	client := newTestClient(t, handler)
 
-	got, err := client.TimeEntries(nil, nil)
+	got, err := client.TimeEntries(t.Context(), nil, nil)
 	if err != nil {
 		t.Fatalf("TimeEntries: %v", err)
 	}
@@ -470,13 +467,13 @@ func TestTimeEntries_WithBothDates(t *testing.T) {
 		if q.Get("end_date") != "2024-01-31T00:00:00+02:00" {
 			t.Errorf("end_date: got %q, want 2024-01-31T00:00:00+02:00", q.Get("end_date"))
 		}
-		if err := json.NewEncoder(w).Encode([]data.TimeEntryItem{}); err != nil {
+		if err := json.NewEncoder(w).Encode([]TimeEntryItem{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 
-	if _, err := client.TimeEntries(&from, &to); err != nil {
+	if _, err := client.TimeEntries(t.Context(), &from, &to); err != nil {
 		t.Fatalf("TimeEntries: %v", err)
 	}
 }
@@ -491,13 +488,13 @@ func TestTimeEntries_OnlyFromDate(t *testing.T) {
 		if q.Get("end_date") != "" {
 			t.Errorf("end_date should be absent, got %q", q.Get("end_date"))
 		}
-		if err := json.NewEncoder(w).Encode([]data.TimeEntryItem{}); err != nil {
+		if err := json.NewEncoder(w).Encode([]TimeEntryItem{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 
-	if _, err := client.TimeEntries(&from, nil); err != nil {
+	if _, err := client.TimeEntries(t.Context(), &from, nil); err != nil {
 		t.Fatalf("TimeEntries: %v", err)
 	}
 }
@@ -512,20 +509,20 @@ func TestTimeEntries_OnlyToDate(t *testing.T) {
 		if q.Get("start_date") != "" {
 			t.Errorf("start_date should be absent, got %q", q.Get("start_date"))
 		}
-		if err := json.NewEncoder(w).Encode([]data.TimeEntryItem{}); err != nil {
+		if err := json.NewEncoder(w).Encode([]TimeEntryItem{}); err != nil {
 			t.Errorf("encode: %v", err)
 		}
 	})
 	client := newTestClient(t, handler)
 
-	if _, err := client.TimeEntries(nil, &to); err != nil {
+	if _, err := client.TimeEntries(t.Context(), nil, &to); err != nil {
 		t.Fatalf("TimeEntries: %v", err)
 	}
 }
 
 func TestTimeEntries_HTTPError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusForbidden))
-	if _, err := client.TimeEntries(nil, nil); err == nil {
+	if _, err := client.TimeEntries(t.Context(), nil, nil); err == nil {
 		t.Error("expected error for HTTP 403")
 	}
 }
@@ -533,10 +530,10 @@ func TestTimeEntries_HTTPError(t *testing.T) {
 // ---------- ProjectNames ----------
 
 func TestProjectNames_Success(t *testing.T) {
-	projects := []data.Project{{ID: 1, Name: "Alpha"}, {ID: 2, Name: "Beta"}}
+	projects := []Project{{ID: 1, Name: "Alpha"}, {ID: 2, Name: "Beta"}}
 	client := newTestClient(t, jsonHandler(t, projects))
 
-	lookup, err := client.ProjectNames(10)
+	lookup, err := client.ProjectNames(t.Context(), 10)
 	if err != nil {
 		t.Fatalf("ProjectNames: %v", err)
 	}
@@ -546,9 +543,9 @@ func TestProjectNames_Success(t *testing.T) {
 }
 
 func TestProjectNames_Empty(t *testing.T) {
-	client := newTestClient(t, jsonHandler(t, []data.Project{}))
+	client := newTestClient(t, jsonHandler(t, []Project{}))
 
-	lookup, err := client.ProjectNames(10)
+	lookup, err := client.ProjectNames(t.Context(), 10)
 	if err != nil {
 		t.Fatalf("ProjectNames: %v", err)
 	}
@@ -559,7 +556,7 @@ func TestProjectNames_Empty(t *testing.T) {
 
 func TestProjectNames_APIError(t *testing.T) {
 	client := newTestClient(t, errorHandler(http.StatusUnauthorized))
-	if _, err := client.ProjectNames(10); err == nil {
+	if _, err := client.ProjectNames(t.Context(), 10); err == nil {
 		t.Error("expected error when API fails")
 	}
 }

@@ -8,18 +8,16 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/ville6000/toggl-cli/internal/data"
 )
 
 // Workspaces returns the workspaces the user belongs to.
-func (c *Client) Workspaces() ([]data.Workspace, error) {
-	req, err := c.newRequest(http.MethodGet, "/workspaces", nil)
+func (c *Client) Workspaces(ctx context.Context) ([]Workspace, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/workspaces", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var workspaces []data.Workspace
+	var workspaces []Workspace
 	if reqErr := c.doRequest(req, &workspaces); reqErr != nil {
 		return nil, reqErr
 	}
@@ -29,13 +27,13 @@ func (c *Client) Workspaces() ([]data.Workspace, error) {
 
 // CurrentTimeEntry returns the running time entry. When nothing is running
 // the returned entry has a zero ID.
-func (c *Client) CurrentTimeEntry() (*data.TimeEntryItem, error) {
-	req, err := c.newRequest(http.MethodGet, "/me/time_entries/current", nil)
+func (c *Client) CurrentTimeEntry(ctx context.Context) (*TimeEntryItem, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, "/me/time_entries/current", nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var entry data.TimeEntryItem
+	var entry TimeEntryItem
 	if reqErr := c.doRequest(req, &entry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -45,14 +43,14 @@ func (c *Client) CurrentTimeEntry() (*data.TimeEntryItem, error) {
 
 // CreateTimeEntry creates entry in the given workspace and returns it as
 // stored by Toggl.
-func (c *Client) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error) {
+func (c *Client) CreateTimeEntry(ctx context.Context, workspaceID int, entry TimeEntry) (*TimeEntry, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries", workspaceID)
-	req, err := c.newRequest(http.MethodPost, endpoint, entry)
+	req, err := c.newRequest(ctx, http.MethodPost, endpoint, entry)
 	if err != nil {
 		return nil, err
 	}
 
-	var createdEntry data.TimeEntry
+	var createdEntry TimeEntry
 	if reqErr := c.doRequest(req, &createdEntry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -62,8 +60,8 @@ func (c *Client) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.T
 
 // NewTimeEntry returns a running time entry, started now, ready to be passed
 // to CreateTimeEntry.
-func NewTimeEntry(description string, workspaceID, projectID int, billable bool) data.TimeEntry {
-	return data.TimeEntry{
+func NewTimeEntry(description string, workspaceID, projectID int, billable bool) TimeEntry {
+	return TimeEntry{
 		CreatedWith: "toggl-cli",
 		Description: description,
 		Tags:        []string{},
@@ -77,14 +75,14 @@ func NewTimeEntry(description string, workspaceID, projectID int, billable bool)
 }
 
 // StopTimeEntry stops the running entry entryID and returns the stopped entry.
-func (c *Client) StopTimeEntry(workspaceID int, entryID int) (*data.TimeEntryItem, error) {
+func (c *Client) StopTimeEntry(ctx context.Context, workspaceID int, entryID int) (*TimeEntryItem, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d/stop", workspaceID, entryID)
-	req, err := c.newRequest(http.MethodPatch, endpoint, nil)
+	req, err := c.newRequest(ctx, http.MethodPatch, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var stoppedEntry data.TimeEntryItem
+	var stoppedEntry TimeEntryItem
 	if reqErr := c.doRequest(req, &stoppedEntry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -94,14 +92,14 @@ func (c *Client) StopTimeEntry(workspaceID int, entryID int) (*data.TimeEntryIte
 
 // UpdateTimeEntry replaces the fields of entry entryID with entry and returns
 // the updated entry.
-func (c *Client) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+func (c *Client) UpdateTimeEntry(ctx context.Context, workspaceID int, entryID int, entry TimeEntry) (*TimeEntryItem, error) {
 	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d", workspaceID, entryID)
-	req, err := c.newRequest(http.MethodPut, endpoint, entry)
+	req, err := c.newRequest(ctx, http.MethodPut, endpoint, entry)
 	if err != nil {
 		return nil, err
 	}
 
-	var updatedEntry data.TimeEntryItem
+	var updatedEntry TimeEntryItem
 	if reqErr := c.doRequest(req, &updatedEntry); reqErr != nil {
 		return nil, reqErr
 	}
@@ -111,7 +109,7 @@ func (c *Client) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEn
 
 // Projects returns the projects in the workspace, from the cache when it holds
 // a fresh copy, otherwise from the API (refreshing the cache).
-func (c *Client) Projects(workspaceID int) ([]data.Project, error) {
+func (c *Client) Projects(ctx context.Context, workspaceID int) ([]Project, error) {
 	if c.Cache != nil {
 		cachedProjects, cacheErr := c.Cache.Projects(workspaceID)
 		if cacheErr == nil {
@@ -120,12 +118,12 @@ func (c *Client) Projects(workspaceID int) ([]data.Project, error) {
 	}
 
 	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceID)
-	req, err := c.newRequest(http.MethodGet, endpoint, nil)
+	req, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var projects []data.Project
+	var projects []Project
 	if reqErr := c.doRequest(req, &projects); reqErr != nil {
 		return nil, reqErr
 	}
@@ -141,8 +139,8 @@ func (c *Client) Projects(workspaceID int) ([]data.Project, error) {
 
 // ProjectIDByName returns the ID of the project whose name matches
 // projectName, ignoring case.
-func (c *Client) ProjectIDByName(workspaceID int, projectName string) (int, error) {
-	projects, err := c.Projects(workspaceID)
+func (c *Client) ProjectIDByName(ctx context.Context, workspaceID int, projectName string) (int, error) {
+	projects, err := c.Projects(ctx, workspaceID)
 	if err != nil {
 		return 0, err
 	}
@@ -158,7 +156,7 @@ func (c *Client) ProjectIDByName(workspaceID int, projectName string) (int, erro
 
 // TimeEntries returns the user's time entries between from and to. Either
 // bound may be nil, leaving the range to the API's default.
-func (c *Client) TimeEntries(from, to *time.Time) ([]data.TimeEntryItem, error) {
+func (c *Client) TimeEntries(ctx context.Context, from, to *time.Time) ([]TimeEntryItem, error) {
 	endpoint := "/me/time_entries"
 	queryParams := make([]string, 0)
 	// RFC3339 instants rather than bare dates: a bare date is interpreted as
@@ -175,12 +173,12 @@ func (c *Client) TimeEntries(from, to *time.Time) ([]data.TimeEntryItem, error) 
 		endpoint += "?" + strings.Join(queryParams, "&")
 	}
 
-	req, err := c.newRequest(http.MethodGet, endpoint, nil)
+	req, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	var timeEntries []data.TimeEntryItem
+	var timeEntries []TimeEntryItem
 	if reqErr := c.doRequest(req, &timeEntries); reqErr != nil {
 		return nil, reqErr
 	}
@@ -189,8 +187,8 @@ func (c *Client) TimeEntries(from, to *time.Time) ([]data.TimeEntryItem, error) 
 }
 
 // ProjectNames returns the workspace's project names keyed by project ID.
-func (c *Client) ProjectNames(workspaceID int) (map[int]string, error) {
-	projects, err := c.Projects(workspaceID)
+func (c *Client) ProjectNames(ctx context.Context, workspaceID int) (map[int]string, error) {
+	projects, err := c.Projects(ctx, workspaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -203,9 +201,8 @@ func (c *Client) ProjectNames(workspaceID int) (map[int]string, error) {
 	return lookup, nil
 }
 
-func (c *Client) newRequest(method, endpoint string, body any) (*http.Request, error) {
-	// context.TODO until the API methods take a context from their callers.
-	req, err := newJSONRequest(context.TODO(), method, c.BaseURL+endpoint, body)
+func (c *Client) newRequest(ctx context.Context, method, endpoint string, body any) (*http.Request, error) {
+	req, err := newJSONRequest(ctx, method, c.BaseURL+endpoint, body)
 	if err != nil {
 		return nil, err
 	}

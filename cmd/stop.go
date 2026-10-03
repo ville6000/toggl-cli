@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ville6000/toggl-cli/internal/data"
-
 	"github.com/spf13/cobra"
 
 	"github.com/ville6000/toggl-cli/internal/api"
@@ -18,12 +16,14 @@ var stopCmd = &cobra.Command{
 	Short: "Stop the current timer entry",
 	Long:  "",
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+
 		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
 		client := api.NewClientFromConfig(token)
-		currentEntry, err := client.CurrentTimeEntry()
+		currentEntry, err := client.CurrentTimeEntry(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to get current timer entry: %w", err)
 		}
@@ -33,12 +33,12 @@ var stopCmd = &cobra.Command{
 			return nil
 		}
 
-		stoppedEntry, err := client.StopTimeEntry(workspaceID, currentEntry.ID)
+		stoppedEntry, err := client.StopTimeEntry(ctx, workspaceID, currentEntry.ID)
 		if err != nil {
 			return fmt.Errorf("failed to stop time entry: %w", err)
 		}
 
-		projectsMap, err := client.ProjectNames(workspaceID)
+		projectsMap, err := client.ProjectNames(ctx, workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get projects lookup map: %w", err)
 		}
@@ -51,7 +51,7 @@ func init() {
 	rootCmd.AddCommand(stopCmd)
 }
 
-func outputStoppedTimeEntry(out io.Writer, entry *data.TimeEntryItem, projectsMap map[int]string) error {
+func outputStoppedTimeEntry(out io.Writer, entry *api.TimeEntryItem, projectsMap map[int]string) error {
 	headers := []any{"#", "Started At", "Duration", "Description", "Project"}
 	projectName := projectsMap[entry.ProjectID]
 	rows := [][]any{

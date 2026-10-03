@@ -2,33 +2,34 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"strings"
 	"testing"
 
-	"github.com/ville6000/toggl-cli/internal/data"
+	"github.com/ville6000/toggl-cli/internal/api"
 )
 
 type mockProjectService struct {
-	List []data.Project
+	List []api.Project
 	Err  error
 }
 
-func (m *mockProjectService) Projects(_ int) ([]data.Project, error) {
+func (m *mockProjectService) Projects(_ context.Context, _ int) ([]api.Project, error) {
 	return m.List, m.Err
 }
 
 func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
 	mock := &mockProjectService{
-		List: []data.Project{
+		List: []api.Project{
 			{ID: 1, Name: "Project A"},
 			{ID: 2, Name: "Project B"},
 		},
 	}
 
 	var buf bytes.Buffer
-	listErr := projectListOutput(&buf, mock, 1234)
+	listErr := projectListOutput(t.Context(), &buf, mock, 1234)
 	output := buf.String()
 
 	if listErr != nil {
@@ -49,7 +50,7 @@ func TestProjectListOutput_ErrorHandling(t *testing.T) {
 		Err: errors.New("api error"),
 	}
 
-	err := projectListOutput(io.Discard, mock, 1234)
+	err := projectListOutput(t.Context(), io.Discard, mock, 1234)
 	if err == nil || !strings.Contains(err.Error(), "failed to get projects") {
 		t.Errorf("expected error wrapping 'failed to get projects', got: %v", err)
 	}
