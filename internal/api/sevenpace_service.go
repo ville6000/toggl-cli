@@ -1,13 +1,9 @@
 package api
 
 import (
-	"bytes"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
-	"strings"
 
 	"github.com/ville6000/toggl-cli/internal/data"
 )
@@ -28,62 +24,39 @@ func (c *SevenPaceClient) CreateWorkLog(workLog data.SevenPaceWorkLog) (*data.Se
 }
 
 func (c *SevenPaceClient) newRequest(method, endpoint string, body any) (*http.Request, error) {
-	var buf io.Reader
-	if body != nil {
-		jsonData, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		buf = bytes.NewBuffer(jsonData)
-	}
-
-	req, err := http.NewRequest(method, c.BaseURL+endpoint, buf)
+	req, err := newJSONRequest(method, c.BaseURL+endpoint, body)
 	if err != nil {
 		return nil, err
 	}
 
-	c.setDefaultRequestHeaders(req)
+	c.setAuth(req)
 
 	return req, nil
 }
 
+// doRequest sends req, adding a hint about the configured credentials when
+// the server rejects them.
 func (c *SevenPaceClient) doRequest(req *http.Request, expectedStatus int, result any) error {
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("failed to close response body: %v", closeErr)
-		}
-	}()
+	err := doJSON(c.HTTPClient, req, expectedStatus, result)
 
-	if resp.StatusCode != expectedStatus {
-		body, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode == http.StatusUnauthorized {
-			return fmt.Errorf("request failed: %s (server auth schemes: %q): %s\n"+
-				"check sevenpace.domain/username/password in your config; the Windows credentials were rejected",
-				resp.Status, resp.Header.Get("WWW-Authenticate"), strings.TrimSpace(string(body)))
-		}
-		return fmt.Errorf("request failed: %s: %s", resp.Status, strings.TrimSpace(string(body)))
+	var statusErr *statusError
+	if errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("%w (server auth schemes: %q)\n"+
+			"check sevenpace.domain/username/password in your config; the Windows credentials were rejected",
+			err, statusErr.Header.Get("WWW-Authenticate"))
 	}
 
-	if result != nil {
-		return json.NewDecoder(resp.Body).Decode(result)
-	}
-
-	return nil
+	return err
 }
 
-// setDefaultRequestHeaders sets the Basic-auth credentials that the NTLM
-// negotiator uses for the handshake. The username is qualified with the domain
-// (DOMAIN\user) when a domain is configured.
-func (c *SevenPaceClient) setDefaultRequestHeaders(req *http.Request) {
+// setAuth sets the Basic-auth credentials that the NTLM negotiator uses for
+// the handshake. The username is qualified with the domain (DOMAIN\user) when
+// a domain is configured.
+func (c *SevenPaceClient) setAuth(req *http.Request) {
 	user := c.Username
 	if c.Domain != "" {
 		user = c.Domain + "\\" + c.Username
 	}
 
 	req.SetBasicAuth(user, c.Password)
-	req.Header.Set("Content-Type", "application/json")
 }

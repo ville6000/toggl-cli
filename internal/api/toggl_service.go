@@ -1,11 +1,8 @@
 package api
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -206,50 +203,22 @@ func FormatDuration(seconds float64) string {
 }
 
 func (c *Client) newRequest(method, endpoint string, body any) (*http.Request, error) {
-	var buf io.Reader
-	if body != nil {
-		jsonData, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		buf = bytes.NewBuffer(jsonData)
-	}
-
-	req, err := http.NewRequest(method, c.BaseURL+endpoint, buf)
+	req, err := newJSONRequest(method, c.BaseURL+endpoint, body)
 	if err != nil {
 		return nil, err
 	}
 
-	c.setDefaultRequestHeaders(req)
+	c.setAuthHeader(req)
 
 	return req, nil
 }
 
 func (c *Client) doRequest(req *http.Request, expectedStatus int, result any) error {
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			log.Printf("failed to close response body: %v", closeErr)
-		}
-	}()
-
-	if resp.StatusCode != expectedStatus {
-		return fmt.Errorf("request failed: %s", resp.Status)
-	}
-
-	if result != nil {
-		return json.NewDecoder(resp.Body).Decode(result)
-	}
-
-	return nil
+	return doJSON(c.HTTPClient, req, expectedStatus, result)
 }
 
-func (c *Client) setDefaultRequestHeaders(req *http.Request) {
+func (c *Client) setAuthHeader(req *http.Request) {
 	token := base64.StdEncoding.EncodeToString([]byte(c.AuthToken + ":api_token"))
 
 	req.Header.Set("Authorization", "Basic "+token)
-	req.Header.Set("Content-Type", "application/json")
 }
