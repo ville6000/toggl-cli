@@ -192,6 +192,47 @@ func TestSevenPaceSync_PostsWhenConfirmationIsAccepted(t *testing.T) {
 	}
 }
 
+// The same task worked on two days is posted as one worklog per day, each
+// dated on its own day, not merged into the first day.
+func TestSevenPaceSync_PostsOneWorklogPerDay(t *testing.T) {
+	toggl := newAPIStub(t)
+	v, sevenPace := setupSevenPaceTest(t, toggl)
+
+	toggl.stubHistory(
+		utcEntry(1, time.Date(2024, 3, 4, 1, 0, 0, 0, time.UTC), 3600, "#1234 review"), // 3/4 10:00 Tokyo
+		utcEntry(2, time.Date(2024, 3, 5, 1, 0, 0, 0, time.UTC), 7200, "#1234 review"), // 3/5 10:00 Tokyo
+	)
+	sevenPace.respond(http.MethodPost, sevenPaceWorkLogPath, http.StatusOK, api.SevenPaceWorkLog{})
+
+	if _, _, err := executeCommand(t, v, "7pace", "sync", "--start", "2024-03-04", "--end", "2024-03-05", "--yes"); err != nil {
+		t.Fatalf("7pace sync: %v", err)
+	}
+
+	posted := sevenPace.requestsFor(http.MethodPost, sevenPaceWorkLogPath)
+	if len(posted) != 2 {
+		t.Fatalf("posted %d worklog(s), want one per day (2)", len(posted))
+	}
+
+	want := []struct {
+		date   string
+		length int
+	}{
+		{"2024-03-04", 3600},
+		{"2024-03-05", 7200},
+	}
+	for i, req := range posted {
+		var workLog api.SevenPaceWorkLog
+		req.decodeBody(t, &workLog)
+
+		if !strings.HasPrefix(workLog.Timestamp, want[i].date) {
+			t.Errorf("worklog %d timestamp %q, want it dated %s", i, workLog.Timestamp, want[i].date)
+		}
+		if workLog.Length != want[i].length {
+			t.Errorf("worklog %d length %d, want %d", i, workLog.Length, want[i].length)
+		}
+	}
+}
+
 func TestSevenPaceSync_ReportsFailedWorklogs(t *testing.T) {
 	toggl := newAPIStub(t)
 	v, sevenPace := setupSevenPaceTest(t, toggl)
