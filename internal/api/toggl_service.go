@@ -16,7 +16,7 @@ import (
 )
 
 type ProjectService interface {
-	GetProjects(workspaceId int) ([]data.Project, error)
+	GetProjects(workspaceID int) ([]data.Project, error)
 }
 
 func (c *Client) GetWorkspaces() ([]data.Workspace, error) {
@@ -47,8 +47,8 @@ func (c *Client) GetCurrentTimerEntry() (*data.TimeEntryItem, error) {
 	return &entry, nil
 }
 
-func (c *Client) CreateTimeEntry(workspaceId int, entry data.TimeEntry) (*data.TimeEntry, error) {
-	endpoint := fmt.Sprintf("/workspaces/%d/time_entries", workspaceId)
+func (c *Client) CreateTimeEntry(workspaceID int, entry data.TimeEntry) (*data.TimeEntry, error) {
+	endpoint := fmt.Sprintf("/workspaces/%d/time_entries", workspaceID)
 	req, err := c.newRequest(http.MethodPost, endpoint, entry)
 	if err != nil {
 		return nil, err
@@ -80,8 +80,8 @@ func (c *Client) NewTimeEntry(description string,
 	}
 }
 
-func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*data.TimeEntryItem, error) {
-	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d/stop", workspaceId, entryId)
+func (c *Client) StopTimeEntry(workspaceID int, entryID int) (*data.TimeEntryItem, error) {
+	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d/stop", workspaceID, entryID)
 	req, err := c.newRequest(http.MethodPatch, endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -95,8 +95,8 @@ func (c *Client) StopTimeEntry(workspaceId int, entryId int) (*data.TimeEntryIte
 	return &stoppedEntry, nil
 }
 
-func (c *Client) UpdateTimeEntry(workspaceId int, entryId int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
-	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d", workspaceId, entryId)
+func (c *Client) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+	endpoint := fmt.Sprintf("/workspaces/%d/time_entries/%d", workspaceID, entryID)
 	req, err := c.newRequest(http.MethodPut, endpoint, entry)
 	if err != nil {
 		return nil, err
@@ -110,15 +110,15 @@ func (c *Client) UpdateTimeEntry(workspaceId int, entryId int, entry data.TimeEn
 	return &updatedEntry, nil
 }
 
-func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
+func (c *Client) GetProjects(workspaceID int) ([]data.Project, error) {
 	if c.Cache != nil {
-		cachedProjects, cacheErr := c.Cache.GetProjects(workspaceId)
+		cachedProjects, cacheErr := c.Cache.GetProjects(workspaceID)
 		if cacheErr == nil {
 			return cachedProjects, nil
 		}
 	}
 
-	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceId)
+	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceID)
 	req, err := c.newRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
 	}
 
 	if c.Cache != nil {
-		if saveErr := c.Cache.SaveProjects(workspaceId, projects); saveErr != nil {
+		if saveErr := c.Cache.SaveProjects(workspaceID, projects); saveErr != nil {
 			log.Printf("Failed to save projects to cache: %v", saveErr)
 		}
 	}
@@ -138,8 +138,8 @@ func (c *Client) GetProjects(workspaceId int) ([]data.Project, error) {
 	return projects, nil
 }
 
-func (c *Client) GetProjectIdByName(workspaceId int, projectName string) (int, error) {
-	projects, err := c.GetProjects(workspaceId)
+func (c *Client) GetProjectIDByName(workspaceID int, projectName string) (int, error) {
+	projects, err := c.GetProjects(workspaceID)
 	if err != nil {
 		return 0, err
 	}
@@ -183,8 +183,8 @@ func (c *Client) GetHistory(from, to *time.Time) ([]data.TimeEntryItem, error) {
 	return timeEntries, nil
 }
 
-func (c *Client) GetProjectsLookupMap(workspaceId int) (map[int]string, error) {
-	projects, err := c.GetProjects(workspaceId)
+func (c *Client) GetProjectsLookupMap(workspaceID int) (map[int]string, error) {
+	projects, err := c.GetProjects(workspaceID)
 	if err != nil {
 		return nil, err
 	}

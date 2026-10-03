@@ -11,7 +11,8 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/config"
+	"github.com/ville6000/toggl-cli/internal/output"
 )
 
 type HistoryEntry struct {
@@ -25,7 +26,7 @@ var historyCmd = &cobra.Command{
 	Short: "Fetch the history of time entries",
 	Long:  "Fetch the history of time entries from Toggl",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, workspaceId, err := utils.GetConfig()
+		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
@@ -35,8 +36,8 @@ var historyCmd = &cobra.Command{
 			return fmt.Errorf("failed to get verbose flag: %w", err)
 		}
 
-		client := api.NewAPIClientFromConfig(token)
-		projectsLookup, err := client.GetProjectsLookupMap(workspaceId)
+		client := api.NewClientFromConfig(token)
+		projectsLookup, err := client.GetProjectsLookupMap(workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get projects: %w", err)
 		}
@@ -51,7 +52,7 @@ var historyCmd = &cobra.Command{
 			return fmt.Errorf("failed to get history: %w", err)
 		}
 
-		location, err := utils.GetTimezone()
+		location, err := config.Timezone()
 		if err != nil {
 			return err
 		}
@@ -108,7 +109,7 @@ func outputSummaryEntries(out io.Writer, key string, headers []interface{}, entr
 	footer := table.Row{"", "Total", api.FormatDuration(float64(totalDuration))}
 	title := fmt.Sprintf("Summary for: %s", key)
 
-	utils.RenderTable(out, title, headers, rows, footer)
+	output.RenderTable(out, title, headers, rows, footer)
 	fmt.Fprintln(out)
 }
 
@@ -186,7 +187,7 @@ func outputDateEntries(
 		})
 	}
 
-	utils.RenderTable(out, title, headers, rows, nil)
+	output.RenderTable(out, title, headers, rows, nil)
 	fmt.Fprintln(out)
 	return nil
 }
@@ -226,7 +227,7 @@ func getSortedTimeEntryDates(groupedEntries map[string][]data.TimeEntryItem) []s
 // alone (used by 7pace sync, where silently including today would post
 // unwanted worklogs) instead of running through the end of today.
 func getDateParams(cmd *cobra.Command, endDefaultsToStart bool) (time.Time, time.Time, error) {
-	location, err := utils.GetTimezone()
+	location, err := config.Timezone()
 	if err != nil {
 		return time.Time{}, time.Time{}, err
 	}

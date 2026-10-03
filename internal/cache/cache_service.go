@@ -12,11 +12,11 @@ import (
 	"github.com/ville6000/toggl-cli/internal/data"
 )
 
-type CacheService struct {
+type Service struct {
 	CacheDir string
 }
 
-func NewCacheService() (*CacheService, error) {
+func NewService() (*Service, error) {
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		return nil, err
@@ -27,12 +27,12 @@ func NewCacheService() (*CacheService, error) {
 		return nil, err
 	}
 
-	return &CacheService{CacheDir: cacheDir}, nil
+	return &Service{CacheDir: cacheDir}, nil
 }
 
-func (c *CacheService) GetCachePath(workspaceId int) (string, error) {
+func (c *Service) Path(workspaceID int) (string, error) {
 	hasher := md5.New()
-	if _, err := fmt.Fprintf(hasher, "%d", workspaceId); err != nil {
+	if _, err := fmt.Fprintf(hasher, "%d", workspaceID); err != nil {
 		return "", err
 	}
 	hashStr := hex.EncodeToString(hasher.Sum(nil))
@@ -42,8 +42,8 @@ func (c *CacheService) GetCachePath(workspaceId int) (string, error) {
 	return cacheFile, nil
 }
 
-func (c *CacheService) SaveProjects(workspaceId int, projects []data.Project) error {
-	cacheFile, err := c.GetCachePath(workspaceId)
+func (c *Service) SaveProjects(workspaceID int, projects []data.Project) error {
+	cacheFile, err := c.Path(workspaceID)
 	if err != nil {
 		return err
 	}
@@ -61,8 +61,8 @@ func (c *CacheService) SaveProjects(workspaceId int, projects []data.Project) er
 	return os.WriteFile(cacheFile, content, 0o644)
 }
 
-func (c *CacheService) GetProjects(workspaceId int) ([]data.Project, error) {
-	cacheFile, err := c.GetCachePath(workspaceId)
+func (c *Service) GetProjects(workspaceID int) ([]data.Project, error) {
+	cacheFile, err := c.Path(workspaceID)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/config"
+	"github.com/ville6000/toggl-cli/internal/output"
 )
 
 var currentCmd = &cobra.Command{
@@ -17,18 +18,18 @@ var currentCmd = &cobra.Command{
 	Short: "Get the current timer entry",
 	Long:  "Get the current timer entry from Toggl.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, workspaceId, err := utils.GetConfig()
+		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
 
-		client := api.NewAPIClientFromConfig(token)
+		client := api.NewClientFromConfig(token)
 		currentEntry, err := client.GetCurrentTimerEntry()
 		if err != nil {
 			return fmt.Errorf("failed to get current timer entry: %w", err)
 		}
 
-		projectsMap, err := client.GetProjectsLookupMap(workspaceId)
+		projectsMap, err := client.GetProjectsLookupMap(workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get projects: %w", err)
 		}
@@ -57,7 +58,7 @@ func outputCurrentEntry(out io.Writer, entry *data.TimeEntryItem, projectsMap ma
 	}
 
 	headers := []interface{}{"#", "Started At", "Duration", "Description", "Project"}
-	utils.RenderTable(out, "Current timer entry", headers, rows, nil)
+	output.RenderTable(out, "Current timer entry", headers, rows, nil)
 	return nil
 }
 

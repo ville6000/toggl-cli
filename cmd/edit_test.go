@@ -15,8 +15,8 @@ import (
 type mockEditService struct {
 	history         []data.TimeEntryItem
 	historyErr      error
-	projectIdByName map[string]int
-	projectIdErr    error
+	projectIDByName map[string]int
+	projectIDErr    error
 	updatedEntry    *data.TimeEntryItem
 	updateErr       error
 	projectsMap     map[int]string
@@ -27,11 +27,11 @@ func (m *mockEditService) GetHistory(_, _ *time.Time) ([]data.TimeEntryItem, err
 	return m.history, m.historyErr
 }
 
-func (m *mockEditService) GetProjectIdByName(_ int, name string) (int, error) {
-	if m.projectIdErr != nil {
-		return 0, m.projectIdErr
+func (m *mockEditService) GetProjectIDByName(_ int, name string) (int, error) {
+	if m.projectIDErr != nil {
+		return 0, m.projectIDErr
 	}
-	return m.projectIdByName[name], nil
+	return m.projectIDByName[name], nil
 }
 
 func (m *mockEditService) UpdateTimeEntry(_ int, _ int, _ data.TimeEntry) (*data.TimeEntryItem, error) {
@@ -43,11 +43,11 @@ func (m *mockEditService) GetProjectsLookupMap(_ int) (map[int]string, error) {
 }
 
 // baseEntry returns a stopped entry with a realistic WorkspaceID.
-func baseEntry(id int, desc string, projectId int) data.TimeEntryItem {
+func baseEntry(id int, desc string, projectID int) data.TimeEntryItem {
 	return data.TimeEntryItem{
 		ID:          id,
 		Description: desc,
-		ProjectID:   projectId,
+		ProjectID:   projectID,
 		WorkspaceID: 100,
 		Duration:    3600,
 		Start:       time.Date(2024, 6, 1, 9, 0, 0, 0, time.UTC),
@@ -55,11 +55,11 @@ func baseEntry(id int, desc string, projectId int) data.TimeEntryItem {
 }
 
 // runningEntry returns a running entry (Duration < 0).
-func runningEntry(id int, desc string, projectId int) data.TimeEntryItem {
+func runningEntry(id int, desc string, projectID int) data.TimeEntryItem {
 	return data.TimeEntryItem{
 		ID:          id,
 		Description: desc,
-		ProjectID:   projectId,
+		ProjectID:   projectID,
 		WorkspaceID: 100,
 		Duration:    -1,
 		Start:       time.Now(),
@@ -140,7 +140,7 @@ func TestRunEdit_KeepsDescriptionWhenNotProvided(t *testing.T) {
 	mock := &mockEditService{
 		history:         []data.TimeEntryItem{baseEntry(1, "original", 5)},
 		updatedEntry:    updated,
-		projectIdByName: map[string]int{"NewProj": 10},
+		projectIDByName: map[string]int{"NewProj": 10},
 		projectsMap:     map[int]string{10: "NewProj"},
 	}
 
@@ -163,7 +163,7 @@ func TestRunEdit_UpdateProject(t *testing.T) {
 	mock := &mockEditService{
 		history:         []data.TimeEntryItem{baseEntry(1, "task", 5)},
 		updatedEntry:    updated,
-		projectIdByName: map[string]int{"NewProj": 10},
+		projectIDByName: map[string]int{"NewProj": 10},
 		projectsMap:     map[int]string{10: "NewProj"},
 	}
 
@@ -182,7 +182,7 @@ func TestRunEdit_UpdateProject(t *testing.T) {
 func TestRunEdit_ProjectNotFound(t *testing.T) {
 	mock := &mockEditService{
 		history:      []data.TimeEntryItem{baseEntry(1, "task", 5)},
-		projectIdErr: errors.New("not found"),
+		projectIDErr: errors.New("not found"),
 	}
 
 	err := runEdit(io.Discard, io.Discard, mock, 0, "", "Ghost", "", time.UTC)
@@ -222,7 +222,7 @@ func TestRunEdit_UsesEntryWorkspaceID(t *testing.T) {
 	mock := &mockEditService{
 		history:         []data.TimeEntryItem{entry},
 		updatedEntry:    updated,
-		projectIdByName: map[string]int{"Proj": 5},
+		projectIDByName: map[string]int{"Proj": 5},
 		projectsMap:     map[int]string{5: "Proj"},
 	}
 
@@ -233,7 +233,7 @@ func TestRunEdit_UsesEntryWorkspaceID(t *testing.T) {
 	}
 
 	if ws.projectLookupWS != 100 {
-		t.Errorf("GetProjectIdByName workspace: got %d, want 100", ws.projectLookupWS)
+		t.Errorf("GetProjectIDByName workspace: got %d, want 100", ws.projectLookupWS)
 	}
 	if ws.updateWS != 100 {
 		t.Errorf("UpdateTimeEntry workspace: got %d, want 100", ws.updateWS)
@@ -585,9 +585,9 @@ type captureUpdateMock struct {
 	capture *data.TimeEntry
 }
 
-func (m *captureUpdateMock) UpdateTimeEntry(workspaceId int, entryId int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+func (m *captureUpdateMock) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
 	*m.capture = entry
-	return m.mockEditService.UpdateTimeEntry(workspaceId, entryId, entry)
+	return m.mockEditService.UpdateTimeEntry(workspaceID, entryID, entry)
 }
 
 // captureIDMock records the entry ID passed to UpdateTimeEntry.
@@ -596,9 +596,9 @@ type captureIDMock struct {
 	capturedID *int
 }
 
-func (m *captureIDMock) UpdateTimeEntry(workspaceId int, entryId int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
-	*m.capturedID = entryId
-	return m.mockEditService.UpdateTimeEntry(workspaceId, entryId, entry)
+func (m *captureIDMock) UpdateTimeEntry(workspaceID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+	*m.capturedID = entryID
+	return m.mockEditService.UpdateTimeEntry(workspaceID, entryID, entry)
 }
 
 // captureWorkspaceMock records workspace IDs passed to each method.
@@ -609,14 +609,14 @@ type captureWorkspaceMock struct {
 	projectsMapWS   int
 }
 
-func (m *captureWorkspaceMock) GetProjectIdByName(wsID int, name string) (int, error) {
+func (m *captureWorkspaceMock) GetProjectIDByName(wsID int, name string) (int, error) {
 	m.projectLookupWS = wsID
-	return m.mockEditService.GetProjectIdByName(wsID, name)
+	return m.mockEditService.GetProjectIDByName(wsID, name)
 }
 
-func (m *captureWorkspaceMock) UpdateTimeEntry(wsID int, entryId int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
+func (m *captureWorkspaceMock) UpdateTimeEntry(wsID int, entryID int, entry data.TimeEntry) (*data.TimeEntryItem, error) {
 	m.updateWS = wsID
-	return m.mockEditService.UpdateTimeEntry(wsID, entryId, entry)
+	return m.mockEditService.UpdateTimeEntry(wsID, entryID, entry)
 }
 
 func (m *captureWorkspaceMock) GetProjectsLookupMap(wsID int) (map[int]string, error) {

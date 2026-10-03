@@ -1,4 +1,4 @@
-package utils
+package config
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func GetToken() (string, error) {
+func Token() (string, error) {
 	token := viper.GetString("toggl.token")
 	if token == "" {
 		return "", fmt.Errorf("missing toggl.token in config, please run 'toggl-cli config'")
@@ -16,30 +16,30 @@ func GetToken() (string, error) {
 	return token, nil
 }
 
-func GetConfig() (string, int, error) {
+func TokenAndWorkspace() (string, int, error) {
 	token := viper.GetString("toggl.token")
 	if token == "" {
 		return "", 0, fmt.Errorf("missing toggl.token in config, please run 'toggl-cli config'")
 	}
 
-	workspaceId := viper.GetInt("toggl.workspace_id")
-	if workspaceId == 0 {
+	workspaceID := viper.GetInt("toggl.workspace_id")
+	if workspaceID == 0 {
 		return "", 0, fmt.Errorf("missing toggl.workspace_id in config, please run 'toggl-cli config'")
 	}
 
-	return token, workspaceId, nil
+	return token, workspaceID, nil
 }
 
-// GetTogglBaseURL returns the toggl.base_url config override, or "" when the
+// TogglBaseURL returns the toggl.base_url config override, or "" when the
 // default Toggl API endpoint should be used. Pointing this at a stub server is
 // how the command tests exercise the CLI end to end.
-func GetTogglBaseURL() string {
+func TogglBaseURL() string {
 	return viper.GetString("toggl.base_url")
 }
 
-// SevenPaceConfig holds the settings for talking to an on-prem 7pace
+// SevenPace holds the settings for talking to an on-prem 7pace
 // Timetracker instance using NTLM (Windows) authentication.
-type SevenPaceConfig struct {
+type SevenPace struct {
 	BaseURL         string
 	Domain          string
 	Username        string
@@ -48,10 +48,10 @@ type SevenPaceConfig struct {
 	InsecureSkipTLS bool
 }
 
-// GetSevenPaceConfig reads the 7pace configuration from viper. Base URL,
+// LoadSevenPace reads the 7pace configuration from viper. Base URL,
 // username and password are required; domain and activity type are optional.
-func GetSevenPaceConfig() (SevenPaceConfig, error) {
-	cfg := SevenPaceConfig{
+func LoadSevenPace() (SevenPace, error) {
+	cfg := SevenPace{
 		BaseURL:         viper.GetString("sevenpace.base_url"),
 		Domain:          viper.GetString("sevenpace.domain"),
 		Username:        viper.GetString("sevenpace.username"),
@@ -61,16 +61,16 @@ func GetSevenPaceConfig() (SevenPaceConfig, error) {
 	}
 
 	if cfg.BaseURL == "" {
-		return SevenPaceConfig{}, fmt.Errorf("missing sevenpace.base_url in config, please run 'toggl-cli config'")
+		return SevenPace{}, fmt.Errorf("missing sevenpace.base_url in config, please run 'toggl-cli config'")
 	}
 	if cfg.Username == "" || cfg.Password == "" {
-		return SevenPaceConfig{}, fmt.Errorf("missing sevenpace.username or sevenpace.password in config, please run 'toggl-cli config'")
+		return SevenPace{}, fmt.Errorf("missing sevenpace.username or sevenpace.password in config, please run 'toggl-cli config'")
 	}
 
 	return cfg, nil
 }
 
-func GetTimezone() (*time.Location, error) {
+func Timezone() (*time.Location, error) {
 	tz := viper.GetString("toggl.timezone")
 	if tz == "" {
 		return time.Local, nil

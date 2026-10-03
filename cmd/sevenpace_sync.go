@@ -9,8 +9,9 @@ import (
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
+	"github.com/ville6000/toggl-cli/internal/config"
 	"github.com/ville6000/toggl-cli/internal/data"
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/output"
 )
 
 // plannedWorkLog pairs a built 7pace payload with the display columns used in
@@ -33,17 +34,17 @@ var sevenpaceSyncCmd = &cobra.Command{
 		"skipped. There is no de-duplication, so re-running the same range creates duplicate\n" +
 		"worklogs — use --dry-run first to preview.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, _, err := utils.GetConfig()
+		token, _, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
 
-		spCfg, err := utils.GetSevenPaceConfig()
+		spCfg, err := config.LoadSevenPace()
 		if err != nil {
 			return err
 		}
 
-		location, err := utils.GetTimezone()
+		location, err := config.Timezone()
 		if err != nil {
 			return err
 		}
@@ -63,7 +64,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 			return err
 		}
 
-		client := api.NewAPIClientFromConfig(token)
+		client := api.NewClientFromConfig(token)
 		timeEntries, err := client.GetHistory(&startTime, &endTime)
 		if err != nil {
 			return fmt.Errorf("failed to get history: %w", err)
@@ -110,11 +111,11 @@ var sevenpaceSyncCmd = &cobra.Command{
 			for _, p := range planned {
 				rows = append(rows, []interface{}{p.workItem, p.started, p.duration, p.comment})
 			}
-			utils.RenderTable(out, "Worklogs to post", headers, rows, totalFooter(plannedSeconds))
+			output.RenderTable(out, "Worklogs to post", headers, rows, totalFooter(plannedSeconds))
 			fmt.Fprintln(out)
 		}
 		if len(skipped) > 0 {
-			utils.RenderTable(out, "Skipped (no work item id)", headers, skipped, totalFooter(skippedSeconds))
+			output.RenderTable(out, "Skipped (no work item id)", headers, skipped, totalFooter(skippedSeconds))
 			fmt.Fprintln(out)
 		}
 
@@ -151,7 +152,7 @@ var sevenpaceSyncCmd = &cobra.Command{
 		fmt.Fprintf(out, "Posted %d worklog(s) (%s), %d skipped, %d failed.\n",
 			posted, api.FormatDuration(float64(postedSeconds)), len(skipped), len(failures))
 		if len(failures) > 0 {
-			utils.RenderTable(out, "Failed", []interface{}{"Work Item", "Started At", "Duration", "Error"}, failures, nil)
+			output.RenderTable(out, "Failed", []interface{}{"Work Item", "Started At", "Duration", "Error"}, failures, nil)
 			return fmt.Errorf("%d worklog(s) failed to post", len(failures))
 		}
 

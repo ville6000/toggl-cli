@@ -8,7 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ville6000/toggl-cli/internal/api"
-	"github.com/ville6000/toggl-cli/internal/utils"
+	"github.com/ville6000/toggl-cli/internal/config"
+	"github.com/ville6000/toggl-cli/internal/output"
 )
 
 var stopCmd = &cobra.Command{
@@ -16,11 +17,11 @@ var stopCmd = &cobra.Command{
 	Short: "Stop the current timer entry",
 	Long:  "",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		token, workspaceId, err := utils.GetConfig()
+		token, workspaceID, err := config.TokenAndWorkspace()
 		if err != nil {
 			return fmt.Errorf("failed to get configuration: %w", err)
 		}
-		client := api.NewAPIClientFromConfig(token)
+		client := api.NewClientFromConfig(token)
 		currentEntry, err := client.GetCurrentTimerEntry()
 		if err != nil {
 			return fmt.Errorf("failed to get current timer entry: %w", err)
@@ -31,12 +32,12 @@ var stopCmd = &cobra.Command{
 			return nil
 		}
 
-		stoppedEntry, err := client.StopTimeEntry(workspaceId, currentEntry.ID)
+		stoppedEntry, err := client.StopTimeEntry(workspaceID, currentEntry.ID)
 		if err != nil {
 			return fmt.Errorf("failed to stop time entry: %w", err)
 		}
 
-		projectsMap, err := client.GetProjectsLookupMap(workspaceId)
+		projectsMap, err := client.GetProjectsLookupMap(workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to get projects lookup map: %w", err)
 		}
@@ -63,6 +64,6 @@ func outputStoppedTimeEntry(out io.Writer, entry *data.TimeEntryItem, projectsMa
 		},
 	}
 
-	utils.RenderTable(out, "Stopped timer entry", headers, rows, nil)
+	output.RenderTable(out, "Stopped timer entry", headers, rows, nil)
 	return nil
 }

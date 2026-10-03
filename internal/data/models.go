@@ -56,7 +56,7 @@ type ProjectCache struct {
 type SevenPaceWorkLog struct {
 	Timestamp    string                `json:"timestamp"`
 	Length       int                   `json:"length"`
-	WorkItemID   *int                  `json:"workItemId,omitempty"`
+	WorkItemID   *int                  `json:"workItemID,omitempty"`
 	Comment      string                `json:"comment,omitempty"`
 	ActivityType *SevenPaceActivityRef `json:"activityType,omitempty"`
 }
