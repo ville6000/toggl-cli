@@ -1,4 +1,4 @@
-package list
+package cmd
 
 import (
 	"bytes"
@@ -11,18 +11,18 @@ import (
 	"github.com/ville6000/toggl-cli/internal/data"
 )
 
-type mockClient struct {
+type mockProjectService struct {
 	api.Client
 	Projects []data.Project
 	Err      error
 }
 
-func (m *mockClient) GetProjects(workspaceID int) ([]data.Project, error) {
+func (m *mockProjectService) GetProjects(workspaceID int) ([]data.Project, error) {
 	return m.Projects, m.Err
 }
 
 func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
-	mock := &mockClient{
+	mock := &mockProjectService{
 		Projects: []data.Project{
 			{ID: 1, Name: "Project A"},
 			{ID: 2, Name: "Project B"},
@@ -30,7 +30,7 @@ func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	listErr := ProjectListOutput(&buf, mock, 1234)
+	listErr := projectListOutput(&buf, mock, 1234)
 	output := buf.String()
 
 	if listErr != nil {
@@ -46,12 +46,12 @@ func TestProjectListOutput_PrintsCorrectOutput(t *testing.T) {
 	}
 }
 
-func TestListProjects_ErrorHandling(t *testing.T) {
-	mock := &mockClient{
+func TestProjectListOutput_ErrorHandling(t *testing.T) {
+	mock := &mockProjectService{
 		Err: errors.New("api error"),
 	}
 
-	err := ProjectListOutput(io.Discard, mock, 1234)
+	err := projectListOutput(io.Discard, mock, 1234)
 	if err == nil || !strings.Contains(err.Error(), "failed to get projects") {
 		t.Errorf("expected error wrapping 'failed to get projects', got: %v", err)
 	}

@@ -1,4 +1,4 @@
-package config
+package cmd
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/ville6000/toggl-cli/internal/config"
 )
 
-var AddProjectPathCmd = &cobra.Command{
+var projectsAddPathCmd = &cobra.Command{
 	Use:   "add-path [project_name]",
 	Short: "Save project path to be used with start command",
 	Long:  "",
@@ -59,4 +59,8 @@ var AddProjectPathCmd = &cobra.Command{
 		fmt.Fprintln(cmd.OutOrStdout(), "Configuration saved successfully!")
 		return nil
 	},
+}
+
+func init() {
+	projectsCmd.AddCommand(projectsAddPathCmd)
 }
