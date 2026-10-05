@@ -60,6 +60,7 @@ completion are covered in [docs/install.md](docs/install.md).
 | `toggl-cli edit` | Change a recent or running entry |
 | `toggl-cli history` | Show time logged per day |
 | `toggl-cli projects list` | List the workspace's projects |
+| `toggl-cli projects add <name>` | Create a project |
 | `toggl-cli projects add-path <project>` | Link the current directory to a project |
 | `toggl-cli workspaces` | List your workspaces |
 | `toggl-cli www` | Open Toggl in the browser |

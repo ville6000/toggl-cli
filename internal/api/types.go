@@ -49,3 +49,9 @@ type Project struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
+
+// NewProject is the body sent to the Toggl API to create a project.
+type NewProject struct {
+	Name   string `json:"name"`
+	Active bool   `json:"active"`
+}
