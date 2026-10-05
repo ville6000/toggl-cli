@@ -716,3 +716,55 @@ func TestProjectNames_APIError(t *testing.T) {
 		t.Error("expected error when API fails")
 	}
 }
+
+func TestCreateProject_PostsTheProject(t *testing.T) {
+	var got NewProject
+	client := newTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/workspaces/10/projects" {
+			t.Errorf("got %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Errorf("decode: %v", err)
+		}
+		if err := json.NewEncoder(w).Encode(Project{ID: 3, Name: got.Name}); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	}))
+
+	project, err := client.CreateProject(t.Context(), 10, "Gamma")
+	if err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+	if got.Name != "Gamma" || !got.Active {
+		t.Errorf("request body: got %+v", got)
+	}
+	if project.ID != 3 || project.Name != "Gamma" {
+		t.Errorf("got %+v", project)
+	}
+}
+
+func TestCreateProject_AddsTheProjectToAFreshCache(t *testing.T) {
+	client := newTestClient(t, jsonHandler(t, Project{ID: 2, Name: "New"}))
+	if err := client.Cache.SaveProjects(10, []Project{{ID: 1, Name: "Old"}}); err != nil {
+		t.Fatalf("seed cache: %v", err)
+	}
+
+	if _, err := client.CreateProject(t.Context(), 10, "New"); err != nil {
+		t.Fatalf("CreateProject: %v", err)
+	}
+
+	cached, err := client.Cache.Projects(10)
+	if err != nil {
+		t.Fatalf("cache: %v", err)
+	}
+	if len(cached) != 2 || cached[1].Name != "New" {
+		t.Errorf("cached projects: got %+v", cached)
+	}
+}
+
+func TestCreateProject_HTTPError(t *testing.T) {
+	client := newTestClient(t, errorHandler(http.StatusBadRequest))
+	if _, err := client.CreateProject(t.Context(), 10, "Gamma"); err == nil {
+		t.Error("expected error for HTTP 400")
+	}
+}

@@ -152,6 +152,31 @@ func (c *Client) RefreshProjects(ctx context.Context, workspaceID int) ([]Projec
 	return projects, nil
 }
 
+// CreateProject creates an active project named name in the workspace and
+// returns it as stored by Toggl. A fresh cached project list gains the new
+// project, so it shows up without a refresh.
+func (c *Client) CreateProject(ctx context.Context, workspaceID int, name string) (*Project, error) {
+	endpoint := fmt.Sprintf("/workspaces/%d/projects", workspaceID)
+	req, err := c.newRequest(ctx, http.MethodPost, endpoint, NewProject{Name: name, Active: true})
+	if err != nil {
+		return nil, err
+	}
+
+	var created Project
+	if reqErr := c.doRequest(req, &created); reqErr != nil {
+		return nil, reqErr
+	}
+
+	// The cache is best-effort: a stale or missing one is refetched anyway.
+	if c.Cache != nil {
+		if cached, err := c.Cache.Projects(workspaceID); err == nil {
+			_ = c.Cache.SaveProjects(workspaceID, append(cached, created))
+		}
+	}
+
+	return &created, nil
+}
+
 // projects is Projects, also reporting whether the list came from the cache
 // and so may be missing projects created since it was saved.
 func (c *Client) projects(ctx context.Context, workspaceID int) ([]Project, bool, error) {

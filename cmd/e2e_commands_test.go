@@ -446,6 +446,50 @@ func TestProjectsListCommand_ListsProjects(t *testing.T) {
 	}
 }
 
+func TestProjectsAddCommand_CreatesTheProject(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	projectsPath := fmt.Sprintf("/workspaces/%d/projects", testWorkspaceID)
+	stub.respond(http.MethodPost, projectsPath, http.StatusOK, api.Project{ID: 9, Name: "Gamma"})
+
+	out, _, err := executeCommand(t, v, "projects", "add", "Gamma")
+	if err != nil {
+		t.Fatalf("projects add: %v", err)
+	}
+
+	var body api.NewProject
+	stub.onlyRequestFor(http.MethodPost, projectsPath).decodeBody(t, &body)
+	if body.Name != "Gamma" || !body.Active {
+		t.Errorf("request body: got %+v", body)
+	}
+	if !strings.Contains(out, "Created project Gamma (ID 9)") {
+		t.Errorf("unexpected output:\n%s", out)
+	}
+}
+
+func TestProjectsAddCommand_ReportsAPIErrors(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	projectsPath := fmt.Sprintf("/workspaces/%d/projects", testWorkspaceID)
+	stub.respond(http.MethodPost, projectsPath, http.StatusBadRequest, "Name has already been taken")
+
+	_, _, err := executeCommand(t, v, "projects", "add", "Gamma")
+	if err == nil || !strings.Contains(err.Error(), "already been taken") {
+		t.Errorf("expected the API error, got: %v", err)
+	}
+}
+
+func TestProjectsAddCommand_RejectsAnEmptyName(t *testing.T) {
+	stub := newAPIStub(t)
+	v := setupCLITest(t, stub)
+
+	if _, _, err := executeCommand(t, v, "projects", "add", "  "); err == nil {
+		t.Error("expected an error for an empty name")
+	}
+}
+
 func TestCommands_ReportMissingConfiguration(t *testing.T) {
 	tests := []struct {
 		name string
@@ -459,6 +503,7 @@ func TestCommands_ReportMissingConfiguration(t *testing.T) {
 		{"start", []string{"start", "task"}, "failed to get configuration"},
 		{"workspaces", []string{"workspaces"}, "failed to get API token"},
 		{"projects list", []string{"projects", "list"}, "failed to get configuration"},
+		{"projects add", []string{"projects", "add", "Gamma"}, "failed to get configuration"},
 	}
 
 	for _, tt := range tests {

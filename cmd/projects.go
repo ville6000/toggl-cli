@@ -13,6 +13,7 @@ func newProjectsCmd(v *viper.Viper) *cobra.Command {
 	}
 
 	cmd.AddCommand(
+		newProjectsAddCmd(v),
 		newProjectsAddPathCmd(v),
 		newProjectsListCmd(v),
 	)
