@@ -54,10 +54,13 @@ homebrew_casks:
     description: Command line client for Toggl Track
     license: MIT
     # The binaries aren't signed, so remove the quarantine attribute that
-    # would make Gatekeeper block the first run.
-    hooks:
-      post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/toggl-cli"]
-          end
+    # would make Gatekeeper block the first run. This is a custom_block rather
+    # than hooks.post.install because hooks render a `postflight` block, which
+    # Homebrew deprecated in favour of the declarative `postflight_steps`.
+    # Relative paths in the steps resolve against the cask's staged_path.
+    custom_block: |
+      postflight_steps do
+        on_macos do
+          run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "toggl-cli"], chdir: "."
+        end
+      end
